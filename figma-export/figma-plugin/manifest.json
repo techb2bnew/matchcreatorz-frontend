@@ -1,0 +1,15 @@
+{
+  "name": "MatchCreatorz Figma Import",
+  "id": "matchcreatorz-figma-import-2024",
+  "api": "1.0.0",
+  "main": "code.js",
+  "editorType": [
+    "figma"
+  ],
+  "networkAccess": {
+    "allowedDomains": [
+      "http://localhost:8787"
+    ],
+    "reasoning": "Fetches local screenshots from the export server"
+  }
+}
