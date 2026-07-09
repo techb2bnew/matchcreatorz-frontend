@@ -36,13 +36,13 @@ const COUNTRY_CODES = [
 
 const COUNTRIES  = ['India','USA','UK','Canada','Australia','UAE','Singapore','Germany'];
 const STATES     = ['Delhi','Maharashtra','Karnataka','Tamil Nadu','Gujarat','Rajasthan','Uttar Pradesh'];
-const RANGES     = ['₹500–₹1,000/project','₹1,000–₹5,000/project','₹5,000–₹15,000/project','₹15,000–₹50,000/project','₹50,000+/project'];
+const RANGES     = ['$500–$1,000/project','$1,000–$5,000/project','$5,000–$15,000/project','$15,000–$50,000/project','$50,000+/project'];
 const RANGE_RATE: Record<string, number> = {
-  '₹500–₹1,000/project':     500,
-  '₹1,000–₹5,000/project':   1000,
-  '₹5,000–₹15,000/project':  5000,
-  '₹15,000–₹50,000/project': 15000,
-  '₹50,000+/project':         50000,
+  '$500–$1,000/project':     500,
+  '$1,000–$5,000/project':   1000,
+  '$5,000–$15,000/project':  5000,
+  '$15,000–$50,000/project': 15000,
+  '$50,000+/project':         50000,
 };
 const RESP_TIMES = ['Within 1 hour','Within 6 hours','Within 24 hours','Within 48 hours','Within a week'];
 

@@ -122,14 +122,14 @@ export default function AdminSettingsPage() {
                 {/* Fee Preview */}
                 <div className="bg-gradient-to-r from-[#fef2f2] to-[#fff5f5] border border-[#e84545]/20 rounded-2xl p-5">
                   <p className="text-xs font-bold text-[#e84545] mb-4 flex items-center gap-2">
-                    <i className="fa fa-calculator" /> Live Fee Preview (₹1,000 booking)
+                    <i className="fa fa-calculator" /> Live Fee Preview ($1,000 booking)
                   </p>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                     {[
-                      { label: 'Booking Amount', val: '₹1,000',                                                     color: '#1a1a1a', bg: '#f0f0f0' },
-                      { label: `Platform (${platformFee}%)`, val: `₹${(1000*Number(platformFee)/100).toFixed(0)}`,  color: '#e84545', bg: '#fde8e8' },
-                      { label: `Tax (${taxRate}%)`,          val: `₹${(1000*Number(taxRate)/100).toFixed(0)}`,      color: '#f59e0b', bg: '#fef3c7' },
-                      { label: 'Seller Gets',               val: `₹${(1000-1000*Number(platformFee)/100).toFixed(0)}`, color: '#10b981', bg: '#d1fae5' },
+                      { label: 'Booking Amount', val: '$1,000',                                                     color: '#1a1a1a', bg: '#f0f0f0' },
+                      { label: `Platform (${platformFee}%)`, val: `$${(1000*Number(platformFee)/100).toFixed(0)}`,  color: '#e84545', bg: '#fde8e8' },
+                      { label: `Tax (${taxRate}%)`,          val: `$${(1000*Number(taxRate)/100).toFixed(0)}`,      color: '#f59e0b', bg: '#fef3c7' },
+                      { label: 'Seller Gets',               val: `$${(1000-1000*Number(platformFee)/100).toFixed(0)}`, color: '#10b981', bg: '#d1fae5' },
                     ].map(item => (
                       <div key={item.label} className="rounded-xl p-3 text-center" style={{ background: item.bg }}>
                         <p className="text-xs text-gray-500 mb-1">{item.label}</p>

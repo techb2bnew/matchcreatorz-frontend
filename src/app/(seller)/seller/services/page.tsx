@@ -5,8 +5,8 @@ import Card            from '@/components/ui/Card';
 import Button          from '@/components/ui/Button';
 import Input           from '@/components/ui/Input';
 import Modal           from '@/components/ui/Modal';
-import { Spinner, CardSkeleton } from '@/components/ui/Loader';
-import { formatCurrency }        from '@/lib/utils';
+import { CardSkeleton } from '@/components/ui/Loader';
+import { formatCurrency } from '@/lib/utils';
 import { sellerServiceApi, publicCategoryApi } from '@/lib/adminApi';
 
 // ── Types ─────────────────────────────────────────────────────────────
@@ -68,8 +68,7 @@ function MultiSelectCategory({
   const [open, setOpen]     = useState(false);
   const [search, setSearch] = useState('');
   const ref                 = useRef<HTMLDivElement>(null);
-
-  const safeSelected = Array.isArray(selected) ? selected : [];
+  const safeSelected        = Array.isArray(selected) ? selected : [];
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -79,17 +78,12 @@ function MultiSelectCategory({
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  const toggle = (id: number) => {
-    onChange(safeSelected.includes(id)
-      ? safeSelected.filter((s) => s !== id)
-      : [...safeSelected, id]
-    );
-  };
+  const toggle = (id: number) =>
+    onChange(safeSelected.includes(id) ? safeSelected.filter((s) => s !== id) : [...safeSelected, id]);
 
   const filtered      = categories.filter((c) => c.name.toLowerCase().includes(search.toLowerCase()));
   const selectedItems = categories.filter((c) => safeSelected.includes(c.id));
 
-  // label shown in trigger
   const triggerLabel = selectedItems.length === 0
     ? 'Select categories...'
     : selectedItems.length === 1
@@ -101,17 +95,11 @@ function MultiSelectCategory({
       <label className="block text-sm font-medium text-gray-700 mb-1.5">
         Category <span className="text-gray-400 font-normal">(multiple)</span>
       </label>
-
-      {/* Trigger — screenshot style */}
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
         className={`w-full flex items-center gap-2 border-2 rounded-xl px-3.5 py-2.5 text-sm text-left transition-all ${
-          open
-            ? 'border-[#e84545] bg-white'
-            : safeSelected.length > 0
-              ? 'border-[#e84545] bg-white'
-              : 'border-gray-200 bg-white hover:border-gray-300'
+          open || safeSelected.length > 0 ? 'border-[#e84545] bg-white' : 'border-gray-200 bg-white hover:border-gray-300'
         }`}
       >
         <i className="fa fa-tag text-[#e84545] flex-shrink-0 text-sm" />
@@ -121,32 +109,20 @@ function MultiSelectCategory({
         <i className={`fa fa-chevron-${open ? 'up' : 'down'} text-gray-400 text-xs flex-shrink-0`} />
       </button>
 
-      {/* Selected pills (below trigger) */}
       {selectedItems.length > 0 && (
         <div className="flex flex-wrap gap-1.5 mt-2">
           {selectedItems.map((c) => (
-            <span
-              key={c.id}
-              className="inline-flex items-center gap-1 bg-[#e84545] text-white text-xs px-2.5 py-1 rounded-full font-medium"
-            >
+            <span key={c.id} className="inline-flex items-center gap-1 bg-[#e84545] text-white text-xs px-2.5 py-1 rounded-full font-medium">
               {c.icon && <i className={`${c.icon} text-[11px]`} />}
               {c.name}
-              <button
-                type="button"
-                onClick={(e) => { e.stopPropagation(); toggle(c.id); }}
-                className="ml-0.5 hover:opacity-75 leading-none"
-              >
-                ×
-              </button>
+              <button type="button" onClick={(e) => { e.stopPropagation(); toggle(c.id); }} className="ml-0.5 hover:opacity-75 leading-none">×</button>
             </span>
           ))}
         </div>
       )}
 
-      {/* Dropdown */}
       {open && (
         <div className="absolute z-50 mt-1 w-full bg-white border border-gray-100 rounded-2xl shadow-xl overflow-hidden">
-          {/* Search */}
           <div className="p-2.5 border-b border-gray-100">
             <div className="relative">
               <i className="fa fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs" />
@@ -160,51 +136,33 @@ function MultiSelectCategory({
               />
             </div>
           </div>
-
-          {/* Options */}
           <div className="max-h-52 overflow-y-auto py-1">
             {filtered.length === 0 ? (
               <p className="text-xs text-gray-400 text-center py-5">No categories found</p>
             ) : (
               filtered.map((c) => {
-                const isSelected = safeSelected.includes(c.id);
+                const isSel = safeSelected.includes(c.id);
                 return (
                   <button
                     key={c.id}
                     type="button"
                     onClick={() => toggle(c.id)}
-                    className={`w-full flex items-center gap-3 px-4 py-3 text-sm text-left transition-colors ${
-                      isSelected
-                        ? 'bg-[#e84545] text-white'
-                        : 'text-gray-700 hover:bg-gray-50'
-                    }`}
+                    className={`w-full flex items-center gap-3 px-4 py-3 text-sm text-left transition-colors ${isSel ? 'bg-[#e84545] text-white' : 'text-gray-700 hover:bg-gray-50'}`}
                   >
-                    <span className={`w-5 h-5 rounded-full flex-shrink-0 flex items-center justify-center text-[10px] border-2 transition-all ${
-                      isSelected ? 'bg-white border-white text-[#e84545]' : 'border-gray-300'
-                    }`}>
-                      {isSelected && <i className="fa fa-check font-bold" />}
+                    <span className={`w-5 h-5 rounded-full flex-shrink-0 flex items-center justify-center text-[10px] border-2 transition-all ${isSel ? 'bg-white border-white text-[#e84545]' : 'border-gray-300'}`}>
+                      {isSel && <i className="fa fa-check font-bold" />}
                     </span>
-                    {c.icon && <i className={`${c.icon} text-base flex-shrink-0 ${isSelected ? 'text-white' : ''}`} />}
-                    <span className={`flex-1 ${isSelected ? 'font-semibold' : ''}`}>
-                      {c.name}
-                    </span>
+                    {c.icon && <i className={`${c.icon} text-base flex-shrink-0 ${isSel ? 'text-white' : ''}`} />}
+                    <span className={`flex-1 ${isSel ? 'font-semibold' : ''}`}>{c.name}</span>
                   </button>
                 );
               })
             )}
           </div>
-
-          {/* Footer */}
           {safeSelected.length > 0 && (
             <div className="border-t border-gray-100 px-4 py-2.5 flex items-center justify-between">
               <span className="text-xs text-gray-400">{safeSelected.length} selected</span>
-              <button
-                type="button"
-                onClick={() => { onChange([]); setSearch(''); }}
-                className="text-xs text-[#e84545] hover:text-red-700 font-medium"
-              >
-                Clear all
-              </button>
+              <button type="button" onClick={() => { onChange([]); setSearch(''); }} className="text-xs text-[#e84545] hover:text-red-700 font-medium">Clear all</button>
             </div>
           )}
         </div>
@@ -213,56 +171,41 @@ function MultiSelectCategory({
   );
 }
 
-// ── Image Upload Row ──────────────────────────────────────────────────
+// ── Image Uploader (staged — uploads on form submit) ──────────────────
+type ImgItem =
+  | { kind: 'url';  url: string }
+  | { kind: 'file'; file: File; preview: string };
+
 function ImageUploader({
-  existingUrls,
+  items,
   onChange,
 }: {
-  existingUrls: string[];
-  onChange: (urls: string[]) => void;
+  items: ImgItem[];
+  onChange: (items: ImgItem[]) => void;
 }) {
-  const inputRef                    = useRef<HTMLInputElement>(null);
-  const [previews, setPreviews]     = useState<{ url: string; file?: File }[]>(
-    existingUrls.map((u) => ({ url: u }))
-  );
-  const [uploading, setUploading]   = useState(false);
-  const [error, setError]           = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  const handleFiles = async (files: FileList | null) => {
+  const handleFiles = (files: FileList | null) => {
     if (!files || files.length === 0) return;
-    const selected = Array.from(files).slice(0, 5 - previews.length);
-    if (selected.length === 0) return;
-
-    const localPreviews = selected.map((f) => ({ url: URL.createObjectURL(f), file: f }));
-    const merged = [...previews, ...localPreviews];
-    setPreviews(merged);
-
-    setUploading(true);
-    setError('');
-    try {
-      const res  = await sellerServiceApi.uploadImages(selected);
-      const urls = res.data.urls;
-      const updated = merged.map((p) => {
-        if (!p.file) return p;
-        const idx = selected.indexOf(p.file);
-        return idx >= 0 ? { url: urls[idx] } : p;
-      });
-      setPreviews(updated);
-      onChange(updated.map((p) => p.url));
-    } catch (e: unknown) {
-      setError((e as Error).message || 'Upload failed');
-      setPreviews(previews);
-      onChange(previews.map((p) => p.url));
-    } finally {
-      setUploading(false);
-    }
+    const slots   = 5 - items.length;
+    if (slots <= 0) return;
+    const added: ImgItem[] = Array.from(files).slice(0, slots).map((f) => ({
+      kind: 'file',
+      file: f,
+      preview: URL.createObjectURL(f),
+    }));
+    onChange([...items, ...added]);
   };
 
   const remove = (idx: number) => {
-    const next = previews.filter((_, i) => i !== idx);
-    setPreviews(next);
-    onChange(next.map((p) => p.url));
+    const next = items.filter((_, i) => i !== idx);
+    // revoke blob URL to free memory
+    const removed = items[idx];
+    if (removed.kind === 'file') URL.revokeObjectURL(removed.preview);
+    onChange(next);
   };
+
+  const getPreview = (item: ImgItem) => item.kind === 'url' ? item.url : item.preview;
 
   return (
     <div>
@@ -270,43 +213,38 @@ function ImageUploader({
         Service Images <span className="text-gray-400 font-normal">(max 5 — JPG, PNG, WEBP)</span>
       </label>
       <div className="flex flex-wrap gap-2 mb-2">
-        {previews.map((p, i) => (
+        {items.map((item, i) => (
           <div key={i} className="relative w-20 h-20 rounded-xl overflow-hidden border border-gray-200 group">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={p.url} alt="" className="w-full h-full object-cover" />
+            <img src={getPreview(item)} alt="" className="w-full h-full object-cover" />
+            {item.kind === 'file' && (
+              <div className="absolute bottom-0 left-0 right-0 bg-blue-500/80 text-white text-[8px] text-center py-0.5">new</div>
+            )}
             <button
               type="button"
               onClick={() => remove(i)}
               className="absolute top-0.5 right-0.5 bg-black/60 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition"
-            >
-              ×
-            </button>
+            >×</button>
           </div>
         ))}
-        {previews.length < 5 && (
+        {items.length < 5 && (
           <button
             type="button"
             onClick={() => inputRef.current?.click()}
-            disabled={uploading}
-            className="w-20 h-20 border-2 border-dashed border-gray-300 rounded-xl flex flex-col items-center justify-center text-gray-400 hover:border-[#e84545] hover:text-[#e84545] transition disabled:opacity-50"
+            className="w-20 h-20 border-2 border-dashed border-gray-300 rounded-xl flex flex-col items-center justify-center text-gray-400 hover:border-[#e84545] hover:text-[#e84545] transition"
           >
-            {uploading ? <Spinner size="sm" color="red" /> : (
-              <>
-                <i className="fa fa-plus text-lg mb-0.5" />
-                <span className="text-[10px]">Add photo</span>
-              </>
-            )}
+            <i className="fa fa-plus text-lg mb-0.5" />
+            <span className="text-[10px]">Add photo</span>
           </button>
         )}
       </div>
-      {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
       <input
         ref={inputRef}
         type="file"
         accept="image/jpeg,image/png,image/webp"
         multiple
         className="hidden"
-        onChange={(e) => handleFiles(e.target.files)}
+        onChange={(e) => { handleFiles(e.target.files); e.target.value = ''; }}
       />
     </div>
   );
@@ -323,7 +261,7 @@ function ServiceModal({
   editService?: Service | null;
 }) {
   const [form, setForm]     = useState<FormState>(EMPTY_FORM);
-  const [images, setImages] = useState<string[]>([]);
+  const [imgItems, setImgs] = useState<ImgItem[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError]   = useState('');
 
@@ -341,10 +279,10 @@ function ServiceModal({
             : editService.category_id ? [editService.category_id] : [],
           tags: (editService.tags || []).join(', '),
         });
-        setImages(editService.images || []);
+        setImgs((editService.images || []).map((u) => ({ kind: 'url', url: u })));
       } else {
         setForm(EMPTY_FORM);
-        setImages([]);
+        setImgs([]);
       }
       setError('');
     }
@@ -355,25 +293,36 @@ function ServiceModal({
       setForm((p) => ({ ...p, [k]: e.target.value }));
 
   const handleSave = async () => {
-    if (!form.title.trim())           return setError('Title is required');
+    if (!form.title.trim())             return setError('Title is required');
     if (form.category_ids.length === 0) return setError('Please select at least one category');
     if (!form.price || Number(form.price) <= 0) return setError('Price must be greater than 0');
 
     setSaving(true);
     setError('');
     try {
-      const payload = {
-        title:         form.title.trim(),
-        description:   form.description.trim(),
-        price:         Number(form.price),
-        delivery_days: Number(form.delivery_days) || 3,
-        revisions:     Number(form.revisions) || 1,
-        category_ids:  form.category_ids,
-        tags:          form.tags.split(',').map((t) => t.trim()).filter(Boolean),
-        images,
-      };
-      if (editService) await sellerServiceApi.update(editService.id, payload);
-      else             await sellerServiceApi.create(payload);
+      const fd = new FormData();
+      fd.append('title',         form.title.trim());
+      fd.append('description',   form.description.trim());
+      fd.append('price',         String(Number(form.price)));
+      fd.append('delivery_days', String(Number(form.delivery_days) || 3));
+      fd.append('revisions',     String(Number(form.revisions) || 1));
+      fd.append('category_ids',  JSON.stringify(form.category_ids));
+      fd.append('tags',          JSON.stringify(
+        form.tags.split(',').map((t) => t.trim()).filter(Boolean)
+      ));
+
+      // Existing S3 URLs to preserve (update only)
+      const existingUrls = imgItems.filter((i) => i.kind === 'url').map((i) => (i as { kind: 'url'; url: string }).url);
+      if (editService) fd.append('existing_images', JSON.stringify(existingUrls));
+
+      // New files to upload
+      imgItems
+        .filter((i) => i.kind === 'file')
+        .forEach((i) => fd.append('images', (i as { kind: 'file'; file: File; preview: string }).file));
+
+      if (editService) await sellerServiceApi.update(editService.id, fd);
+      else             await sellerServiceApi.create(fd);
+
       onSaved();
       onClose();
     } catch (e: unknown) {
@@ -395,15 +344,19 @@ function ServiceModal({
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1.5">Description</label>
           <textarea
-            rows={3}
+            rows={4}
             placeholder="Describe what you offer..."
             value={form.description}
-            onChange={set('description')}
-            className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#e84545] resize-none"
+            onChange={(e) => {
+              set('description')(e);
+              e.target.style.height = 'auto';
+              e.target.style.height = e.target.scrollHeight + 'px';
+            }}
+            className="w-full border border-gray-200 rounded-2xl px-4 py-3 text-sm text-gray-800 placeholder-gray-400 bg-gray-50 focus:bg-white focus:outline-none focus:border-[#e84545] focus:ring-2 focus:ring-[#e84545]/10 resize-none overflow-hidden transition-all leading-relaxed"
           />
         </div>
 
-        <ImageUploader existingUrls={images} onChange={setImages} />
+        <ImageUploader items={imgItems} onChange={setImgs} />
 
         <MultiSelectCategory
           categories={categories}
@@ -520,7 +473,6 @@ export default function SellerServicesPage() {
     finally { setDeleting(false); }
   };
 
-  // Get category names for a service
   const getCategoryNames = (s: Service) => {
     const ids = s.category_ids?.length ? s.category_ids : s.category_id ? [s.category_id] : [];
     const names = categories.filter((c) => ids.includes(c.id)).map((c) => c.name);
@@ -529,7 +481,6 @@ export default function SellerServicesPage() {
 
   return (
     <DashboardLayout role="SELLER" title="My Services">
-      {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
         <h2 className="text-lg font-semibold text-gray-900">My Services</h2>
         <Button leftIcon={<i className="fa fa-plus text-sm" />} onClick={() => setAddModal(true)}>
@@ -537,7 +488,6 @@ export default function SellerServicesPage() {
         </Button>
       </div>
 
-      {/* Filters */}
       <div className="flex flex-wrap gap-3 mb-5">
         <div className="relative flex-1 min-w-[200px] max-w-xs">
           <i className="fa fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm" />
@@ -549,19 +499,15 @@ export default function SellerServicesPage() {
             className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-[#e84545]"
           />
         </div>
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatus(e.target.value)}
-          className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#e84545]"
-        >
-          <option value="">All Status</option>
-          <option value="active">Active</option>
-          <option value="paused">Paused</option>
-          <option value="rejected">Rejected</option>
-        </select>
+        <div className="flex gap-1.5">
+          {[{ label: 'All', value: '' }, { label: 'Active', value: 'active' }, { label: 'Paused', value: 'paused' }, { label: 'Rejected', value: 'rejected' }].map((f) => (
+            <button key={f.value} onClick={() => setStatus(f.value)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${statusFilter === f.value ? 'bg-[#e84545] text-white' : 'text-gray-500 hover:bg-gray-100'}`}
+            >{f.label}</button>
+          ))}
+        </div>
       </div>
 
-      {/* Content */}
       {loading ? (
         <CardSkeleton count={6} />
       ) : services.length === 0 ? (
@@ -573,7 +519,6 @@ export default function SellerServicesPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
           {services.map((s) => (
             <Card key={s.id} padding="md" hover>
-              {/* Thumbnail */}
               {s.images && s.images.length > 0 ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={s.images[0]} alt={s.title} className="w-full h-36 object-cover rounded-xl mb-3" />
@@ -584,9 +529,7 @@ export default function SellerServicesPage() {
               )}
 
               <div className="flex items-start justify-between mb-2">
-                <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium capitalize ${statusBadge(s.status)}`}>
-                  {s.status}
-                </span>
+                <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium capitalize ${statusBadge(s.status)}`}>{s.status}</span>
                 {s.is_featured && (
                   <span className="inline-flex items-center gap-1 text-[10px] text-yellow-600 bg-yellow-50 px-2 py-0.5 rounded-full">
                     <i className="fa fa-star text-[9px]" /> Featured
@@ -596,31 +539,22 @@ export default function SellerServicesPage() {
 
               <h3 className="font-semibold text-gray-900 text-sm leading-snug mb-1 line-clamp-2">{s.title}</h3>
 
-              {/* Category pills */}
               <div className="flex flex-wrap gap-1 mb-2">
                 {getCategoryNames(s).slice(0, 3).map((name) => (
-                  <span key={name} className="text-[10px] bg-[#e84545]/10 text-[#e84545] px-2 py-0.5 rounded-full font-medium">
-                    {name}
-                  </span>
+                  <span key={name} className="text-[10px] bg-[#e84545]/10 text-[#e84545] px-2 py-0.5 rounded-full font-medium">{name}</span>
                 ))}
               </div>
 
               <div className="flex items-center justify-between text-xs text-gray-500 mb-3">
                 <span className="font-bold text-[#e84545] text-sm">{formatCurrency(s.price)}</span>
-                <span className="flex items-center gap-1">
-                  <i className="fa fa-clock-o text-gray-400" /> {s.delivery_days}d
-                </span>
+                <span className="flex items-center gap-1"><i className="fa fa-clock-o text-gray-400" /> {s.delivery_days}d</span>
                 {s.rating > 0 && (
-                  <span className="flex items-center gap-0.5">
-                    <i className="fa fa-star text-yellow-400" /> {Number(s.rating).toFixed(1)}
-                  </span>
+                  <span className="flex items-center gap-0.5"><i className="fa fa-star text-yellow-400" /> {Number(s.rating).toFixed(1)}</span>
                 )}
               </div>
 
               <div className="flex gap-2">
-                <Button variant="outline" size="sm" fullWidth leftIcon={<i className="fa fa-pencil text-xs" />} onClick={() => setEdit(s)}>
-                  Edit
-                </Button>
+                <Button variant="outline" size="sm" fullWidth leftIcon={<i className="fa fa-pencil text-xs" />} onClick={() => setEdit(s)}>Edit</Button>
                 {s.status !== 'rejected' && (
                   <Button
                     variant={s.status === 'active' ? 'outline' : 'primary'}
@@ -645,21 +579,38 @@ export default function SellerServicesPage() {
         </div>
       )}
 
+
       <ServiceModal
         isOpen={addModal || !!editService}
         onClose={() => { setAddModal(false); setEdit(null); }}
-        onSaved={fetchServices}
+        onSaved={() => { setAddModal(false); setEdit(null); fetchServices(); }}
         categories={categories}
         editService={editService}
       />
 
-      <DeleteModal
-        isOpen={!!deleteTarget}
-        onClose={() => setDelete(null)}
-        onConfirm={handleDelete}
-        title={deleteTarget?.title || ''}
-        loading={deleting}
-      />
+      {/* Delete confirmation */}
+      <Modal isOpen={!!deleteTarget} onClose={() => setDelete(null)} title="Delete Service" size="sm">
+        <div className="flex flex-col items-center text-center gap-3 pb-2">
+          <div className="w-14 h-14 rounded-full bg-red-50 flex items-center justify-center">
+            <i className="fa fa-trash text-2xl text-red-500" />
+          </div>
+          <div>
+            <p className="text-base font-semibold text-gray-900 mb-1">Are you sure?</p>
+            <p className="text-sm text-gray-500">
+              Delete <strong>&quot;{deleteTarget?.title}&quot;</strong>? This action cannot be undone.
+            </p>
+          </div>
+        </div>
+        <div className="flex gap-3 mt-5">
+          <Button variant="outline" fullWidth onClick={() => setDelete(null)} disabled={deleting}>
+            Cancel
+          </Button>
+          <Button variant="danger" fullWidth onClick={handleDelete} loading={deleting}>
+            Yes, Delete
+          </Button>
+        </div>
+      </Modal>
+
     </DashboardLayout>
   );
 }

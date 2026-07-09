@@ -14,7 +14,7 @@ export function middleware(request: NextRequest) {
     if (isLoggedIn) {
       if (userType === 'ADMIN')  return NextResponse.redirect(new URL('/admin/dashboard',  request.url));
       if (userType === 'SELLER') return NextResponse.redirect(new URL('/seller/dashboard', request.url));
-      if (userType === 'BUYER')  return NextResponse.redirect(new URL('/buyer/dashboard',  request.url));
+      if (userType === 'BUYER')  return NextResponse.redirect(new URL('/buyer/home',       request.url));
     }
     return NextResponse.next();
   }
@@ -24,6 +24,7 @@ export function middleware(request: NextRequest) {
     if (!isLoggedIn) return NextResponse.redirect(new URL('/login', request.url));
     if (userType !== 'ADMIN') {
       if (userType === 'SELLER') return NextResponse.redirect(new URL('/seller/dashboard', request.url));
+      if (userType === 'BUYER')  return NextResponse.redirect(new URL('/buyer/home',       request.url));
       return NextResponse.redirect(new URL('/login', request.url));
     }
     return NextResponse.next();
@@ -34,6 +35,7 @@ export function middleware(request: NextRequest) {
     if (!isLoggedIn) return NextResponse.redirect(new URL('/login', request.url));
     if (userType !== 'SELLER') {
       if (userType === 'ADMIN') return NextResponse.redirect(new URL('/admin/dashboard', request.url));
+      if (userType === 'BUYER') return NextResponse.redirect(new URL('/buyer/home',      request.url));
       return NextResponse.redirect(new URL('/login', request.url));
     }
     return NextResponse.next();

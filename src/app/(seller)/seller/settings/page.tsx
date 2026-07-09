@@ -144,7 +144,7 @@ export default function SellerSettingsPage() {
                 <p className="text-xs text-gray-400 mb-5">Configure how you receive payments</p>
                 <div className="space-y-4">
                   <div>
-                    <label className={labelCls}>Minimum Payout Amount (₹)</label>
+                    <label className={labelCls}>Minimum Payout Amount ($)</label>
                     <input className={inputCls} type="number" value={minPayout} onChange={e => setMinPayout(e.target.value)} placeholder="500" />
                     <p className="text-xs text-gray-400 mt-1">Minimum balance before withdrawal</p>
                   </div>
@@ -174,9 +174,9 @@ export default function SellerSettingsPage() {
                 <div className="bg-white rounded-2xl border border-[#e8e8e8] shadow-sm p-5">
                   <h4 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2"><i className="fa fa-clock-o text-[#4f9ef8]" /> Payout History</h4>
                   {[
-                    { date: 'Jun 28', amount: '₹3,200', status: 'Completed', color: '#10b981' },
-                    { date: 'Jun 15', amount: '₹1,800', status: 'Completed', color: '#10b981' },
-                    { date: 'Jun 01', amount: '₹4,500', status: 'Completed', color: '#10b981' },
+                    { date: 'Jun 28', amount: '$3,200', status: 'Completed', color: '#10b981' },
+                    { date: 'Jun 15', amount: '$1,800', status: 'Completed', color: '#10b981' },
+                    { date: 'Jun 01', amount: '$4,500', status: 'Completed', color: '#10b981' },
                   ].map((p, i) => (
                     <div key={i} className="flex items-center justify-between py-2.5 border-b border-gray-50 last:border-0">
                       <div>

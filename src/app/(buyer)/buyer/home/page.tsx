@@ -21,10 +21,10 @@ const recentBookings = [
 ];
 
 const recommended = [
-  { name: 'Alex Johnson',  skill: 'UI/UX Design',        rating: 4.9, jobs: 124, price: '₹1,500', avatar: 'AJ', color: '#e84545' },
-  { name: 'Priya Sharma',  skill: 'Social Media',        rating: 4.8, jobs: 89,  price: '₹900',   avatar: 'PS', color: '#4f9ef8' },
-  { name: 'Karan Mehta',   skill: 'Video Production',    rating: 4.7, jobs: 67,  price: '₹2,200', avatar: 'KM', color: '#10b981' },
-  { name: 'Sonal Joshi',   skill: 'Content Writing',     rating: 4.9, jobs: 145, price: '₹800',   avatar: 'SJ', color: '#f59e0b' },
+  { name: 'Alex Johnson',  skill: 'UI/UX Design',        rating: 4.9, jobs: 124, price: '$1,500', avatar: 'AJ', color: '#e84545' },
+  { name: 'Priya Sharma',  skill: 'Social Media',        rating: 4.8, jobs: 89,  price: '$900',   avatar: 'PS', color: '#4f9ef8' },
+  { name: 'Karan Mehta',   skill: 'Video Production',    rating: 4.7, jobs: 67,  price: '$2,200', avatar: 'KM', color: '#10b981' },
+  { name: 'Sonal Joshi',   skill: 'Content Writing',     rating: 4.9, jobs: 145, price: '$800',   avatar: 'SJ', color: '#f59e0b' },
 ];
 
 const statusColor: Record<string, { bg: string; text: string }> = {
@@ -38,7 +38,7 @@ export default function BuyerHomePage() {
   const { user } = useAppSelector((s) => s.auth);
 
   const stats = [
-    { icon: 'fa-credit-card', color: '#e84545', bg: '#fef2f2', label: 'Wallet Balance',  val: `₹${(user?.walletAmount || 2500).toLocaleString()}`, sub: 'Available to spend', href: '/buyer/wallet'    },
+    { icon: 'fa-credit-card', color: '#e84545', bg: '#fef2f2', label: 'Wallet Balance',  val: `$${(user?.walletAmount || 2500).toLocaleString()}`, sub: 'Available to spend', href: '/buyer/wallet'    },
     { icon: 'fa-calendar',    color: '#4f9ef8', bg: '#eff6ff', label: 'Active Bookings', val: '3',                                                  sub: '1 needs attention',  href: '/buyer/bookings'  },
     { icon: 'fa-briefcase',   color: '#10b981', bg: '#ecfdf5', label: 'Jobs Posted',     val: '5',                                                  sub: '2 receiving bids',   href: '/buyer/jobs'      },
     { icon: 'fa-heart',       color: '#f59e0b', bg: '#fffbeb', label: 'Favourites',      val: '18',                                                 sub: 'Saved creators',     href: '/buyer/favourites'},
@@ -104,8 +104,8 @@ export default function BuyerHomePage() {
               <BarChart data={spendData} barSize={28}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
                 <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} tickFormatter={v => `₹${v}`} />
-                <Tooltip formatter={(v) => [`₹${v}`, 'Spent']} contentStyle={{ borderRadius: '12px', border: '1px solid #e0e0e0', fontSize: '12px' }} />
+                <YAxis tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} tickFormatter={v => `$${v}`} />
+                <Tooltip formatter={(v) => [`$${v}`, 'Spent']} contentStyle={{ borderRadius: '12px', border: '1px solid #e0e0e0', fontSize: '12px' }} />
                 <Bar dataKey="amount" fill="#e84545" radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
@@ -158,7 +158,7 @@ export default function BuyerHomePage() {
                       <p className="text-xs text-gray-400 mt-0.5"><i className="fa fa-user mr-1" />{b.seller} · {b.date}</p>
                     </div>
                     <div className="text-right flex-shrink-0">
-                      <p className="text-sm font-bold text-gray-800">₹{b.amount.toLocaleString()}</p>
+                      <p className="text-sm font-bold text-gray-800">${b.amount.toLocaleString()}</p>
                       <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ background: sc.bg, color: sc.text }}>{b.status}</span>
                     </div>
                   </div>

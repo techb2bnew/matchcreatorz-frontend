@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import Card            from '@/components/ui/Card';
 import Button          from '@/components/ui/Button';
@@ -9,6 +9,55 @@ import { formatCurrency }          from '@/lib/utils';
 import { adminServiceApi, categoryApi } from '@/lib/adminApi';
 
 type ServiceStatus = 'active' | 'paused' | 'rejected';
+
+// ── Custom single-select category filter ──────────────────────────────
+function CategoryFilter({
+  categories, value, onChange,
+}: {
+  categories: { id: number; name: string }[];
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const selected = categories.find((c) => String(c.id) === value);
+  const label    = selected ? selected.name : 'All Categories';
+
+  return (
+    <div ref={ref} className="relative">
+      <button type="button" onClick={() => setOpen((o) => !o)}
+        className={`flex items-center gap-2 border rounded-xl px-3 py-2 text-sm transition-all whitespace-nowrap ${
+          value ? 'border-[#e84545] text-[#e84545] font-medium' : 'border-gray-200 text-gray-600 hover:border-gray-300'
+        }`}
+      >
+        <i className="fa fa-tag text-xs" />
+        {label}
+        <i className={`fa fa-chevron-${open ? 'up' : 'down'} text-[10px] text-gray-400`} />
+      </button>
+      {open && (
+        <div className="absolute z-50 mt-1 min-w-[160px] bg-white border border-gray-100 rounded-2xl shadow-xl overflow-hidden py-1">
+          <button type="button" onClick={() => { onChange(''); setOpen(false); }}
+            className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${!value ? 'bg-[#e84545] text-white font-medium' : 'text-gray-700 hover:bg-gray-50'}`}
+          >All Categories</button>
+          {categories.map((c) => (
+            <button key={c.id} type="button" onClick={() => { onChange(String(c.id)); setOpen(false); }}
+              className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${String(c.id) === value ? 'bg-[#e84545] text-white font-medium' : 'text-gray-700 hover:bg-gray-50'}`}
+            >{c.name}</button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 interface Service {
   id: number; title: string; description: string; price: number;
@@ -38,7 +87,6 @@ function ServiceDetailModal({
   actionLoading: string;
 }) {
   const [activeImg, setActiveImg] = useState(0);
-
   useEffect(() => { setActiveImg(0); }, [service]);
 
   if (!service) return null;
@@ -47,10 +95,9 @@ function ServiceDetailModal({
 
   return (
     <Modal isOpen={!!service} onClose={onClose} title="" size="md" noPadding>
-      {/* Outer wrapper: flex column, capped at 88vh, overflow hidden so image clips at rounded corners */}
       <div className="flex flex-col overflow-hidden rounded-2xl" style={{ maxHeight: '88vh' }}>
 
-        {/* ── Scrollable content ── */}
+        {/* Scrollable content */}
         <div className="flex-1 overflow-y-auto min-h-0" style={{ scrollbarWidth: 'none' }}>
 
           {/* Banner image */}
@@ -72,9 +119,7 @@ function ServiceDetailModal({
                   {imgs.map((url, i) => (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img key={i} src={url} alt="" onClick={() => setActiveImg(i)}
-                      className={`w-10 h-10 rounded-lg object-cover cursor-pointer border-2 transition ${
-                        i === activeImg ? 'border-white' : 'border-transparent opacity-60 hover:opacity-100'
-                      }`}
+                      className={`w-10 h-10 rounded-lg object-cover cursor-pointer border-2 transition ${i === activeImg ? 'border-white' : 'border-transparent opacity-60 hover:opacity-100'}`}
                     />
                   ))}
                 </div>
@@ -180,7 +225,7 @@ function ServiceDetailModal({
           </div>
         </div>
 
-        {/* ── Sticky action buttons — always visible at bottom ── */}
+        {/* Sticky action buttons */}
         <div className="flex-shrink-0 px-6 py-4 border-t border-gray-100 flex flex-wrap gap-2 bg-white">
           <Button size="sm" variant="outline"
             onClick={() => onAction(s.id, 'feature')}
@@ -195,17 +240,13 @@ function ServiceDetailModal({
               onClick={() => onAction(s.id, 'reject')}
               loading={actionLoading === `reject-${s.id}`}
               leftIcon={<i className="fa fa-ban text-xs" />}
-            >
-              Reject
-            </Button>
+            >Reject</Button>
           ) : (
             <Button size="sm"
               onClick={() => onAction(s.id, 'restore')}
               loading={actionLoading === `restore-${s.id}`}
               leftIcon={<i className="fa fa-check-circle text-xs" />}
-            >
-              Restore
-            </Button>
+            >Restore</Button>
           )}
 
           <button onClick={() => onAction(s.id, 'delete')}
@@ -232,8 +273,9 @@ export default function AdminServicesPage() {
   const [total, setTotal]             = useState(0);
   const LIMIT = 10;
 
-  const [viewService, setView]     = useState<Service | null>(null);
-  const [actionLoading, setAction] = useState('');
+  const [viewService, setView]          = useState<Service | null>(null);
+  const [actionLoading, setAction]      = useState('');
+  const [deleteTarget, setDeleteTarget] = useState<Service | null>(null);
 
   const fetchServices = useCallback(async () => {
     setLoading(true);
@@ -259,17 +301,32 @@ export default function AdminServicesPage() {
   }, [fetchServices]);
 
   const doAction = async (id: number, action: 'reject' | 'restore' | 'feature' | 'delete') => {
+    if (action === 'delete') {
+      const svc = services.find((s) => s.id === id) || viewService;
+      if (svc) { setDeleteTarget(svc); return; }
+    }
     setAction(`${action}-${id}`);
     try {
       if (action === 'reject')  await adminServiceApi.reject(id);
       if (action === 'restore') await adminServiceApi.restore(id);
       if (action === 'feature') await adminServiceApi.feature(id);
-      if (action === 'delete')  { await adminServiceApi.delete(id); setView(null); }
       await fetchServices();
-      if (viewService?.id === id && action !== 'delete') {
+      if (viewService?.id === id) {
         const res = await adminServiceApi.get(id);
         setView(res.data);
       }
+    } catch { /* ignore */ }
+    finally { setAction(''); }
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    setAction(`delete-${deleteTarget.id}`);
+    try {
+      await adminServiceApi.delete(deleteTarget.id);
+      setDeleteTarget(null);
+      setView(null);
+      await fetchServices();
     } catch { /* ignore */ }
     finally { setAction(''); }
   };
@@ -288,12 +345,11 @@ export default function AdminServicesPage() {
               className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-[#e84545]"
             />
           </div>
-          <select value={categoryFilter} onChange={(e) => { setCategory(e.target.value); setPage(1); }}
-            className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#e84545]"
-          >
-            <option value="">All Categories</option>
-            {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
+          <CategoryFilter
+            categories={categories}
+            value={categoryFilter}
+            onChange={(v) => { setCategory(v); setPage(1); }}
+          />
           <div className="ml-auto flex gap-1.5 flex-wrap">
             {[{ label: 'All', value: '' }, { label: 'Active', value: 'active' }, { label: 'Paused', value: 'paused' }, { label: 'Rejected', value: 'rejected' }].map((f) => (
               <button key={f.value} onClick={() => { setStatus(f.value); setPage(1); }}
@@ -411,6 +467,29 @@ export default function AdminServicesPage() {
       </Card>
 
       <ServiceDetailModal service={viewService} onClose={() => setView(null)} onAction={doAction} actionLoading={actionLoading} />
+
+      {/* Delete confirmation */}
+      <Modal isOpen={!!deleteTarget} onClose={() => setDeleteTarget(null)} title="Delete Service" size="sm">
+        <div className="flex flex-col items-center text-center gap-3 pb-2">
+          <div className="w-14 h-14 rounded-full bg-red-50 flex items-center justify-center">
+            <i className="fa fa-trash text-2xl text-red-500" />
+          </div>
+          <div>
+            <p className="text-base font-semibold text-gray-900 mb-1">Are you sure?</p>
+            <p className="text-sm text-gray-500">
+              Delete <strong>&quot;{deleteTarget?.title}&quot;</strong>? This action cannot be undone.
+            </p>
+          </div>
+        </div>
+        <div className="flex gap-3 mt-5">
+          <Button variant="outline" fullWidth onClick={() => setDeleteTarget(null)} disabled={actionLoading.startsWith('delete-')}>
+            Cancel
+          </Button>
+          <Button variant="danger" fullWidth onClick={confirmDelete} loading={actionLoading.startsWith('delete-')}>
+            Yes, Delete
+          </Button>
+        </div>
+      </Modal>
     </DashboardLayout>
   );
 }

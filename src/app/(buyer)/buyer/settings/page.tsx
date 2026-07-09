@@ -139,9 +139,9 @@ export default function BuyerSettingsPage() {
                 <p className="text-xs text-gray-400 mb-5">Configure your wallet preferences</p>
                 <div className="space-y-4">
                   <div>
-                    <label className={labelCls}>Auto-Reload Amount (₹)</label>
+                    <label className={labelCls}>Auto-Reload Amount ($)</label>
                     <input className={inputCls} type="number" value={reloadAmount} onChange={e => setReloadAmount(e.target.value)} placeholder="1000" />
-                    <p className="text-xs text-gray-400 mt-1">Reload when balance drops below ₹200</p>
+                    <p className="text-xs text-gray-400 mt-1">Reload when balance drops below $200</p>
                   </div>
                   <div className="flex items-center justify-between py-3 border-t border-gray-100">
                     <div>
@@ -161,10 +161,10 @@ export default function BuyerSettingsPage() {
                 <div className="bg-white rounded-2xl border border-[#e8e8e8] shadow-sm p-5">
                   <h4 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2"><i className="fa fa-clock-o text-[#4f9ef8]" /> Recent Transactions</h4>
                   {[
-                    { label: 'Added via UPI',      amount: '+₹2,000', date: 'Jun 29', color: '#10b981' },
-                    { label: 'Booking Payment',    amount: '-₹800',   date: 'Jun 25', color: '#e84545' },
-                    { label: 'Refund received',    amount: '+₹500',   date: 'Jun 20', color: '#10b981' },
-                    { label: 'Booking Payment',    amount: '-₹1,200', date: 'Jun 15', color: '#e84545' },
+                    { label: 'Added via UPI',      amount: '+$2,000', date: 'Jun 29', color: '#10b981' },
+                    { label: 'Booking Payment',    amount: '-$800',   date: 'Jun 25', color: '#e84545' },
+                    { label: 'Refund received',    amount: '+$500',   date: 'Jun 20', color: '#10b981' },
+                    { label: 'Booking Payment',    amount: '-$1,200', date: 'Jun 15', color: '#e84545' },
                   ].map((t, i) => (
                     <div key={i} className="flex items-center justify-between py-2.5 border-b border-gray-50 last:border-0">
                       <div>

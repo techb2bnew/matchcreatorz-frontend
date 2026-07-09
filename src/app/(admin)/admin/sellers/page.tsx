@@ -14,7 +14,7 @@ import toast from 'react-hot-toast';
 
 const COUNTRIES  = ['India', 'USA', 'UK', 'Canada', 'Australia', 'UAE', 'Singapore', 'Germany'];
 const STATES     = ['Delhi', 'Maharashtra', 'Karnataka', 'Tamil Nadu', 'Gujarat', 'Rajasthan', 'Uttar Pradesh'];
-const RANGES     = ['₹500–₹1,000/project', '₹1,000–₹5,000/project', '₹5,000–₹15,000/project', '₹15,000–₹50,000/project', '₹50,000+/project'];
+const RANGES     = ['$500–$1,000/project', '$1,000–$5,000/project', '$5,000–$15,000/project', '$15,000–$50,000/project', '$50,000+/project'];
 const RESP_TIMES = ['Within 1 hour', 'Within 6 hours', 'Within 24 hours', 'Within 48 hours', 'Within a week'];
 
 const selectCls = 'w-full h-11 border border-gray-200 rounded-xl px-3 text-sm text-[#1a1a1a] focus:outline-none focus:ring-2 focus:ring-[#e84545]/30 focus:border-[#e84545] bg-white transition appearance-none';
@@ -295,7 +295,7 @@ export default function SellersPage() {
                     <td className="px-4 py-3 text-gray-600 text-xs max-w-[120px] truncate">{s.skills.slice(0, 2).join(', ') || '—'}</td>
                     <td className="px-4 py-3">
                       <span className="text-sm font-semibold text-gray-800">
-                        {s.hourlyRate ? `₹${s.hourlyRate}` : '—'}<span className="text-xs font-normal text-gray-400">{s.hourlyRate ? '/hr' : ''}</span>
+                        {s.hourlyRate ? `$${s.hourlyRate}` : '—'}<span className="text-xs font-normal text-gray-400">{s.hourlyRate ? '/hr' : ''}</span>
                       </span>
                     </td>
                     <td className="px-4 py-3">
@@ -453,7 +453,7 @@ export default function SellersPage() {
                 <div className="grid grid-cols-2 gap-3">
                   <CustomSelect label="Price Range" leftIcon="fa-tag" value={form.range} onChange={v => setForm({ ...form, range: v })} options={RANGES} />
                   <div>
-                    <label className={labelCls}>Hourly Rate (₹)</label>
+                    <label className={labelCls}>Hourly Rate ($)</label>
                     <div className="relative">
                       <i className="fa fa-clock-o absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none" />
                       <input type="number" min="0" placeholder="e.g. 500" className={selectCls + ' pl-8'} value={form.hourlyRate} onChange={e => setForm({ ...form, hourlyRate: e.target.value })} />
@@ -577,7 +577,7 @@ export default function SellersPage() {
             </div>
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div><p className="text-xs text-gray-400 mb-0.5">Phone</p><p className="font-medium">{viewSeller.phone}</p></div>
-              <div><p className="text-xs text-gray-400 mb-0.5">Hourly Rate</p><p className="font-medium">{viewSeller.hourlyRate ? `₹${viewSeller.hourlyRate}/hr` : '—'}</p></div>
+              <div><p className="text-xs text-gray-400 mb-0.5">Hourly Rate</p><p className="font-medium">{viewSeller.hourlyRate ? `$${viewSeller.hourlyRate}/hr` : '—'}</p></div>
               <div><p className="text-xs text-gray-400 mb-0.5">Rating</p><p className="font-medium flex items-center gap-1"><i className="fa fa-star text-yellow-400 text-xs" />{viewSeller.rating || '—'}</p></div>
               <div><p className="text-xs text-gray-400 mb-0.5">Joined</p><p className="font-medium">{formatDate(viewSeller.joined)}</p></div>
               <div><p className="text-xs text-gray-400 mb-0.5">Country</p><p className="font-medium">{viewSeller.country}</p></div>
@@ -646,7 +646,7 @@ export default function SellersPage() {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className={labelCls}>Hourly Rate (₹)</label>
+                  <label className={labelCls}>Hourly Rate ($)</label>
                   <div className="relative">
                     <i className="fa fa-clock-o absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none" />
                     <input type="number" min="0" className={selectCls + ' pl-8'} value={editForm.hourlyRate}
