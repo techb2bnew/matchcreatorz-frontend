@@ -42,7 +42,7 @@ export default function Sidebar({ role }: SidebarProps) {
       )}
       style={{ background: '#1e2235' }}
     >
-      {/* ── Logo ───────────────────────────────────────────── */}
+      {/* -- Logo --------------------------------------------- */}
       <div
         className="relative flex items-center justify-center py-5 px-4"
         style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}
@@ -63,7 +63,7 @@ export default function Sidebar({ role }: SidebarProps) {
         }
       </div>
 
-      {/* Expand button — only when collapsed, below logo */ }
+      {/* Expand button -- only when collapsed, below logo */ }
       {sidebarCollapsed && (
         <button
           onClick={() => dispatch(toggleSidebarCollapse())}
@@ -74,7 +74,7 @@ export default function Sidebar({ role }: SidebarProps) {
         </button>
       )}
 
-      {/* ── Nav ────────────────────────────────────────────── */}
+      {/* -- Nav ---------------------------------------------- */}
       <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-0.5">
         {nav.map((item) => {
           const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
@@ -103,7 +103,7 @@ export default function Sidebar({ role }: SidebarProps) {
         })}
       </nav>
 
-      {/* ── Bottom ─────────────────────────────────────────── */}
+      {/* -- Bottom ------------------------------------------- */}
       <div
         className="px-3 pb-4 pt-3 space-y-0.5"
         style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}

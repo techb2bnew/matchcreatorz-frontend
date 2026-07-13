@@ -63,7 +63,7 @@ export default function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // ── Inline validation ───────────────────────
+    // -- Inline validation -----------------------
     const e2: Record<string, string> = {};
     if (tab === 'email') {
       if (!email.trim())                       e2.email    = 'Email is required';

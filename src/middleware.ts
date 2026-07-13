@@ -9,7 +9,7 @@ export function middleware(request: NextRequest) {
 
   const isLoggedIn = !!token;
 
-  // Auth pages — already logged in hain toh dashboard pe bhejo
+  // Auth pages -- already logged in hain toh dashboard pe bhejo
   if (pathname.startsWith('/login') || pathname.startsWith('/signup')) {
     if (isLoggedIn) {
       if (userType === 'ADMIN')  return NextResponse.redirect(new URL('/admin/dashboard',  request.url));

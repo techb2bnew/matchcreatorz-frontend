@@ -32,7 +32,7 @@ export default function StatCard({ title, value, icon, change, changeType = 'up'
           <p className={cn('text-xs mt-1 font-medium',
             changeType === 'up' ? 'text-green-600' : changeType === 'down' ? 'text-red-500' : 'text-gray-400'
           )}>
-            {changeType === 'up' ? '↑' : changeType === 'down' ? '↓' : '—'} {change}
+            {changeType === 'up' ? '^' : changeType === 'down' ? 'v' : '--'} {change}
           </p>
         )}
       </div>

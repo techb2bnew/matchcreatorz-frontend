@@ -24,7 +24,7 @@ const emptyForm = { name: '', icon: '', description: '' };
 function CatIcon({ icon, className = 'text-3xl' }: { icon?: string; className?: string }) {
   if (!icon) return <span className={className}>🏷️</span>;
   if (icon.startsWith('devicon-')) {
-    // Icons without "colored" are black — add dark color so they're visible on light bg
+    // Icons without "colored" are black -- add dark color so they're visible on light bg
     const style = !icon.includes('colored') ? { color: '#1a1a1a' } : undefined;
     return <i className={`${icon} ${className}`} style={style} />;
   }
@@ -176,23 +176,23 @@ export default function CategoriesPage() {
     return () => clearTimeout(t);
   }, [search]);
 
-  // ── Add modal ─────────────────────────────────────────────
+  // -- Add modal ---------------------------------------------
   const [showAdd, setShowAdd]     = useState(false);
   const [addForm, setAddForm]     = useState(emptyForm);
   const [addLoading, setAddLoading] = useState(false);
   const [addErrs, setAddErrs]     = useState<Record<string, string>>({});
 
-  // ── Edit modal ────────────────────────────────────────────
+  // -- Edit modal --------------------------------------------
   const [editCat, setEditCat]       = useState<Category | null>(null);
   const [editForm, setEditForm]     = useState(emptyForm);
   const [editLoading, setEditLoading] = useState(false);
   const [editErrs, setEditErrs]     = useState<Record<string, string>>({});
 
-  // ── Delete confirm ────────────────────────────────────────
+  // -- Delete confirm ----------------------------------------
   const [deleteCat, setDeleteCat]   = useState<Category | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
-  // ── Fetch ─────────────────────────────────────────────────
+  // -- Fetch -------------------------------------------------
   const fetchCategories = useCallback(async () => {
     setLoading(true);
     try {
@@ -210,7 +210,7 @@ export default function CategoriesPage() {
 
   useEffect(() => { fetchCategories(); }, [fetchCategories]);
 
-  // ── Add ───────────────────────────────────────────────────
+  // -- Add ---------------------------------------------------
   const handleAdd = async () => {
     const e: Record<string, string> = {};
     if (!addForm.name.trim()) e.name = 'Category name is required';
@@ -234,7 +234,7 @@ export default function CategoriesPage() {
     }
   };
 
-  // ── Edit ──────────────────────────────────────────────────
+  // -- Edit --------------------------------------------------
   const openEdit = (cat: Category) => {
     setEditCat(cat);
     setEditForm({ name: cat.name, icon: cat.icon || '', description: cat.description || '' });
@@ -263,7 +263,7 @@ export default function CategoriesPage() {
     }
   };
 
-  // ── Delete ────────────────────────────────────────────────
+  // -- Delete ------------------------------------------------
   const handleDelete = async () => {
     if (!deleteCat) return;
     setDeleteLoading(true);
@@ -326,7 +326,7 @@ export default function CategoriesPage() {
               <Card key={c.id} padding="md" hover>
                 <div className="mb-2"><CatIcon icon={c.icon} className="text-3xl" /></div>
                 <h3 className="font-semibold text-gray-900 text-sm">{c.name}</h3>
-                <p className="text-xs text-gray-400 mt-0.5">{c.services_count} services · {c.sellers_count} sellers</p>
+                <p className="text-xs text-gray-400 mt-0.5">{c.services_count} services . {c.sellers_count} sellers</p>
                 {c.description && (
                   <p className="text-xs text-gray-400 mt-1 line-clamp-2">{c.description}</p>
                 )}
@@ -368,7 +368,7 @@ export default function CategoriesPage() {
                     <tr key={c.id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-4 py-3"><CatIcon icon={c.icon} className="text-2xl" /></td>
                       <td className="px-4 py-3 font-medium text-gray-900">{c.name}</td>
-                      <td className="px-4 py-3 text-gray-400 text-xs max-w-[180px] truncate">{c.description || '—'}</td>
+                      <td className="px-4 py-3 text-gray-400 text-xs max-w-[180px] truncate">{c.description || '--'}</td>
                       <td className="px-4 py-3 text-gray-600">{c.services_count}</td>
                       <td className="px-4 py-3 text-gray-600">{c.sellers_count}</td>
                       <td className="px-4 py-3">
@@ -396,7 +396,7 @@ export default function CategoriesPage() {
         </>
       )}
 
-      {/* ── Add Modal ── */}
+      {/* -- Add Modal -- */}
       <Modal isOpen={showAdd} onClose={() => setShowAdd(false)} title="Add Category" size="sm">
         <div className="space-y-4">
           <Input
@@ -422,7 +422,7 @@ export default function CategoriesPage() {
         </div>
       </Modal>
 
-      {/* ── Edit Modal ── */}
+      {/* -- Edit Modal -- */}
       <Modal isOpen={!!editCat} onClose={() => setEditCat(null)} title="Edit Category" size="sm">
         <div className="space-y-4">
           <Input
@@ -446,7 +446,7 @@ export default function CategoriesPage() {
         </div>
       </Modal>
 
-      {/* ── Delete Confirm Modal ── */}
+      {/* -- Delete Confirm Modal -- */}
       <Modal isOpen={!!deleteCat} onClose={() => setDeleteCat(null)} title="Delete Category" size="sm">
         <div className="space-y-4">
           <p className="text-sm text-gray-600">

@@ -9,7 +9,7 @@ import Cookies from 'js-cookie';
 
 type RoleType = 'SELLER' | 'BUYER';
 
-/* ── shared styles ── */
+/* -- shared styles -- */
 const iBox  = 'w-full flex items-center gap-3 bg-[#f5f5f5] border border-[#d8d8d8] rounded-xl px-4 h-11 focus-within:border-[#e84545] focus-within:ring-2 focus-within:ring-[#e84545]/10 transition-all';
 const iText = 'flex-1 bg-transparent text-sm text-[#1a1a1a] placeholder:text-gray-400 focus:outline-none';
 const sel   = 'w-full h-11 bg-[#f5f5f5] border border-[#d8d8d8] rounded-xl px-4 text-sm text-[#1a1a1a] focus:outline-none focus:border-[#e84545] transition-all appearance-none';
@@ -36,12 +36,12 @@ const COUNTRY_CODES = [
 
 const COUNTRIES  = ['India','USA','UK','Canada','Australia','UAE','Singapore','Germany'];
 const STATES     = ['Delhi','Maharashtra','Karnataka','Tamil Nadu','Gujarat','Rajasthan','Uttar Pradesh'];
-const RANGES     = ['$500–$1,000/project','$1,000–$5,000/project','$5,000–$15,000/project','$15,000–$50,000/project','$50,000+/project'];
+const RANGES     = ['$500-$1,000/project','$1,000-$5,000/project','$5,000-$15,000/project','$15,000-$50,000/project','$50,000+/project'];
 const RANGE_RATE: Record<string, number> = {
-  '$500–$1,000/project':     500,
-  '$1,000–$5,000/project':   1000,
-  '$5,000–$15,000/project':  5000,
-  '$15,000–$50,000/project': 15000,
+  '$500-$1,000/project':     500,
+  '$1,000-$5,000/project':   1000,
+  '$5,000-$15,000/project':  5000,
+  '$15,000-$50,000/project': 15000,
   '$50,000+/project':         50000,
 };
 const RESP_TIMES = ['Within 1 hour','Within 6 hours','Within 24 hours','Within 48 hours','Within a week'];
@@ -61,7 +61,7 @@ export default function SignupPage() {
   const [role, setRole]     = useState<RoleType>('BUYER');
   const [loading, setLoading] = useState(false);
 
-  // ── Categories from API ─────────────────────────────────
+  // -- Categories from API ---------------------------------
   const [categoryTags, setCategoryTags] = useState<string[]>([]);
   useEffect(() => {
     fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/categories`)
@@ -70,7 +70,7 @@ export default function SignupPage() {
         const names = (json.data || []).map((c: { name: string }) => c.name);
         if (names.length > 0) setCategoryTags(names);
       })
-      .catch(() => {/* silent — no categories added yet */});
+      .catch(() => {/* silent -- no categories added yet */});
   }, []);
 
   /* Step 1 */
@@ -113,7 +113,7 @@ export default function SignupPage() {
 
   const toggleTag = (t: string) => setTags(p => p.includes(t) ? p.filter(x => x !== t) : [...p, t]);
 
-  /* ── Submit to real API ── */
+  /* -- Submit to real API -- */
   const submit = async () => {
     setLoading(true);
     try {
@@ -132,17 +132,17 @@ export default function SignupPage() {
         fd.append('country', country);
         if (resumeFile) fd.append('resume', resumeFile);
 
-        // Portfolio files — append each under same key 'portfolio_files'
+        // Portfolio files -- append each under same key 'portfolio_files'
         portfolioFiles.forEach(f => fd.append('portfolio_files', f));
 
-        // Portfolio links — as JSON string
+        // Portfolio links -- as JSON string
         if (portfolioLinks.length > 0) {
           fd.append('portfolio_links', JSON.stringify(portfolioLinks));
         }
       }
-      // BUYER — no extra required fields
+      // BUYER -- no extra required fields
 
-      // No Content-Type header — browser sets multipart/form-data with boundary automatically
+      // No Content-Type header -- browser sets multipart/form-data with boundary automatically
       const res  = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/auth/register`, { method: 'POST', body: fd });
       const json = await res.json();
 
@@ -193,7 +193,7 @@ export default function SignupPage() {
     submit();
   };
 
-  /* ── Step indicator ── */
+  /* -- Step indicator -- */
   const StepBar = () => (
     <div className="mb-5">
       <div className="flex items-start justify-between relative mb-2">
@@ -219,7 +219,7 @@ export default function SignupPage() {
     </div>
   );
 
-  /* ══════════════════════════════ STEP 1 ══════════════════════════════ */
+  /* ------------------------------ STEP 1 ------------------------------ */
   if (step === 1) return (
     <>
       <div className="mb-3">
@@ -351,7 +351,7 @@ export default function SignupPage() {
     </>
   );
 
-  /* ══════════════════════════════ STEP 2 ══════════════════════════════ */
+  /* ------------------------------ STEP 2 ------------------------------ */
   if (step === 2) return (
     <>
       <div className="mb-3">
@@ -360,7 +360,7 @@ export default function SignupPage() {
       </div>
       <StepBar />
 
-      {/* ── Scrollable form area ── */}
+      {/* -- Scrollable form area -- */}
       <div className="max-h-[52vh] overflow-y-auto pr-1 -mr-1 space-y-4">
         <div className="flex items-center gap-2 pb-1 border-b border-gray-100">
           <div className="h-7 w-7 rounded-lg bg-red-50 flex items-center justify-center"><i className="fa fa-id-card text-[#e84545] text-sm" /></div>
@@ -498,7 +498,7 @@ export default function SignupPage() {
         </div>
       </div>
 
-      {/* ── Fixed bottom buttons ── */}
+      {/* -- Fixed bottom buttons -- */}
       <div className="flex gap-2 pt-4 mt-3 border-t border-gray-100">
         <button onClick={() => setStep(1)} className="flex-1 h-11 rounded-xl border border-[#d8d8d8] text-sm font-semibold text-gray-600 hover:bg-gray-50 transition">
           <i className="fa fa-arrow-left mr-1.5" />Back
@@ -510,7 +510,7 @@ export default function SignupPage() {
     </>
   );
 
-  /* ══════════════════════════════ STEP 3 ══════════════════════════════ */
+  /* ------------------------------ STEP 3 ------------------------------ */
   return (
     <>
       <div className="mb-4">

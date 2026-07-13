@@ -14,7 +14,7 @@ import toast from 'react-hot-toast';
 
 const COUNTRIES  = ['India', 'USA', 'UK', 'Canada', 'Australia', 'UAE', 'Singapore', 'Germany'];
 const STATES     = ['Delhi', 'Maharashtra', 'Karnataka', 'Tamil Nadu', 'Gujarat', 'Rajasthan', 'Uttar Pradesh'];
-const RANGES     = ['$500–$1,000/project', '$1,000–$5,000/project', '$5,000–$15,000/project', '$15,000–$50,000/project', '$50,000+/project'];
+const RANGES     = ['$500-$1,000/project', '$1,000-$5,000/project', '$5,000-$15,000/project', '$15,000-$50,000/project', '$50,000+/project'];
 const RESP_TIMES = ['Within 1 hour', 'Within 6 hours', 'Within 24 hours', 'Within 48 hours', 'Within a week'];
 
 const selectCls = 'w-full h-11 border border-gray-200 rounded-xl px-3 text-sm text-[#1a1a1a] focus:outline-none focus:ring-2 focus:ring-[#e84545]/30 focus:border-[#e84545] bg-white transition appearance-none';
@@ -34,13 +34,13 @@ const emptyForm = {
   portfolioLinks: '',
 };
 
-// Map backend seller → display shape
+// Map backend seller -> display shape
 const mapSeller = (s: any) => ({
   id:          s.id,
   name:        s.name,
   email:       s.email,
-  phone:       s.phone || '—',
-  category:    s.profile?.skills?.[0] || '—',
+  phone:       s.phone || '--',
+  category:    s.profile?.skills?.[0] || '--',
   hourlyRate:  s.profile?.hourly_rate || 0,
   rating:      s.profile?.rating || 0,
   jobs:        0,
@@ -48,8 +48,8 @@ const mapSeller = (s: any) => ({
   status:      (s.profile?.approval_status || 'pending').toUpperCase(),
   userStatus:  s.status,
   joined:      s.joined || s.createdAt,
-  city:        s.profile?.city || '—',
-  country:     s.profile?.country || '—',
+  city:        s.profile?.city || '--',
+  country:     s.profile?.country || '--',
   bio:         s.profile?.bio || '',
   skills:      s.profile?.skills || [],
   raw:         s,
@@ -67,7 +67,7 @@ export default function SellersPage() {
   const [total, setTotal]               = useState(0);
   const LIMIT = 10;
 
-  // ── Categories from API (used as tag chips) ───────────────
+  // -- Categories from API (used as tag chips) ---------------
   const [categoryTags, setCategoryTags] = useState<string[]>([]);
 
   useEffect(() => {
@@ -82,12 +82,12 @@ export default function SellersPage() {
   const [addLoading, setAddLoading] = useState(false);
   const [viewSeller, setViewSeller] = useState<any | null>(null);
 
-  // ── Edit state ────────────────────────────────────────────
+  // -- Edit state --------------------------------------------
   const [editSeller, setEditSeller] = useState<any | null>(null);
   const [editForm, setEditForm]     = useState({ name: '', phone: '', countryCode: '+91', bio: '', city: '', country: 'India', hourlyRate: '', tags: [] as string[] });
   const [editLoading, setEditLoading] = useState(false);
 
-  // ── Validation errors ─────────────────────────────────────
+  // -- Validation errors -------------------------------------
   const [addErrs, setAddErrs]   = useState<Record<string, string>>({});
   const [editErrs, setEditErrs] = useState<Record<string, string>>({});
 
@@ -95,13 +95,13 @@ export default function SellersPage() {
     ...f, tags: f.tags.includes(t) ? f.tags.filter(x => x !== t) : [...f.tags, t],
   }));
 
-  // ── Debounce search (400ms) ───────────────────────────────
+  // -- Debounce search (400ms) -------------------------------
   useEffect(() => {
     const t = setTimeout(() => { setDebouncedSearch(search); setPage(1); }, 400);
     return () => clearTimeout(t);
   }, [search]);
 
-  // ── Fetch sellers ─────────────────────────────────────────
+  // -- Fetch sellers -----------------------------------------
   const fetchSellers = useCallback(async () => {
     setLoading(true);
     try {
@@ -123,7 +123,7 @@ export default function SellersPage() {
   useEffect(() => { fetchSellers(); }, [fetchSellers]);
   useEffect(() => { setPage(1); }, [activeFilter]);
 
-  // ── Actions ───────────────────────────────────────────────
+  // -- Actions -----------------------------------------------
   const handleAction = async (id: number, action: 'approve' | 'reject' | 'block' | 'unblock', label: string) => {
     setActionLoading(id);
     try {
@@ -137,7 +137,7 @@ export default function SellersPage() {
     }
   };
 
-  // ── Add seller ────────────────────────────────────────────
+  // -- Add seller --------------------------------------------
   const handleAdd = async () => {
     const e: Record<string, string> = {};
     if (!form.name.trim())                           e.name     = 'Name is required';
@@ -145,7 +145,7 @@ export default function SellersPage() {
     else if (!/\S+@\S+\.\S+/.test(form.email))      e.email    = 'Enter a valid email address';
     if (!form.password)                              e.password = 'Password is required';
     else if (form.password.length < 6)               e.password = 'Minimum 6 characters';
-    if (form.phone && !/^\d{7,10}$/.test(form.phone)) e.phone  = 'Enter valid digits (7–10)';
+    if (form.phone && !/^\d{7,10}$/.test(form.phone)) e.phone  = 'Enter valid digits (7-10)';
     if (Object.keys(e).length) { setAddErrs(e); if (addStep !== 1) setAddStep(1); return; }
     setAddErrs({});
     setAddLoading(true);
@@ -176,7 +176,7 @@ export default function SellersPage() {
 
   const closeAdd = () => { setShowAdd(false); setAddStep(1); setForm(emptyForm); setAddErrs({}); };
 
-  // ── Split stored phone into code + digits ─────────────────
+  // -- Split stored phone into code + digits -----------------
   const splitPhone = (full: string) => {
     const codes = ['+971', '+966', '+65', '+61', '+44', '+91', '+1'];
     for (const c of codes) {
@@ -185,17 +185,17 @@ export default function SellersPage() {
     return { countryCode: '+91', phone: full };
   };
 
-  // ── Open edit ─────────────────────────────────────────────
+  // -- Open edit ---------------------------------------------
   const openEdit = (s: any) => {
     setEditSeller(s);
-    const { countryCode, phone } = s.phone && s.phone !== '—' ? splitPhone(s.phone) : { countryCode: '+91', phone: '' };
+    const { countryCode, phone } = s.phone && s.phone !== '--' ? splitPhone(s.phone) : { countryCode: '+91', phone: '' };
     setEditForm({
       name:       s.name,
       phone,
       countryCode,
       bio:        s.bio || '',
-      city:       s.city === '—' ? '' : s.city,
-      country:    s.country === '—' ? 'India' : s.country,
+      city:       s.city === '--' ? '' : s.city,
+      country:    s.country === '--' ? 'India' : s.country,
       hourlyRate: s.hourlyRate ? String(s.hourlyRate) : '',
       tags:       [...(s.skills || [])],
     });
@@ -209,7 +209,7 @@ export default function SellersPage() {
     if (!editSeller) return;
     const e: Record<string, string> = {};
     if (!editForm.name.trim())                                   e.name  = 'Name is required';
-    if (editForm.phone && !/^\d{7,10}$/.test(editForm.phone)) e.phone = 'Enter valid digits (7–10)';
+    if (editForm.phone && !/^\d{7,10}$/.test(editForm.phone)) e.phone = 'Enter valid digits (7-10)';
     if (editForm.hourlyRate && isNaN(Number(editForm.hourlyRate))) e.hourlyRate = 'Must be a number';
     if (Object.keys(e).length) { setEditErrs(e); return; }
     setEditErrs({});
@@ -292,15 +292,15 @@ export default function SellersPage() {
                         </div>
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-gray-600 text-xs max-w-[120px] truncate">{s.skills.slice(0, 2).join(', ') || '—'}</td>
+                    <td className="px-4 py-3 text-gray-600 text-xs max-w-[120px] truncate">{s.skills.slice(0, 2).join(', ') || '--'}</td>
                     <td className="px-4 py-3">
                       <span className="text-sm font-semibold text-gray-800">
-                        {s.hourlyRate ? `$${s.hourlyRate}` : '—'}<span className="text-xs font-normal text-gray-400">{s.hourlyRate ? '/hr' : ''}</span>
+                        {s.hourlyRate ? `$${s.hourlyRate}` : '--'}<span className="text-xs font-normal text-gray-400">{s.hourlyRate ? '/hr' : ''}</span>
                       </span>
                     </td>
                     <td className="px-4 py-3">
                       <span className="flex items-center gap-1 text-yellow-600 font-medium">
-                        <i className="fa fa-star text-yellow-400 text-xs" />{s.rating || '—'}
+                        <i className="fa fa-star text-yellow-400 text-xs" />{s.rating || '--'}
                       </span>
                     </td>
                     <td className="px-4 py-3">
@@ -379,7 +379,7 @@ export default function SellersPage() {
         </div>
       </Card>
 
-      {/* ── Add Seller Modal ─────────────────────────────────── */}
+      {/* -- Add Seller Modal ----------------------------------- */}
       <Modal isOpen={showAdd} onClose={closeAdd} title="Add New Seller" size="lg">
         {/* Step bar */}
         <div className="mb-5">
@@ -404,7 +404,7 @@ export default function SellersPage() {
 
         <div className="max-h-[54vh] overflow-y-auto pr-1 -mr-1">
 
-          {/* Step 1 — Account */}
+          {/* Step 1 -- Account */}
           {addStep === 1 && (
             <div className="space-y-4">
               <div>
@@ -441,7 +441,7 @@ export default function SellersPage() {
             </div>
           )}
 
-          {/* Step 2 — Profile */}
+          {/* Step 2 -- Profile */}
           {addStep === 2 && (
             <div className="space-y-5">
               <div>
@@ -507,7 +507,7 @@ export default function SellersPage() {
                   <label className={labelCls}>Tags / Skills</label>
                   <div className="p-3 bg-[#fafafa] rounded-xl border border-[#e8e8e8]">
                     {categoryTags.length === 0 ? (
-                      <p className="text-xs text-gray-400 italic">No categories yet — add them from the Categories page.</p>
+                      <p className="text-xs text-gray-400 italic">No categories yet -- add them from the Categories page.</p>
                     ) : (
                       <div className="flex flex-wrap gap-1.5">
                         {categoryTags.map(t => (
@@ -530,7 +530,7 @@ export default function SellersPage() {
             </div>
           )}
 
-          {/* Step 3 — Portfolio */}
+          {/* Step 3 -- Portfolio */}
           {addStep === 3 && (
             <div className="space-y-4">
               <div className="flex items-center gap-2 p-3 bg-blue-50 rounded-xl border border-blue-100">
@@ -577,8 +577,8 @@ export default function SellersPage() {
             </div>
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div><p className="text-xs text-gray-400 mb-0.5">Phone</p><p className="font-medium">{viewSeller.phone}</p></div>
-              <div><p className="text-xs text-gray-400 mb-0.5">Hourly Rate</p><p className="font-medium">{viewSeller.hourlyRate ? `$${viewSeller.hourlyRate}/hr` : '—'}</p></div>
-              <div><p className="text-xs text-gray-400 mb-0.5">Rating</p><p className="font-medium flex items-center gap-1"><i className="fa fa-star text-yellow-400 text-xs" />{viewSeller.rating || '—'}</p></div>
+              <div><p className="text-xs text-gray-400 mb-0.5">Hourly Rate</p><p className="font-medium">{viewSeller.hourlyRate ? `$${viewSeller.hourlyRate}/hr` : '--'}</p></div>
+              <div><p className="text-xs text-gray-400 mb-0.5">Rating</p><p className="font-medium flex items-center gap-1"><i className="fa fa-star text-yellow-400 text-xs" />{viewSeller.rating || '--'}</p></div>
               <div><p className="text-xs text-gray-400 mb-0.5">Joined</p><p className="font-medium">{formatDate(viewSeller.joined)}</p></div>
               <div><p className="text-xs text-gray-400 mb-0.5">Country</p><p className="font-medium">{viewSeller.country}</p></div>
               <div><p className="text-xs text-gray-400 mb-0.5">City</p><p className="font-medium">{viewSeller.city}</p></div>
@@ -603,9 +603,9 @@ export default function SellersPage() {
         </Modal>
       )}
 
-      {/* ── Edit Seller Modal ─────────────────────────────────── */}
+      {/* -- Edit Seller Modal ----------------------------------- */}
       {editSeller && (
-        <Modal isOpen={!!editSeller} onClose={() => { setEditSeller(null); setEditErrs({}); }} title={`Edit — ${editSeller.name}`} size="lg">
+        <Modal isOpen={!!editSeller} onClose={() => { setEditSeller(null); setEditErrs({}); }} title={`Edit -- ${editSeller.name}`} size="lg">
           <div className="max-h-[60vh] overflow-y-auto pr-1 -mr-1 space-y-5">
 
             {/* Basic Info */}
@@ -666,7 +666,7 @@ export default function SellersPage() {
               <label className={labelCls}>Skills</label>
               <div className="p-3 bg-[#fafafa] rounded-xl border border-[#e8e8e8]">
                 {categoryTags.length === 0 ? (
-                  <p className="text-xs text-gray-400 italic">No categories yet — add them from the Categories page.</p>
+                  <p className="text-xs text-gray-400 italic">No categories yet -- add them from the Categories page.</p>
                 ) : (
                   <div className="flex flex-wrap gap-1.5">
                     {categoryTags.map(t => (

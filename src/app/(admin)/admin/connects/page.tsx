@@ -22,11 +22,11 @@ const initHistory = [
   { id: 1, user: 'Bob Smith',    type: 'Purchase', plan: 'Pro',      connects: 80,  amount: 19.99, date: '2024-11-10', note: '' },
   { id: 2, user: 'Frank Miller', type: 'Purchase', plan: 'Starter',  connects: 30,  amount: 9.99,  date: '2024-11-09', note: '' },
   { id: 3, user: 'Diana Prince', type: 'Purchase', plan: 'Business', connects: 200, amount: 39.99, date: '2024-11-08', note: '' },
-  { id: 4, user: 'Grace Hopper', type: 'Bonus',    plan: '—',        connects: 20,  amount: 0,     date: '2024-11-07', note: 'Welcome bonus' },
+  { id: 4, user: 'Grace Hopper', type: 'Bonus',    plan: '--',        connects: 20,  amount: 0,     date: '2024-11-07', note: 'Welcome bonus' },
   { id: 5, user: 'Henry Ford',   type: 'Purchase', plan: 'Starter',  connects: 30,  amount: 9.99,  date: '2024-11-05', note: '' },
-  { id: 6, user: 'Alice Johnson', type: 'Bonus',   plan: '—',        connects: 50,  amount: 0,     date: '2024-11-03', note: 'Promotional offer' },
+  { id: 6, user: 'Alice Johnson', type: 'Bonus',   plan: '--',        connects: 50,  amount: 0,     date: '2024-11-03', note: 'Promotional offer' },
   { id: 7, user: 'Carlos Ruiz',  type: 'Purchase', plan: 'Business', connects: 200, amount: 39.99, date: '2024-11-01', note: '' },
-  { id: 8, user: 'Eva Green',    type: 'Manual',   plan: '—',        connects: 15,  amount: 0,     date: '2024-10-28', note: 'Refund adjustment' },
+  { id: 8, user: 'Eva Green',    type: 'Manual',   plan: '--',        connects: 15,  amount: 0,     date: '2024-10-28', note: 'Refund adjustment' },
 ];
 
 type Plan    = typeof initialPlans[0];
@@ -78,7 +78,7 @@ export default function AdminConnectsPage() {
   const handleAddConnects = () => {
     if (!addAmount || !addSeller) return;
     setHistory(prev => [{
-      id: Date.now(), user: addSeller, type: addType, plan: '—',
+      id: Date.now(), user: addSeller, type: addType, plan: '--',
       connects: parseInt(addAmount), amount: 0,
       date: new Date().toISOString().split('T')[0], note: addNote,
     }, ...prev]);
@@ -179,7 +179,7 @@ export default function AdminConnectsPage() {
                   <td className="px-4 py-3 font-semibold text-gray-900">
                     {h.amount > 0 ? formatCurrency(h.amount) : <span className="text-gray-400 text-xs">Free</span>}
                   </td>
-                  <td className="px-4 py-3 text-gray-400 text-xs italic">{h.note || '—'}</td>
+                  <td className="px-4 py-3 text-gray-400 text-xs italic">{h.note || '--'}</td>
                   <td className="px-4 py-3 text-gray-400 text-xs">{formatDate(h.date)}</td>
                 </tr>
               ))}
@@ -188,7 +188,7 @@ export default function AdminConnectsPage() {
         </div>
       </Card>
 
-      {/* ── Add Connects Modal ─────────────────────────────── */}
+      {/* -- Add Connects Modal ------------------------------- */}
       <Modal isOpen={addModal} onClose={() => setAddModal(false)} title="Add Connects to Seller" size="sm">
         <div className="space-y-4">
           <CustomSelect
@@ -231,7 +231,7 @@ export default function AdminConnectsPage() {
         </div>
       </Modal>
 
-      {/* ── Edit Plan Modal ────────────────────────────────── */}
+      {/* -- Edit Plan Modal ---------------------------------- */}
       <Modal isOpen={editModal} onClose={() => setEditModal(false)} title={`Edit ${selectedPlan?.name} Plan`} size="sm">
         <div className="space-y-4">
           <Input label="Price ($)" type="number" value={editPrice} onChange={(e) => setEditPrice(e.target.value)} />
@@ -243,7 +243,7 @@ export default function AdminConnectsPage() {
         </div>
       </Modal>
 
-      {/* ── Add Plan Modal ─────────────────────────────────── */}
+      {/* -- Add Plan Modal ----------------------------------- */}
       <Modal isOpen={addPlanModal} onClose={() => setAddPlanModal(false)} title="Add New Plan" size="sm">
         <div className="space-y-4">
           <Input label="Plan Name" placeholder="e.g. Enterprise" value={newPlanName} onChange={(e) => setNewPlanName(e.target.value)} />

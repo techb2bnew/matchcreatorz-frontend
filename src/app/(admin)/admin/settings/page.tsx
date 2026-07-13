@@ -43,7 +43,7 @@ export default function AdminSettingsPage() {
     <DashboardLayout role="ADMIN" title="Settings">
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-5">
 
-        {/* ── Left: Tab sidebar ── */}
+        {/* -- Left: Tab sidebar -- */}
         <div className="lg:col-span-1">
           <div className="bg-white rounded-2xl border border-[#e8e8e8] shadow-sm p-2 space-y-1">
             {tabs.map(t => (
@@ -90,7 +90,7 @@ export default function AdminSettingsPage() {
           </div>
         </div>
 
-        {/* ── Right: Content ── */}
+        {/* -- Right: Content -- */}
         <div className="lg:col-span-3 space-y-5">
 
           {/* Platform Fees */}

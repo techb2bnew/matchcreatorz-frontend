@@ -1,10 +1,10 @@
 'use client';
 
-/* ─────────────────────────────────────────────────────────────
-   Loader.tsx  —  Reusable loading components for MatchCreatorz
-   ───────────────────────────────────────────────────────────── */
+/* -------------------------------------------------------------
+   Loader.tsx  --  Reusable loading components for MatchCreatorz
+   ------------------------------------------------------------- */
 
-// ── 1. Small inline spinner ──────────────────────────────────────────
+// -- 1. Small inline spinner ------------------------------------------
 export function Spinner({
   size = 'md',
   color = 'red',
@@ -30,7 +30,7 @@ export function Spinner({
   );
 }
 
-// ── 2. Centered page-level loader (replaces full content area) ────────
+// -- 2. Centered page-level loader (replaces full content area) --------
 export function PageLoader({ text = 'Loading...' }: { text?: string }) {
   return (
     <div className="flex flex-col items-center justify-center py-20 gap-4">
@@ -53,7 +53,7 @@ export function PageLoader({ text = 'Loading...' }: { text?: string }) {
   );
 }
 
-// ── 3. Table skeleton — mimics table rows while data loads ─────────────
+// -- 3. Table skeleton -- mimics table rows while data loads -------------
 const COL_WIDTHS = [
   'w-20', 'w-14', 'w-16', 'w-12', 'w-20', 'w-10', 'w-14',
 ];
@@ -93,7 +93,7 @@ export function TableSkeleton({ rows = 6, cols = 6 }: { rows?: number; cols?: nu
   );
 }
 
-// ── 4. Card grid skeleton — for categories / grid layouts ─────────────
+// -- 4. Card grid skeleton -- for categories / grid layouts -------------
 export function CardSkeleton({ count = 8 }: { count?: number }) {
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 animate-pulse">
@@ -120,7 +120,7 @@ export function CardSkeleton({ count = 8 }: { count?: number }) {
   );
 }
 
-// ── 5. Stat card skeleton — for dashboard stat cards ──────────────────
+// -- 5. Stat card skeleton -- for dashboard stat cards ------------------
 export function StatCardSkeleton({ count = 4 }: { count?: number }) {
   return (
     <>
@@ -142,7 +142,7 @@ export function StatCardSkeleton({ count = 4 }: { count?: number }) {
   );
 }
 
-// ── 6. Full-screen overlay (on top of existing content while saving) ──
+// -- 6. Full-screen overlay (on top of existing content while saving) --
 export function OverlayLoader({ text = 'Please wait...' }: { text?: string }) {
   return (
     <div className="absolute inset-0 bg-white/75 backdrop-blur-[2px] flex flex-col items-center justify-center z-30 rounded-2xl gap-3">
@@ -155,7 +155,7 @@ export function OverlayLoader({ text = 'Please wait...' }: { text?: string }) {
   );
 }
 
-// ── 7. Dots loader — compact, for inline use ──────────────────────────
+// -- 7. Dots loader -- compact, for inline use --------------------------
 export function DotsLoader({ className = '' }: { className?: string }) {
   return (
     <div className={`flex items-center gap-1 ${className}`}>

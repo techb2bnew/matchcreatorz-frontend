@@ -41,7 +41,7 @@ export const loginUser = createAsyncThunk(
     payload: { email?: string; phone?: string; password: string; countryCode?: string; role?: 'ADMIN' | 'SELLER' | 'BUYER' },
     thunkAPI
   ) => {
-    // ── Real API call (email or phone login) ─────────────────
+    // -- Real API call (email or phone login) -----------------
     if ((payload.email || payload.phone) && payload.password) {
       try {
         const body: Record<string, string> = { password: payload.password };
@@ -62,7 +62,7 @@ export const loginUser = createAsyncThunk(
           return thunkAPI.rejectWithValue(json.message || 'Login failed');
         }
 
-        // Map backend fields → frontend User shape
+        // Map backend fields -> frontend User shape
         const apiUser = json.data.user;
         const role    = (json.data.role || apiUser.role) as User['type'];
         const user: User = {
@@ -79,7 +79,7 @@ export const loginUser = createAsyncThunk(
       }
     }
 
-    // ── Mock demo login (role-based) ──────────────────────────
+    // -- Mock demo login (role-based) --------------------------
     await new Promise((r) => setTimeout(r, 800));
     if (payload.role) {
       const key = payload.role.toLowerCase() as keyof typeof MOCK_USERS;
@@ -113,9 +113,23 @@ export const getProfile = createAsyncThunk('auth/profile', async (_, thunkAPI) =
   try {
     const token = Cookies.get('mc_token');
     if (!token) return thunkAPI.rejectWithValue('No token');
-    const type = Cookies.get('mc_user_type') as string;
-    const key = (type?.toLowerCase() || 'buyer') as keyof typeof MOCK_USERS;
-    const { password: _p, ...user } = MOCK_USERS[key] || MOCK_USERS.buyer; void _p;
+    const type = (Cookies.get('mc_user_type') || 'BUYER').toLowerCase();
+
+    const res = await fetch(`${API}/api/v1/${type}/profile`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const json = await res.json();
+    if (!res.ok) return thunkAPI.rejectWithValue('Failed to fetch profile');
+
+    const apiUser = json.data;
+    const user: User = {
+      ...BASE,
+      id:       apiUser.id,
+      fullName: apiUser.name,
+      email:    apiUser.email,
+      phone:    apiUser.phone || '',
+      type:     (Cookies.get('mc_user_type') || 'BUYER') as User['type'],
+    };
     return user;
   } catch (_e) {
     return thunkAPI.rejectWithValue('Failed');

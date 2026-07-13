@@ -4,7 +4,7 @@ import ReduxProvider from '@/components/providers/ReduxProvider';
 import { Toaster } from 'react-hot-toast';
 
 export const metadata: Metadata = {
-  title: 'MatchCreatorz — Connect. Create. Succeed.',
+  title: 'MatchCreatorz -- Connect. Create. Succeed.',
   description: 'The premier marketplace connecting talented creators with buyers.',
   icons: { icon: '/favicon.ico' },
 };

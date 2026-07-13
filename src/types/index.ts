@@ -1,4 +1,4 @@
-// ─── User Types ───────────────────────────────────────────────
+// --- User Types -----------------------------------------------
 export type UserRole = 'ADMIN' | 'SELLER' | 'BUYER';
 
 export interface User {
@@ -28,7 +28,7 @@ export interface User {
   created: string;
 }
 
-// ─── Auth ─────────────────────────────────────────────────────
+// --- Auth -----------------------------------------------------
 export interface AuthState {
   user: User | null;
   token: string | null;
@@ -37,7 +37,7 @@ export interface AuthState {
   error: string | null;
 }
 
-// ─── Service ──────────────────────────────────────────────────
+// --- Service --------------------------------------------------
 export type ServiceType = 'Service' | 'Job';
 export type ServiceStatus = 'OPEN' | 'CLOSED' | 'BOOKED';
 
@@ -60,7 +60,7 @@ export interface Service {
   created: string;
 }
 
-// ─── Booking ──────────────────────────────────────────────────
+// --- Booking --------------------------------------------------
 export type BookingStatus =
   | 'Pending'
   | 'Ongoing'
@@ -93,7 +93,7 @@ export interface Booking {
   created: string;
 }
 
-// ─── Offer ────────────────────────────────────────────────────
+// --- Offer ----------------------------------------------------
 export type OfferStatus = 'Pending' | 'Accepted' | 'Rejected' | 'WithDrawn';
 
 export interface Offer {
@@ -111,7 +111,7 @@ export interface Offer {
   created: string;
 }
 
-// ─── Bid ──────────────────────────────────────────────────────
+// --- Bid ------------------------------------------------------
 export type BidStatus = 'Pending' | 'Accepted' | 'Rejected' | 'WithDrawn';
 
 export interface Bid {
@@ -125,7 +125,7 @@ export interface Bid {
   created: string;
 }
 
-// ─── Connect ──────────────────────────────────────────────────
+// --- Connect --------------------------------------------------
 export interface Connect {
   id: number;
   planName: string;
@@ -137,7 +137,7 @@ export interface Connect {
   isSuspended: boolean;
 }
 
-// ─── Category ─────────────────────────────────────────────────
+// --- Category -------------------------------------------------
 export interface Category {
   id: number;
   name: string;
@@ -145,13 +145,13 @@ export interface Category {
   isActive: boolean;
 }
 
-// ─── Tag ──────────────────────────────────────────────────────
+// --- Tag ------------------------------------------------------
 export interface Tag {
   id: number;
   name: string;
 }
 
-// ─── Wallet ───────────────────────────────────────────────────
+// --- Wallet ---------------------------------------------------
 export interface WalletTransaction {
   id: number;
   userId: number;
@@ -177,7 +177,7 @@ export interface WithdrawRequest {
   created: string;
 }
 
-// ─── Notification ─────────────────────────────────────────────
+// --- Notification ---------------------------------------------
 export interface Notification {
   id: number;
   title: string;
@@ -191,7 +191,7 @@ export interface Notification {
   created: string;
 }
 
-// ─── Chat ─────────────────────────────────────────────────────
+// --- Chat -----------------------------------------------------
 export interface ChatMessage {
   id: number;
   chatRequestId: number;
@@ -212,7 +212,7 @@ export interface ChatRoom {
   created: string;
 }
 
-// ─── API Response ─────────────────────────────────────────────
+// --- API Response ---------------------------------------------
 export interface ApiResponse<T = unknown> {
   success: boolean;
   message: string;
@@ -225,7 +225,7 @@ export interface PaginatedResponse<T> {
   totalPage: number;
 }
 
-// ─── Navigation ───────────────────────────────────────────────
+// --- Navigation -----------------------------------------------
 export interface NavItem {
   label: string;
   href: string;

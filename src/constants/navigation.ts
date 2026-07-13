@@ -28,6 +28,7 @@ export const sellerNav: NavItem[] = [
   { label: 'Browse Jobs',   href: '/seller/jobs',          icon: 'fa-briefcase'      },
   { label: 'My Bids',       href: '/seller/bids',          icon: 'fa-gavel'          },
   { label: 'Bookings',      href: '/seller/bookings',      icon: 'fa-calendar-check-o'},
+  { label: 'Reviews',       href: '/seller/reviews',       icon: 'fa-star'           },
   { label: 'Offers',        href: '/seller/offers',        icon: 'fa-tags'           },
   { label: 'Connects',      href: '/seller/connects',      icon: 'fa-link'           },
   { label: 'Wallet',        href: '/seller/wallet',        icon: 'fa-credit-card'    },

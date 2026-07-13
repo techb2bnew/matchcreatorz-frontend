@@ -16,16 +16,16 @@ const allMsgs: Record<number, { id: number; senderId: number; text: string; time
     { id: 1, senderId: 2, text: 'Hi Alice! I have completed the initial logo concepts.', time: '9:00 AM' },
     { id: 2, senderId: 1, text: 'Wow, these look amazing! I love the second concept.', time: '9:15 AM' },
     { id: 3, senderId: 2, text: 'Great! I can refine it further. Any color preferences?', time: '9:17 AM' },
-    { id: 4, senderId: 1, text: 'I am thinking more pastel tones — maybe soft pink and gold.', time: '9:20 AM' },
+    { id: 4, senderId: 1, text: 'I am thinking more pastel tones -- maybe soft pink and gold.', time: '9:20 AM' },
     { id: 5, senderId: 2, text: 'The logo files are ready! Check your email for the full package.', time: '9:45 AM' },
   ],
   2: [
     { id: 1, senderId: 2, text: 'I have deployed the latest build. Let me know if you have questions.', time: '10:00 AM' },
-    { id: 2, senderId: 1, text: 'Looks great! One thing — can we tweak the mobile nav?', time: '10:30 AM' },
+    { id: 2, senderId: 1, text: 'Looks great! One thing -- can we tweak the mobile nav?', time: '10:30 AM' },
     { id: 3, senderId: 2, text: 'Of course! I will push an update by EOD.', time: '10:35 AM' },
   ],
   3: [
-    { id: 1, senderId: 2, text: 'Hey, just confirming — I will start on Monday.', time: '5h ago' },
+    { id: 1, senderId: 2, text: 'Hey, just confirming -- I will start on Monday.', time: '5h ago' },
     { id: 2, senderId: 1, text: 'Perfect! All assets have been shared.', time: '5h ago' },
   ],
   4: [

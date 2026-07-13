@@ -10,7 +10,7 @@ import { adminServiceApi, categoryApi } from '@/lib/adminApi';
 
 type ServiceStatus = 'active' | 'paused' | 'rejected';
 
-// ── Custom single-select category filter ──────────────────────────────
+// -- Custom single-select category filter ------------------------------
 function CategoryFilter({
   categories, value, onChange,
 }: {
@@ -77,7 +77,7 @@ const statusBadge = (s: ServiceStatus) => {
   return 'bg-gray-100 text-gray-500';
 };
 
-// ── Service Detail Modal ───────────────────────────────────────────────
+// -- Service Detail Modal -----------------------------------------------
 function ServiceDetailModal({
   service, onClose, onAction, actionLoading,
 }: {
@@ -178,7 +178,7 @@ function ServiceDetailModal({
                     {s.seller?.name?.[0]?.toUpperCase() || 'S'}
                   </div>
                   <div className="min-w-0">
-                    <p className="text-sm font-semibold text-gray-900 truncate">{s.seller?.name || '—'}</p>
+                    <p className="text-sm font-semibold text-gray-900 truncate">{s.seller?.name || '--'}</p>
                     <p className="text-[10px] text-gray-400 truncate">{s.seller?.email || ''}</p>
                   </div>
                 </div>
@@ -191,7 +191,7 @@ function ServiceDetailModal({
                     {s.category.name}
                   </span>
                 ) : (
-                  <span className="text-sm text-gray-400">—</span>
+                  <span className="text-sm text-gray-400">--</span>
                 )}
               </div>
             </div>
@@ -201,7 +201,7 @@ function ServiceDetailModal({
               {[
                 { label: 'Views',  value: s.views_count,  icon: 'fa-eye',          color: 'text-blue-500'   },
                 { label: 'Orders', value: s.orders_count, icon: 'fa-shopping-bag', color: 'text-green-500'  },
-                { label: 'Rating', value: s.rating > 0 ? Number(s.rating).toFixed(1) : '—', icon: 'fa-star', color: 'text-yellow-500' },
+                { label: 'Rating', value: s.rating > 0 ? Number(s.rating).toFixed(1) : '--', icon: 'fa-star', color: 'text-yellow-500' },
               ].map((stat) => (
                 <div key={stat.label} className="bg-gray-50 rounded-2xl p-3 text-center">
                   <i className={`fa ${stat.icon} ${stat.color} text-base mb-1 block`} />
@@ -261,7 +261,7 @@ function ServiceDetailModal({
   );
 }
 
-// ── Main Page ─────────────────────────────────────────────────────────
+// -- Main Page ---------------------------------------------------------
 export default function AdminServicesPage() {
   const [services, setServices]       = useState<Service[]>([]);
   const [categories, setCategories]   = useState<Category[]>([]);
@@ -392,15 +392,15 @@ export default function AdminServicesPage() {
                         )}
                         <div>
                           <p className="font-medium text-gray-900 line-clamp-1 max-w-[180px]">{s.title}</p>
-                          <p className="text-[10px] text-gray-400">{s.delivery_days}d · {s.revisions} rev</p>
+                          <p className="text-[10px] text-gray-400">{s.delivery_days}d . {s.revisions} rev</p>
                         </div>
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      <p className="text-gray-800 text-xs font-medium">{s.seller?.name || '—'}</p>
+                      <p className="text-gray-800 text-xs font-medium">{s.seller?.name || '--'}</p>
                       <p className="text-[10px] text-gray-400">{s.seller?.email || ''}</p>
                     </td>
-                    <td className="px-4 py-3 text-xs text-gray-500">{s.category?.name || '—'}</td>
+                    <td className="px-4 py-3 text-xs text-gray-500">{s.category?.name || '--'}</td>
                     <td className="px-4 py-3 font-semibold text-gray-900">{formatCurrency(s.price)}</td>
                     <td className="px-4 py-3 text-gray-700">{s.orders_count}</td>
                     <td className="px-4 py-3">
@@ -445,11 +445,11 @@ export default function AdminServicesPage() {
         {!loading && total > 0 && (
           <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100">
             <p className="text-sm text-gray-400">
-              Showing {Math.min((page - 1) * LIMIT + 1, total)}–{Math.min(page * LIMIT, total)} of {total} services
+              Showing {Math.min((page - 1) * LIMIT + 1, total)}-{Math.min(page * LIMIT, total)} of {total} services
             </p>
             <div className="flex gap-1">
               <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}
-                className="h-8 w-8 rounded-lg text-sm font-medium text-gray-500 hover:bg-gray-100 disabled:opacity-40 transition-colors">‹</button>
+                className="h-8 w-8 rounded-lg text-sm font-medium text-gray-500 hover:bg-gray-100 disabled:opacity-40 transition-colors">&lt;</button>
               {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
                 const p = totalPages <= 5 ? i + 1 : page <= 3 ? i + 1 : page + i - 2;
                 if (p < 1 || p > totalPages) return null;
@@ -460,7 +460,7 @@ export default function AdminServicesPage() {
                 );
               })}
               <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages}
-                className="h-8 w-8 rounded-lg text-sm font-medium text-gray-500 hover:bg-gray-100 disabled:opacity-40 transition-colors">›</button>
+                className="h-8 w-8 rounded-lg text-sm font-medium text-gray-500 hover:bg-gray-100 disabled:opacity-40 transition-colors">&gt;</button>
             </div>
           </div>
         )}

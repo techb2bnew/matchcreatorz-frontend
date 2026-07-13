@@ -32,7 +32,7 @@ export default function SellerWalletPage() {
         <div className="flex flex-wrap items-center gap-4">
           <div className="flex-1 min-w-[200px]">
             <h3 className="font-semibold text-gray-900">Request Withdrawal</h3>
-            <p className="text-sm text-gray-400 mt-0.5">Minimum withdrawal: $50 · Processed within 3-5 business days</p>
+            <p className="text-sm text-gray-400 mt-0.5">Minimum withdrawal: $50 . Processed within 3-5 business days</p>
           </div>
           <div className="text-right">
             <p className="text-2xl font-black text-[#e84545]">$2,840</p>

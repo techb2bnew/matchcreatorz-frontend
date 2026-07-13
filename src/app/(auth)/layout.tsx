@@ -4,7 +4,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
   return (
     <div className="min-h-screen flex overflow-x-hidden" style={{ background: '#efefef' }}>
 
-      {/* ── Left panel (brand) ──────────────────────────── */}
+      {/* -- Left panel (brand) ---------------------------- */}
       <div className="hidden lg:flex lg:w-[45%] relative items-center justify-center p-12"
         style={{ background: 'linear-gradient(150deg, #1a1a1a 0%, #2d1a1a 60%, #1a1a1a 100%)' }}>
         {/* dot pattern */}
@@ -37,7 +37,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         </div>
       </div>
 
-      {/* ── Right panel (form) ──────────────────────────── */}
+      {/* -- Right panel (form) ---------------------------- */}
       <div className="flex-1 flex items-start lg:items-center justify-center p-4 lg:p-6 overflow-y-auto overflow-x-hidden">
         <div className="w-full max-w-[540px] my-auto">
           {/* Mobile logo */}

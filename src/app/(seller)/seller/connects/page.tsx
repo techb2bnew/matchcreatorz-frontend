@@ -68,7 +68,7 @@ export default function ConnectsPage() {
           {history.map((h) => (
             <div key={h.id} className="flex items-center gap-4 px-5 py-4">
               <div className={`p-2.5 rounded-xl ${h.type === 'Credit' ? 'bg-green-50' : 'bg-red-50'}`}>
-                <LinkIcon size={16} className={h.type === 'Credit' ? 'text-green-600' : 'text-red-500'} />
+                <i className={`fa fa-link text-sm ${h.type === 'Credit' ? 'text-green-600' : 'text-red-500'}`} />
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-gray-900">{h.description}</p>

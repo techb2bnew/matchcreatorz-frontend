@@ -5,6 +5,9 @@ import Modal           from '@/components/ui/Modal';
 import Button          from '@/components/ui/Button';
 import { cn }          from '@/lib/utils';
 import { buyerJobApi, publicCategoryApi } from '@/lib/adminApi';
+import { useRouter } from 'next/navigation';
+import CustomSelect from '@/components/ui/CustomSelect';
+import { OverlayLoader } from '@/components/ui/Loader';
 
 type Tab = 'posted' | 'post';
 const tabs: { key: Tab; label: string; icon: string }[] = [
@@ -37,27 +40,31 @@ interface Job {
 }
 
 interface FormState {
-  title: string; description: string; category: string;
+  title: string; description: string; category: string[];
   job_type: string; budget_min: string; budget_max: string;
   deadline: string; skills: string; experience_level: string;
 }
 const EMPTY: FormState = {
-  title: '', description: '', category: 'Design',
+  title: '', description: '', category: [],
   job_type: 'fixed', budget_min: '', budget_max: '',
   deadline: '', skills: '', experience_level: 'any',
 };
 
 function BudgetDisplay({ min, max }: { min: number | null; max: number | null }) {
   if (!min && !max) return <span className="text-gray-400 text-xs">Not specified</span>;
-  if (min && max)   return <span>${Number(min).toLocaleString()} – ${Number(max).toLocaleString()}</span>;
+  if (min && max)   return <span>${Number(min).toLocaleString()} - ${Number(max).toLocaleString()}</span>;
   if (min)          return <span>From ${Number(min).toLocaleString()}</span>;
   return <span>Up to ${Number(max).toLocaleString()}</span>;
 }
 
 export default function BuyerJobsPage() {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<Tab>('posted');
   const [jobs, setJobs]           = useState<Job[]>([]);
-  const [loading, setLoading]     = useState(true);
+  const [loading, setLoading]     = useState(true);   // only true on first load
+  const [refreshing, setRefreshing] = useState(false); // silent background refresh
+  const [search, setSearch]       = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
   const [categories, setCategories] = useState<string[]>(['Design', 'Development', 'Marketing', 'Writing', 'Video', 'Photography', 'Music', 'Animation']);
 
   // Form
@@ -80,13 +87,17 @@ export default function BuyerJobsPage() {
   const [closeTarget, setCloseTarget]   = useState<Job | null>(null);
   const [closing, setClosing]           = useState(false);
 
-  const loadJobs = useCallback(async () => {
-    setLoading(true);
+  const loadJobs = useCallback(async (q?: { search?: string; status?: string }, silent = false) => {
+    if (silent) setRefreshing(true);
+    else        setLoading(true);
     try {
-      const res = await buyerJobApi.list();
+      const params: Record<string, string> = {};
+      if (q?.search?.trim()) params.search = q.search.trim();
+      if (q?.status)         params.status = q.status;
+      const res = await buyerJobApi.list(params);
       setJobs(res.data || []);
     } catch { setJobs([]); }
-    finally { setLoading(false); }
+    finally { setLoading(false); setRefreshing(false); }
   }, []);
 
   useEffect(() => {
@@ -95,6 +106,12 @@ export default function BuyerJobsPage() {
       .then(r => { if (r.data?.length) setCategories(r.data.map((c: { name: string }) => c.name)); })
       .catch(() => {});
   }, [loadJobs]);
+
+  // Auto-search on typing (debounced 300ms, silent so no skeleton flicker)
+  useEffect(() => {
+    const t = setTimeout(() => loadJobs({ search, status: statusFilter }, true), 300);
+    return () => clearTimeout(t);
+  }, [search, statusFilter, loadJobs]);
 
   // Stats
   const total      = jobs.length;
@@ -127,7 +144,7 @@ export default function BuyerJobsPage() {
       await buyerJobApi.create({
         title:            form.title.trim(),
         description:      form.description || undefined,
-        category:         form.category,
+        category:         form.category.join(', ') || 'General',
         job_type:         form.job_type,
         budget_min:       form.budget_min ? Number(form.budget_min) : undefined,
         budget_max:       form.budget_max ? Number(form.budget_max) : undefined,
@@ -137,7 +154,7 @@ export default function BuyerJobsPage() {
       });
       setPostMsg({ ok: true, text: 'Job posted successfully!' });
       setForm(EMPTY);
-      await loadJobs();
+      await loadJobs(undefined, true);
       setTimeout(() => { setPostMsg(null); setActiveTab('posted'); }, 1500);
     } catch (e: unknown) {
       setPostMsg({ ok: false, text: (e as Error).message || 'Failed to post job' });
@@ -150,7 +167,7 @@ export default function BuyerJobsPage() {
     setEditForm({
       title:            job.title,
       description:      job.description || '',
-      category:         job.category,
+      category:         job.category ? job.category.split(',').map((s: string) => s.trim()).filter(Boolean) : [],
       job_type:         job.job_type,
       budget_min:       job.budget_min != null ? String(job.budget_min) : '',
       budget_max:       job.budget_max != null ? String(job.budget_max) : '',
@@ -170,7 +187,7 @@ export default function BuyerJobsPage() {
       await buyerJobApi.update(editJob.id, {
         title:            editForm.title.trim(),
         description:      editForm.description || undefined,
-        category:         editForm.category,
+        category:         editForm.category.join(', ') || 'General',
         job_type:         editForm.job_type,
         budget_min:       editForm.budget_min ? Number(editForm.budget_min) : undefined,
         budget_max:       editForm.budget_max ? Number(editForm.budget_max) : undefined,
@@ -179,7 +196,7 @@ export default function BuyerJobsPage() {
         experience_level: editForm.experience_level,
       });
       setEditMsg({ ok: true, text: 'Job updated!' });
-      await loadJobs();
+      await loadJobs(undefined, true);
       setTimeout(() => setEditJob(null), 1000);
     } catch (e: unknown) {
       setEditMsg({ ok: false, text: (e as Error).message || 'Failed to update' });
@@ -193,7 +210,7 @@ export default function BuyerJobsPage() {
     try {
       await buyerJobApi.close(closeTarget.id);
       setCloseTarget(null);
-      await loadJobs();
+      await loadJobs(undefined, true);
     } catch { /* ignore */ }
     finally { setClosing(false); }
   };
@@ -205,7 +222,7 @@ export default function BuyerJobsPage() {
     try {
       await buyerJobApi.delete(deleteTarget.id);
       setDeleteTarget(null);
-      await loadJobs();
+      await loadJobs(undefined, true);
     } catch { /* ignore */ }
     finally { setDeleting(false); }
   };
@@ -222,24 +239,38 @@ export default function BuyerJobsPage() {
 
       <div>
         <label className={labelCls}><i className="fa fa-align-left mr-1 text-[#e84545]" /> Description</label>
-        <textarea className={inputCls + ' h-24 resize-none py-3'} value={f.description}
-          onChange={e => setF(p => ({ ...p, description: e.target.value }))}
+        <textarea className={inputCls + ' resize-none py-3 overflow-hidden'} rows={4} value={f.description}
+          onChange={e => { setF(p => ({ ...p, description: e.target.value })); e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; }}
           placeholder="Describe what you need, including requirements, references..." />
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
-          <label className={labelCls}><i className="fa fa-tag mr-1 text-[#e84545]" /> Category</label>
-          <select className={inputCls} value={f.category} onChange={e => setF(p => ({ ...p, category: e.target.value }))}>
-            {categories.map(c => <option key={c}>{c}</option>)}
-          </select>
+          <label className={labelCls}><i className="fa fa-tag mr-1 text-[#e84545]" /> Category <span className="text-gray-400 normal-case font-normal">(select multiple)</span></label>
+          <div className="flex flex-wrap gap-2 p-3 border border-[#e8e8e8] rounded-xl bg-white min-h-[46px]">
+            {categories.map(cat => {
+              const selected = f.category.includes(cat);
+              return (
+                <button key={cat} type="button"
+                  onClick={() => setF(p => ({ ...p, category: selected ? p.category.filter(c => c !== cat) : [...p.category, cat] }))}
+                  className={cn('text-xs px-3 py-1.5 rounded-full border font-medium transition-all',
+                    selected ? 'bg-[#e84545] text-white border-[#e84545]' : 'bg-white text-gray-500 border-gray-200 hover:border-[#e84545] hover:text-[#e84545]'
+                  )}>
+                  {selected && <i className="fa fa-check mr-1 text-[10px]" />}{cat}
+                </button>
+              );
+            })}
+          </div>
+          {f.category.length === 0 && <p className="mt-1 text-xs text-gray-400">Select at least one category</p>}
         </div>
         <div>
           <label className={labelCls}><i className="fa fa-clock-o mr-1 text-[#e84545]" /> Job Type</label>
-          <select className={inputCls} value={f.job_type} onChange={e => setF(p => ({ ...p, job_type: e.target.value }))}>
-            <option value="fixed">Fixed Price</option>
-            <option value="hourly">Hourly Rate</option>
-          </select>
+          <CustomSelect
+            value={f.job_type === 'fixed' ? 'Fixed Price' : 'Hourly Rate'}
+            onChange={val => setF(p => ({ ...p, job_type: val === 'Fixed Price' ? 'fixed' : 'hourly' }))}
+            options={['Fixed Price', 'Hourly Rate']}
+            leftIcon="fa-clock-o"
+          />
         </div>
       </div>
 
@@ -264,9 +295,12 @@ export default function BuyerJobsPage() {
         </div>
         <div>
           <label className={labelCls}><i className="fa fa-graduation-cap mr-1 text-[#f59e0b]" /> Experience Level</label>
-          <select className={inputCls} value={f.experience_level} onChange={e => setF(p => ({ ...p, experience_level: e.target.value }))}>
-            {EXP_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-          </select>
+          <CustomSelect
+            value={EXP_OPTIONS.find(o => o.value === f.experience_level)?.label || 'Any Level'}
+            onChange={val => setF(p => ({ ...p, experience_level: EXP_OPTIONS.find(o => o.label === val)?.value || 'any' }))}
+            options={EXP_OPTIONS.map(o => o.label)}
+            leftIcon="fa-graduation-cap"
+          />
         </div>
       </div>
 
@@ -310,9 +344,45 @@ export default function BuyerJobsPage() {
           ))}
         </div>
 
+
         {/* Posted Jobs */}
         {activeTab === 'posted' && (
-          loading ? (
+          <>
+          {/* Search + Filter bar */}
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="relative flex-1">
+              <i className="fa fa-search absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm" />
+              <input
+                className="w-full border border-[#e8e8e8] rounded-xl pl-9 pr-4 py-2.5 text-sm focus:outline-none focus:border-[#e84545] focus:ring-1 focus:ring-[#e84545] bg-white transition"
+                placeholder="Search jobs by title or description..."
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+
+              />
+            </div>
+            <div className="w-40">
+              <CustomSelect
+                value={statusFilter === '' ? 'All Status' : statusFilter === 'OPEN' ? 'Open' : statusFilter === 'IN_PROGRESS' ? 'In Progress' : statusFilter === 'CLOSED' ? 'Closed' : 'Cancelled'}
+                onChange={val => {
+                  const map: Record<string, string> = { 'All Status': '', 'Open': 'OPEN', 'In Progress': 'IN_PROGRESS', 'Closed': 'CLOSED', 'Cancelled': 'CANCELLED' };
+                  setStatusFilter(map[val] ?? '');
+                }}
+                options={['All Status', 'Open', 'In Progress', 'Closed', 'Cancelled']}
+                leftIcon="fa-filter"
+              />
+            </div>
+
+            {(search || statusFilter) && (
+              <button
+                onClick={() => { setSearch(''); setStatusFilter(''); }}
+                className="inline-flex items-center gap-1.5 px-3 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-500 hover:bg-gray-50 transition"
+              >
+                <i className="fa fa-times" /> Clear
+              </button>
+            )}
+          </div>
+
+          {loading ? (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               {[1,2,3,4].map(i => (
                 <div key={i} className="bg-white rounded-2xl border border-[#e8e8e8] p-5 animate-pulse">
@@ -322,7 +392,7 @@ export default function BuyerJobsPage() {
                 </div>
               ))}
             </div>
-          ) : jobs.length === 0 ? (
+          ) : jobs.length === 0 && !refreshing ? (
             <div className="bg-white rounded-2xl border border-[#e8e8e8] shadow-sm p-16 text-center">
               <i className="fa fa-briefcase text-4xl text-gray-200 mb-3 block" />
               <p className="text-gray-500 font-medium">No jobs posted yet</p>
@@ -333,7 +403,9 @@ export default function BuyerJobsPage() {
               </button>
             </div>
           ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="relative">
+              {refreshing && <OverlayLoader text="Updating..." />}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               {jobs.map(job => {
                 const st = STATUS_MAP[job.status] || STATUS_MAP.OPEN;
                 return (
@@ -342,7 +414,11 @@ export default function BuyerJobsPage() {
                       <div className="flex-1 min-w-0">
                         <h3 className="text-sm font-bold text-gray-900 truncate">{job.title}</h3>
                         <div className="flex items-center gap-2 mt-1 flex-wrap">
-                          <span className="text-xs text-gray-400"><i className="fa fa-tag mr-1" />{job.category}</span>
+                          {job.category && job.category.split(',').map((c: string) => c.trim()).filter(c => c.length > 1).map((cat: string) => (
+                            <span key={cat} className="text-[10px] bg-red-50 text-[#e84545] px-2 py-0.5 rounded-full font-medium">
+                              <i className="fa fa-tag mr-1" />{cat}
+                            </span>
+                          ))}
                           <span className="text-xs text-gray-400 capitalize"><i className="fa fa-clock-o mr-1" />{job.job_type}</span>
                           {job.deadline && <span className="text-xs text-gray-400"><i className="fa fa-calendar mr-1" />{job.deadline}</span>}
                         </div>
@@ -378,6 +454,12 @@ export default function BuyerJobsPage() {
                         </div>
                       </div>
                       <div className="flex items-center gap-1.5">
+                        {job.bids_count > 0 && (
+                          <button onClick={() => router.push(`/buyer/jobs/${job.id}`)}
+                            className="text-xs px-3 py-1.5 rounded-lg bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100 transition font-medium">
+                            <i className="fa fa-gavel mr-1" />View Bids ({job.bids_count})
+                          </button>
+                        )}
                         {job.status === 'OPEN' && (
                           <>
                             <button onClick={() => openEdit(job)}
@@ -399,8 +481,10 @@ export default function BuyerJobsPage() {
                   </div>
                 );
               })}
+              </div>
             </div>
-          )
+          )}
+          </>
         )}
 
         {/* Post New Job */}
@@ -448,7 +532,7 @@ export default function BuyerJobsPage() {
               <div className="bg-white rounded-2xl border border-[#e8e8e8] shadow-sm p-5">
                 <h4 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2"><i className="fa fa-bar-chart text-[#4f9ef8]" /> Platform Stats</h4>
                 {[
-                  { label: 'Avg. Bids per Job', val: '8–12',     color: '#e84545' },
+                  { label: 'Avg. Bids per Job', val: '8-12',     color: '#e84545' },
                   { label: 'Avg. Hire Time',    val: '24 hours', color: '#4f9ef8' },
                   { label: 'Active Creators',   val: '12,000+',  color: '#10b981' },
                 ].map(s => (

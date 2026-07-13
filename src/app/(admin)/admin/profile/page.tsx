@@ -89,11 +89,11 @@ export default function AdminProfilePage() {
         <div className="bg-white rounded-2xl border border-[#e8e8e8] shadow-sm overflow-hidden">
           <div className="relative h-32 w-full" style={{ background: 'linear-gradient(135deg,#e84545 0%,#c02a2a 100%)' }}>
             <div className="absolute -bottom-10 left-8 h-20 w-20 rounded-2xl border-4 border-white shadow-lg flex items-center justify-center bg-[#e84545]">
-              <span className="text-white text-2xl font-bold">{loading ? '…' : initials}</span>
+              <span className="text-white text-2xl font-bold">{loading ? '...' : initials}</span>
             </div>
           </div>
           <div className="px-8 pb-5 pt-14">
-            <h2 className="text-xl font-bold text-gray-900">{form.name || '—'}</h2>
+            <h2 className="text-xl font-bold text-gray-900">{form.name || '--'}</h2>
             <p className="text-sm text-gray-500">{form.email}</p>
             <span className="inline-flex items-center gap-1.5 mt-1 px-3 py-1 rounded-full text-xs font-bold bg-red-50 text-[#e84545] border border-red-200">
               <i className="fa fa-shield" /> Administrator

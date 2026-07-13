@@ -9,7 +9,7 @@ import { CardSkeleton } from '@/components/ui/Loader';
 import { formatCurrency } from '@/lib/utils';
 import { sellerServiceApi, publicCategoryApi } from '@/lib/adminApi';
 
-// ── Types ─────────────────────────────────────────────────────────────
+// -- Types -------------------------------------------------------------
 type ServiceStatus = 'active' | 'paused' | 'rejected';
 
 interface Service {
@@ -55,7 +55,7 @@ const statusBadge = (s: ServiceStatus) => {
   return 'bg-gray-100 text-gray-500';
 };
 
-// ── Custom Multi-Select Dropdown ──────────────────────────────────────
+// -- Custom Multi-Select Dropdown --------------------------------------
 function MultiSelectCategory({
   categories,
   selected = [],
@@ -115,7 +115,7 @@ function MultiSelectCategory({
             <span key={c.id} className="inline-flex items-center gap-1 bg-[#e84545] text-white text-xs px-2.5 py-1 rounded-full font-medium">
               {c.icon && <i className={`${c.icon} text-[11px]`} />}
               {c.name}
-              <button type="button" onClick={(e) => { e.stopPropagation(); toggle(c.id); }} className="ml-0.5 hover:opacity-75 leading-none">×</button>
+              <button type="button" onClick={(e) => { e.stopPropagation(); toggle(c.id); }} className="ml-0.5 hover:opacity-75 leading-none">x</button>
             </span>
           ))}
         </div>
@@ -171,7 +171,7 @@ function MultiSelectCategory({
   );
 }
 
-// ── Image Uploader (staged — uploads on form submit) ──────────────────
+// -- Image Uploader (staged -- uploads on form submit) ------------------
 type ImgItem =
   | { kind: 'url';  url: string }
   | { kind: 'file'; file: File; preview: string };
@@ -210,7 +210,7 @@ function ImageUploader({
   return (
     <div>
       <label className="block text-sm font-medium text-gray-700 mb-1.5">
-        Service Images <span className="text-gray-400 font-normal">(max 5 — JPG, PNG, WEBP)</span>
+        Service Images <span className="text-gray-400 font-normal">(max 5 -- JPG, PNG, WEBP)</span>
       </label>
       <div className="flex flex-wrap gap-2 mb-2">
         {items.map((item, i) => (
@@ -224,7 +224,7 @@ function ImageUploader({
               type="button"
               onClick={() => remove(i)}
               className="absolute top-0.5 right-0.5 bg-black/60 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition"
-            >×</button>
+            >x</button>
           </div>
         ))}
         {items.length < 5 && (
@@ -250,7 +250,7 @@ function ImageUploader({
   );
 }
 
-// ── Service Form Modal ────────────────────────────────────────────────
+// -- Service Form Modal ------------------------------------------------
 function ServiceModal({
   isOpen, onClose, onSaved, categories, editService,
 }: {
@@ -390,7 +390,7 @@ function ServiceModal({
   );
 }
 
-// ── Delete Confirm Modal ──────────────────────────────────────────────
+// -- Delete Confirm Modal ----------------------------------------------
 function DeleteModal({
   isOpen, onClose, onConfirm, title, loading,
 }: {
@@ -409,7 +409,7 @@ function DeleteModal({
   );
 }
 
-// ── Main Page ─────────────────────────────────────────────────────────
+// -- Main Page ---------------------------------------------------------
 export default function SellerServicesPage() {
   const [services, setServices]     = useState<Service[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);

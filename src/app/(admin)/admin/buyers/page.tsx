@@ -19,18 +19,18 @@ const emptyForm = { name: '', email: '', phone: '', password: '', countryCode: '
 
 const statusClass = (s: string) => s === 'active' || s === 'ACTIVE' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700';
 
-// Map backend buyer → display shape
+// Map backend buyer -> display shape
 const mapBuyer = (b: any) => ({
   id:       b.id,
   name:     b.name,
   email:    b.email,
-  phone:    b.phone || '—',
+  phone:    b.phone || '--',
   bookings: 0,
   spent:    0,
   status:   b.status || 'active',
   joined:   b.joined || b.createdAt,
-  city:     b.profile?.city || '—',
-  country:  b.profile?.country || '—',
+  city:     b.profile?.city || '--',
+  country:  b.profile?.country || '--',
   raw:      b,
 });
 
@@ -51,22 +51,22 @@ export default function BuyersPage() {
   const [addLoading, setAddLoading] = useState(false);
   const [viewBuyer, setViewBuyer]   = useState<any | null>(null);
 
-  // ── Edit state ────────────────────────────────────────────
+  // -- Edit state --------------------------------------------
   const [editBuyer, setEditBuyer]   = useState<any | null>(null);
   const [editForm, setEditForm]     = useState({ name: '', phone: '', countryCode: '+91', city: '', state: 'Delhi', country: 'India', zip: '', company_name: '' });
   const [editLoading, setEditLoading] = useState(false);
 
-  // ── Validation helpers ────────────────────────────────────
+  // -- Validation helpers ------------------------------------
   const [addErrs, setAddErrs]   = useState<Record<string, string>>({});
   const [editErrs, setEditErrs] = useState<Record<string, string>>({});
 
-  // ── Debounce search (400ms) ───────────────────────────────
+  // -- Debounce search (400ms) -------------------------------
   useEffect(() => {
     const t = setTimeout(() => { setDebouncedSearch(search); setPage(1); }, 400);
     return () => clearTimeout(t);
   }, [search]);
 
-  // ── Fetch buyers ───────────────────────────────────────
+  // -- Fetch buyers ---------------------------------------
   const fetchBuyers = useCallback(async () => {
     setLoading(true);
     try {
@@ -88,7 +88,7 @@ export default function BuyersPage() {
   useEffect(() => { fetchBuyers(); }, [fetchBuyers]);
   useEffect(() => { setPage(1); }, [activeFilter]);
 
-  // ── Block / Unblock ────────────────────────────────────
+  // -- Block / Unblock ------------------------------------
   const handleToggleBlock = async (b: any) => {
     setActionLoading(b.id);
     const isBlocked = b.status === 'banned';
@@ -108,7 +108,7 @@ export default function BuyersPage() {
     }
   };
 
-  // ── Add buyer ──────────────────────────────────────────
+  // -- Add buyer ------------------------------------------
   const handleAdd = async () => {
     const e: Record<string, string> = {};
     if (!form.name.trim())                           e.name     = 'Name is required';
@@ -116,7 +116,7 @@ export default function BuyersPage() {
     else if (!/\S+@\S+\.\S+/.test(form.email))      e.email    = 'Enter a valid email address';
     if (!form.password)                              e.password = 'Password is required';
     else if (form.password.length < 6)               e.password = 'Minimum 6 characters';
-    if (form.phone && !/^\d{7,10}$/.test(form.phone)) e.phone  = 'Enter a valid phone number (7–10 digits)';
+    if (form.phone && !/^\d{7,10}$/.test(form.phone)) e.phone  = 'Enter a valid phone number (7-10 digits)';
     if (Object.keys(e).length) { setAddErrs(e); return; }
     setAddErrs({});
     setAddLoading(true);
@@ -141,7 +141,7 @@ export default function BuyersPage() {
     }
   };
 
-  // ── Split stored phone into code + digits ─────────────────
+  // -- Split stored phone into code + digits -----------------
   const splitPhone = (full: string) => {
     const codes = ['+971', '+966', '+65', '+61', '+44', '+91', '+1'];
     for (const c of codes) {
@@ -150,17 +150,17 @@ export default function BuyersPage() {
     return { countryCode: '+91', phone: full };
   };
 
-  // ── Open / submit edit ────────────────────────────────────
+  // -- Open / submit edit ------------------------------------
   const openEdit = (b: any) => {
     setEditBuyer(b);
-    const { countryCode, phone } = b.phone && b.phone !== '—' ? splitPhone(b.phone) : { countryCode: '+91', phone: '' };
+    const { countryCode, phone } = b.phone && b.phone !== '--' ? splitPhone(b.phone) : { countryCode: '+91', phone: '' };
     setEditForm({
       name:         b.name,
       phone,
       countryCode,
-      city:         b.city    === '—' ? '' : b.city,
+      city:         b.city    === '--' ? '' : b.city,
       state:        'Delhi',
-      country:      b.country === '—' ? 'India' : b.country,
+      country:      b.country === '--' ? 'India' : b.country,
       zip:          '',
       company_name: b.raw?.profile?.company_name || '',
     });
@@ -170,7 +170,7 @@ export default function BuyersPage() {
     if (!editBuyer) return;
     const e: Record<string, string> = {};
     if (!editForm.name.trim())                                  e.name  = 'Name is required';
-    if (editForm.phone && !/^\d{7,10}$/.test(editForm.phone)) e.phone = 'Enter valid digits (7–10)';
+    if (editForm.phone && !/^\d{7,10}$/.test(editForm.phone)) e.phone = 'Enter valid digits (7-10)';
     if (Object.keys(e).length) { setEditErrs(e); return; }
     setEditErrs({});
     setEditLoading(true);
@@ -300,7 +300,7 @@ export default function BuyersPage() {
         </div>
       </Card>
 
-      {/* ── Add Buyer Modal ──────────────────────────────── */}
+      {/* -- Add Buyer Modal -------------------------------- */}
       <Modal isOpen={showAdd} onClose={() => { setShowAdd(false); setForm(emptyForm); setAddErrs({}); }} title="Add New Buyer" size="lg">
         <div className="max-h-[65vh] overflow-y-auto pr-1 -mr-1 space-y-5">
 
@@ -386,9 +386,9 @@ export default function BuyersPage() {
         </Modal>
       )}
 
-      {/* ── Edit Buyer Modal ──────────────────────────────────── */}
+      {/* -- Edit Buyer Modal ------------------------------------ */}
       {editBuyer && (
-        <Modal isOpen={!!editBuyer} onClose={() => { setEditBuyer(null); setEditErrs({}); }} title={`Edit — ${editBuyer.name}`} size="lg">
+        <Modal isOpen={!!editBuyer} onClose={() => { setEditBuyer(null); setEditErrs({}); }} title={`Edit -- ${editBuyer.name}`} size="lg">
           <div className="max-h-[65vh] overflow-y-auto pr-1 -mr-1 space-y-5">
 
             {/* Account Details */}
@@ -407,7 +407,7 @@ export default function BuyersPage() {
                     error={editErrs.name} />
                   <Input label="Email" value={editBuyer?.email || ''} disabled hint="Email cannot be changed" />
                 </div>
-                {/* Company Name — hidden for now */}
+                {/* Company Name -- hidden for now */}
                 <div className="flex flex-col gap-1.5">
                   <label className="text-sm font-medium text-gray-700">Phone Number</label>
                   <div className="flex gap-2">

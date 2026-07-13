@@ -1,4 +1,5 @@
 'use client';
+import { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import StatCard from '@/components/ui/StatCard';
 import Card, { CardHeader, CardTitle } from '@/components/ui/Card';
@@ -7,34 +8,63 @@ import Avatar from '@/components/ui/Avatar';
 import Button from '@/components/ui/Button';
 import { formatCurrency, formatDate, getBookingStatusColor } from '@/lib/utils';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { sellerStatsApi } from '@/lib/adminApi';
 
-const stats = [
-  { title: 'Wallet Balance',  value: '$2,840', icon: 'fa-dollar',    color: 'red' as const,    change: 'Available to withdraw' },
-  { title: 'Active Bookings', value: '7',      icon: 'fa-calendar-check-o', color: 'blue' as const,   change: '2 need attention' },
-  { title: 'Total Earnings',  value: '$18,200',icon: 'fa-line-chart',    color: 'green' as const,  change: 'All time' },
-  { title: 'Avg Rating',      value: '4.8',    icon: 'fa-star',          color: 'orange' as const, change: '124 reviews' },
-];
+interface BookingRow {
+  id: number;
+  title: string;
+  amount: number;
+  status: string;
+  created_at: string;
+  buyer:   { id: number; name: string } | null;
+  service: { id: number; title: string } | null;
+}
 
-const earningsData = [
-  { month: 'Jun', amount: 1200 },
-  { month: 'Jul', amount: 2100 },
-  { month: 'Aug', amount: 1800 },
-  { month: 'Sep', amount: 2800 },
-  { month: 'Oct', amount: 3200 },
-  { month: 'Nov', amount: 2400 },
-];
-
-const activeBookings = [
-  { id: 1, buyer: 'Alice J.',  service: 'Logo Design',   amount: 250,  status: 'Ongoing',                  daysLeft: 3 },
-  { id: 2, buyer: 'Carlos R.', service: 'Brand Identity', amount: 800,  status: 'Amidst-Completion-Process', daysLeft: 0 },
-  { id: 3, buyer: 'Eva G.',    service: 'Icon Set',       amount: 120,  status: 'Ongoing',                  daysLeft: 7 },
-];
+interface StatsData {
+  stats: {
+    activeBookings: number;
+    completedBookings: number;
+    totalEarnings: number;
+    totalServices: number;
+    avgRating: string;
+    totalReviews: number;
+  };
+  recentBookings: BookingRow[];
+  monthlyEarnings: { month: string; amount: number }[];
+}
 
 export default function SellerDashboardPage() {
+  const [data,    setData]    = useState<StatsData | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    sellerStatsApi.get()
+      .then(r => setData(r.data))
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
+
+  const s = data?.stats;
+
+  const statCards = s ? [
+    { title: 'Active Bookings', value: s.activeBookings.toString(),              icon: 'fa-calendar-check-o', color: 'blue' as const,   change: 'Currently running'       },
+    { title: 'Total Earnings',  value: formatCurrency(s.totalEarnings),          icon: 'fa-line-chart',       color: 'green' as const,  change: 'All time completed'      },
+    { title: 'My Services',     value: s.totalServices.toString(),               icon: 'fa-cubes',            color: 'red' as const,    change: 'Active listings'         },
+    { title: 'Avg Rating',      value: s.avgRating,                              icon: 'fa-star',             color: 'orange' as const, change: `${s.totalReviews} reviews`},
+  ] : [];
+
   return (
     <DashboardLayout role="SELLER" title="My Dashboard">
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
-        {stats.map((s) => <StatCard key={s.title} {...s} />)}
+        {loading
+          ? Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="animate-pulse bg-white rounded-2xl p-4 border border-gray-100">
+              <div className="h-4 bg-gray-200 rounded w-1/2 mb-3" />
+              <div className="h-8 bg-gray-200 rounded w-1/3" />
+            </div>
+          ))
+          : statCards.map(s => <StatCard key={s.title} {...s} />)
+        }
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 mb-6">
@@ -42,59 +72,84 @@ export default function SellerDashboardPage() {
         <Card className="xl:col-span-2" padding="md">
           <CardHeader>
             <CardTitle>Monthly Earnings</CardTitle>
-            <Badge variant="primary">2024</Badge>
+            <Badge variant="primary">Last 6 months</Badge>
           </CardHeader>
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={earningsData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-              <XAxis dataKey="month" tick={{ fontSize: 12, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fontSize: 12, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
-              <Tooltip contentStyle={{ borderRadius: '10px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', fontSize: 13 }} formatter={(v) => [`$${v}`, 'Earnings']} />
-              <Bar dataKey="amount" fill="#e84545" radius={[6, 6, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
+          {loading ? (
+            <div className="h-[220px] animate-pulse bg-gray-100 rounded-xl" />
+          ) : (
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={data?.monthlyEarnings || []}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                <XAxis dataKey="month" tick={{ fontSize: 12, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 12, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
+                <Tooltip
+                  contentStyle={{ borderRadius: '10px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', fontSize: 13 }}
+                  formatter={(v: number) => [formatCurrency(v), 'Earnings']}
+                />
+                <Bar dataKey="amount" fill="#e84545" radius={[6, 6, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
         </Card>
 
-        {/* Connects */}
+        {/* Summary */}
         <Card padding="md">
           <CardHeader>
-            <CardTitle>My Connects</CardTitle>
-            <i className="fa fa-link text-sm text-gray-400" />
+            <CardTitle>Quick Summary</CardTitle>
           </CardHeader>
-          <div className="text-center py-4">
-            <div className="text-5xl font-black text-[#e84545] mb-1">48</div>
-            <p className="text-sm text-gray-400">Connects remaining</p>
-            <p className="text-xs text-gray-300 mt-1">Each bid costs ~20 connects</p>
+          <div className="space-y-3">
+            {loading ? (
+              Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="animate-pulse h-12 bg-gray-100 rounded-xl" />
+              ))
+            ) : s ? [
+              { label: 'Completed Bookings', value: s.completedBookings, icon: 'fa-check-circle', color: 'text-green-600 bg-green-50'  },
+              { label: 'Active Bookings',    value: s.activeBookings,    icon: 'fa-clock-o',      color: 'text-blue-600 bg-blue-50'    },
+              { label: 'Total Reviews',      value: s.totalReviews,      icon: 'fa-star',         color: 'text-yellow-600 bg-yellow-50'},
+            ].map(item => (
+              <div key={item.label} className="flex items-center gap-3 p-3 rounded-xl bg-gray-50">
+                <div className={`h-8 w-8 rounded-lg flex items-center justify-center flex-shrink-0 ${item.color}`}>
+                  <i className={`fa ${item.icon} text-xs`} />
+                </div>
+                <div className="flex-1">
+                  <p className="text-xs text-gray-400">{item.label}</p>
+                </div>
+                <p className="text-sm font-bold text-gray-900">{item.value}</p>
+              </div>
+            )) : null}
           </div>
-          <div className="w-full bg-gray-100 rounded-full h-2 mb-4">
-            <div className="bg-[#e84545] h-2 rounded-full" style={{ width: '48%' }} />
-          </div>
-          <Button fullWidth variant="outline" size="sm">Buy More Connects</Button>
         </Card>
       </div>
 
-      {/* Active Bookings */}
+      {/* Recent Bookings */}
       <Card padding="md">
         <CardHeader>
-          <CardTitle>Active Bookings</CardTitle>
-          <Button variant="ghost" size="sm">View all</Button>
+          <CardTitle>Recent Bookings</CardTitle>
+          <a href="/seller/bookings"><Button variant="ghost" size="sm">View all</Button></a>
         </CardHeader>
         <div className="space-y-3">
-          {activeBookings.map((b) => (
-            <div key={b.id} className="flex items-center gap-4 p-3 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors">
-              <Avatar name={b.buyer} size="sm" />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-900">{b.service}</p>
-                <p className="text-xs text-gray-400">Client: {b.buyer}</p>
+          {loading ? (
+            Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="animate-pulse h-16 bg-gray-100 rounded-xl" />
+            ))
+          ) : (data?.recentBookings || []).length === 0 ? (
+            <p className="text-center text-gray-400 text-sm py-8">No bookings yet</p>
+          ) : (
+            (data?.recentBookings || []).map(b => (
+              <div key={b.id} className="flex items-center gap-4 p-3 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors">
+                <Avatar name={b.buyer?.name || 'B'} size="sm" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-900">{b.service?.title || b.title}</p>
+                  <p className="text-xs text-gray-400">Client: {b.buyer?.name || '-'}</p>
+                </div>
+                <span className={`hidden sm:inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${getBookingStatusColor(b.status)}`}>
+                  {b.status}
+                </span>
+                <p className="font-semibold text-gray-900 text-sm">{formatCurrency(b.amount)}</p>
+                <span className="text-xs text-gray-400">{formatDate(b.created_at)}</span>
               </div>
-              <span className={`hidden sm:inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${getBookingStatusColor(b.status)}`}>{b.status}</span>
-              <p className="font-semibold text-gray-900 text-sm">{formatCurrency(b.amount)}</p>
-              {b.daysLeft > 0 && <span className="text-xs text-orange-500 bg-orange-50 px-2 py-0.5 rounded-full">{b.daysLeft}d left</span>}
-              {b.status === 'Amidst-Completion-Process' && (
-                <Button size="sm" variant="success">Accept</Button>
-              )}
-            </div>
-          ))}
+            ))
+          )}
         </div>
       </Card>
     </DashboardLayout>

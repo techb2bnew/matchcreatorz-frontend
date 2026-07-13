@@ -79,7 +79,7 @@ export default function ForgotPasswordPage() {
 
   const fullPhone = () => cc.code + phone.replace(/\D/g, '');
 
-  // ── Step 1: Send OTP ────────────────────────────────────────────
+  // -- Step 1: Send OTP --------------------------------------------
   const handleSendOtp = async () => {
     const e: Record<string, string> = {};
 
@@ -117,7 +117,7 @@ export default function ForgotPasswordPage() {
     }
   };
 
-  // ── Step 2: Verify OTP ─────────────────────────────────────────
+  // -- Step 2: Verify OTP -----------------------------------------
   const handleVerifyOtp = async () => {
     if (!otp || otp.length < 6) { setErrs({ otp: 'Enter the 6-digit OTP' }); return; }
     setErrs({});
@@ -144,7 +144,7 @@ export default function ForgotPasswordPage() {
     }
   };
 
-  // ── Step 2: Resend OTP ─────────────────────────────────────────
+  // -- Step 2: Resend OTP -----------------------------------------
   const handleResend = async () => {
     if (timer > 0) return;
     setLoading(true);
@@ -166,7 +166,7 @@ export default function ForgotPasswordPage() {
     }
   };
 
-  // ── Step 3: Reset Password ─────────────────────────────────────
+  // -- Step 3: Reset Password -------------------------------------
   const handleReset = async () => {
     const e: Record<string, string> = {};
     if (!newPw)                    e.newPw  = 'New password is required';
@@ -194,7 +194,7 @@ export default function ForgotPasswordPage() {
     }
   };
 
-  // ── Step config ────────────────────────────────────────────────
+  // -- Step config ------------------------------------------------
   const steps = [
     { id: 'identifier', label: method === 'email' ? 'Email' : 'Phone', fa: method === 'email' ? 'fa-envelope' : 'fa-phone' },
     { id: 'otp',        label: 'Verify', fa: 'fa-shield'  },
@@ -214,7 +214,7 @@ export default function ForgotPasswordPage() {
         <p className="text-[#888888] text-sm mt-1">Reset your password in 3 simple steps</p>
       </div>
 
-      {/* ── Step indicator ──────────────────────────────── */}
+      {/* -- Step indicator -------------------------------- */}
       <div className="flex items-start justify-center gap-0 mb-8">
         {steps.map((s, i) => (
           <div key={s.id} className="flex items-center">
@@ -237,7 +237,7 @@ export default function ForgotPasswordPage() {
         ))}
       </div>
 
-      {/* ── Step 1: Email or Phone ──────────────────────── */}
+      {/* -- Step 1: Email or Phone ------------------------ */}
       {step === 'identifier' && (
         <div className="space-y-4">
 
@@ -331,7 +331,7 @@ export default function ForgotPasswordPage() {
         </div>
       )}
 
-      {/* ── Step 2: OTP ─────────────────────────────────── */}
+      {/* -- Step 2: OTP ----------------------------------- */}
       {step === 'otp' && (
         <div className="space-y-1">
           <div className="bg-[#fff5f5] border border-[#e84545]/20 rounded-xl px-4 py-3 flex items-center gap-2 mb-3">
@@ -376,7 +376,7 @@ export default function ForgotPasswordPage() {
         </div>
       )}
 
-      {/* ── Step 3: Reset ────────────────────────────────── */}
+      {/* -- Step 3: Reset ---------------------------------- */}
       {step === 'reset' && (
         <div className="space-y-1">
           <div className={`${inputCls} ${errs.newPw ? 'border-red-400' : ''}`}>
