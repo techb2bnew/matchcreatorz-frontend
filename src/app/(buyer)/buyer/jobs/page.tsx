@@ -7,7 +7,6 @@ import { cn }          from '@/lib/utils';
 import { buyerJobApi, publicCategoryApi } from '@/lib/adminApi';
 import { useRouter } from 'next/navigation';
 import CustomSelect from '@/components/ui/CustomSelect';
-import { OverlayLoader } from '@/components/ui/Loader';
 
 type Tab = 'posted' | 'post';
 const tabs: { key: Tab; label: string; icon: string }[] = [
@@ -404,7 +403,6 @@ export default function BuyerJobsPage() {
             </div>
           ) : (
             <div className="relative">
-              {refreshing && <OverlayLoader text="Updating..." />}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               {jobs.map(job => {
                 const st = STATUS_MAP[job.status] || STATUS_MAP.OPEN;

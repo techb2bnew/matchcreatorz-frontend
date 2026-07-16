@@ -542,11 +542,11 @@ export default function BuyerSearchPage() {
         {/* Results */}
         <div className="flex-1 min-w-0">
           <p className="text-sm text-gray-500 mb-4">
-            {loading ? 'Loading...' : pagination ? (
+            {!loading && (pagination ? (
               <>Showing <strong>{services.length}</strong> of <strong>{pagination.total}</strong> results</>
             ) : (
               <>Showing <strong>{services.length}</strong> results</>
-            )}
+            ))}
           </p>
 
           {error && !loading && (

@@ -111,12 +111,22 @@ export const profileApi = {
   /** PUT /api/v1/{role}/profile */
   update: (role: 'admin' | 'seller' | 'buyer', body: {
     user_id?: number | null; name?: string; phone?: string; bio?: string; location?: string; avatar?: string;
+    // seller professional fields
+    skills?: string[]; hourly_rate?: number; city?: string; country?: string;
+    resume?: string; portfolio_links?: string[]; portfolio_files?: string[];
   }) => req('PUT', `/api/v1/${role}/profile`, body),
 
   /** PUT /api/v1/{role}/change-password */
   changePassword: (role: 'admin' | 'seller' | 'buyer', body: {
     user_id?: number | null; current_password: string; new_password: string;
   }) => req('PUT', `/api/v1/${role}/change-password`, body),
+
+  /** POST /api/v1/seller/upload/resume  — uploads PDF/DOC and returns { url } */
+  uploadResume: (file: File) => {
+    const fd = new FormData();
+    fd.append('resume', file);
+    return sendForm('POST', `/api/v1/seller/upload/resume`, fd);
+  },
 };
 
 // -- Buyer Jobs --------------------------------------------------------
