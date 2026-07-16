@@ -413,7 +413,7 @@ export default function BuyerSearchPage() {
   const sortLabel = SORT_OPTIONS.find(o => o.value === sort)?.label || 'Relevance';
 
   return (
-    <DashboardLayout role="BUYER" title="Search">
+    <DashboardLayout role="BUYER" title="Search Creators">
       {/* Service detail modal */}
       {selected && (
         <ServiceDetailModal
@@ -470,15 +470,36 @@ export default function BuyerSearchPage() {
           : categories.map((c) => (
               <button
                 key={c}
-                onClick={() => setActiveChip(c)}
+                onClick={() => {
+                  setActiveChip(c);
+                  setRating('any'); // reset Top Creators when category selected
+                }}
                 className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                  activeChip === c ? 'bg-[#e84545] text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  activeChip === c && rating === 'any' ? 'bg-[#e84545] text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                 }`}
               >
                 {c}
               </button>
             ))
         }
+
+        {/* Top Creators chip */}
+        <button
+          onClick={() => {
+            if (rating === '4') {
+              setRating('any');
+            } else {
+              setRating('4');
+              setActiveChip('All'); // reset category when Top Creators selected
+            }
+          }}
+          className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors flex items-center gap-1.5 ${
+            rating === '4' ? 'bg-yellow-400 text-white' : 'bg-yellow-50 text-yellow-700 border border-yellow-200 hover:bg-yellow-100'
+          }`}
+        >
+          <i className="fa fa-star text-xs" />
+          Top Creators
+        </button>
       </div>
 
       <div className="flex gap-5">
@@ -608,7 +629,7 @@ export default function BuyerSearchPage() {
                             <span className="text-xs text-gray-400">
                               <i className="fa fa-clock-o mr-1" />{s.delivery_days}d delivery
                             </span>
-                            <span className="text-sm font-bold text-[#e84545]">{formatCurrency(s.price)}</span>
+                            <span className="text-sm font-bold text-[#e84545]">from {formatCurrency(s.price)}</span>
                           </div>
                         </div>
                       </div>

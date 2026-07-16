@@ -324,7 +324,6 @@ export default function CategoriesPage() {
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
             {categories.map((c) => (
               <Card key={c.id} padding="md" hover>
-                <div className="mb-2"><CatIcon icon={c.icon} className="text-3xl" /></div>
                 <h3 className="font-semibold text-gray-900 text-sm">{c.name}</h3>
                 <p className="text-xs text-gray-400 mt-0.5">{c.services_count} services . {c.sellers_count} sellers</p>
                 {c.description && (
@@ -358,7 +357,7 @@ export default function CategoriesPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-gray-50 border-b border-gray-100">
-                    {['Icon', 'Name', 'Description', 'Services', 'Sellers', 'Actions'].map((h) => (
+                    {['Name', 'Description', 'Services', 'Sellers', 'Actions'].map((h) => (
                       <th key={h} className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wider px-4 py-3">{h}</th>
                     ))}
                   </tr>
@@ -366,7 +365,6 @@ export default function CategoriesPage() {
                 <tbody className="divide-y divide-gray-50">
                   {categories.map((c) => (
                     <tr key={c.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-4 py-3"><CatIcon icon={c.icon} className="text-2xl" /></td>
                       <td className="px-4 py-3 font-medium text-gray-900">{c.name}</td>
                       <td className="px-4 py-3 text-gray-400 text-xs max-w-[180px] truncate">{c.description || '--'}</td>
                       <td className="px-4 py-3 text-gray-600">{c.services_count}</td>
@@ -406,7 +404,6 @@ export default function CategoriesPage() {
             onChange={(e) => { setAddForm(f => ({ ...f, name: e.target.value })); setAddErrs(p => ({ ...p, name: '' })); }}
             error={addErrs.name}
           />
-          <IconPicker value={addForm.icon} onChange={(v) => setAddForm(f => ({ ...f, icon: v }))} />
           <Input
             label="Description"
             placeholder="Short description (optional)"
@@ -431,7 +428,6 @@ export default function CategoriesPage() {
             onChange={(e) => { setEditForm(f => ({ ...f, name: e.target.value })); setEditErrs(p => ({ ...p, name: '' })); }}
             error={editErrs.name}
           />
-          <IconPicker value={editForm.icon} onChange={(v) => setEditForm(f => ({ ...f, icon: v }))} />
           <Input
             label="Description"
             value={editForm.description}

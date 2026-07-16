@@ -40,7 +40,7 @@ export const sellerNav: NavItem[] = [
 
 export const buyerNav: NavItem[] = [
   { label: 'Dashboard',     href: '/buyer/home',           icon: 'fa-th-large'       },
-  { label: 'Search',        href: '/buyer/search',         icon: 'fa-search'         },
+  { label: 'Search Creators', href: '/buyer/search',       icon: 'fa-search'         },
   { label: 'My Jobs',       href: '/buyer/jobs',           icon: 'fa-briefcase'      },
   { label: 'Bookings',      href: '/buyer/bookings',       icon: 'fa-calendar-check-o'},
   { label: 'Offers',        href: '/buyer/offers',         icon: 'fa-tags'           },

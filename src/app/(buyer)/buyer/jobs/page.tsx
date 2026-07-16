@@ -275,14 +275,22 @@ export default function BuyerJobsPage() {
 
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className={labelCls}><i className="fa fa-dollar mr-1 text-[#10b981]" /> Budget Min ($)</label>
+          <label className={labelCls}>
+            <i className="fa fa-dollar mr-1 text-[#10b981]" />
+            {f.job_type === 'hourly' ? 'Min Rate ($/hr)' : 'Budget Min ($)'}
+          </label>
           <input className={inputCls} type="number" min="0" value={f.budget_min}
-            onChange={e => setF(p => ({ ...p, budget_min: e.target.value }))} placeholder="500" />
+            onChange={e => setF(p => ({ ...p, budget_min: e.target.value }))}
+            placeholder={f.job_type === 'hourly' ? '25' : '500'} />
         </div>
         <div>
-          <label className={labelCls}><i className="fa fa-dollar mr-1 text-[#10b981]" /> Budget Max ($)</label>
+          <label className={labelCls}>
+            <i className="fa fa-dollar mr-1 text-[#10b981]" />
+            {f.job_type === 'hourly' ? 'Max Rate ($/hr)' : 'Budget Max ($)'}
+          </label>
           <input className={inputCls + (errs.budget_max ? ' border-red-400' : '')} type="number" min="0" value={f.budget_max}
-            onChange={e => setF(p => ({ ...p, budget_max: e.target.value }))} placeholder="5000" />
+            onChange={e => setF(p => ({ ...p, budget_max: e.target.value }))}
+            placeholder={f.job_type === 'hourly' ? '150' : '5000'} />
           {errs.budget_max && <p className="mt-1 text-xs text-red-500"><i className="fa fa-times-circle mr-1" />{errs.budget_max}</p>}
         </div>
       </div>
