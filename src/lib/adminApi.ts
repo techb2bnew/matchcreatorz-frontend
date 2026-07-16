@@ -278,5 +278,16 @@ export const sellerJobApi = {
 
 // -- Stats (dashboard) -------------------------------------------------
 export const adminStatsApi  = { get: () => req('GET', `/api/v1/admin/stats`)  };
+
+// -- Admin Jobs --------------------------------------------------------
+export const adminJobApi = {
+  list:   (params: Record<string, string | number> = {}) => {
+    const q = new URLSearchParams(params as Record<string, string>).toString();
+    return req('GET', `/api/v1/admin/jobs${q ? `?${q}` : ''}`);
+  },
+  get:    (id: number) => req('GET',    `/api/v1/admin/jobs/${id}`),
+  close:  (id: number) => req('PATCH',  `/api/v1/admin/jobs/${id}/close`),
+  delete: (id: number) => req('DELETE', `/api/v1/admin/jobs/${id}`),
+};
 export const sellerStatsApi = { get: () => req('GET', `/api/v1/seller/stats`) };
 export const buyerStatsApi  = { get: () => req('GET', `/api/v1/buyer/stats`)  };

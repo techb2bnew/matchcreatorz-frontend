@@ -13,8 +13,10 @@ export function formatCurrency(amount: number, currency = 'USD') {
   }).format(amount);
 }
 
-export function formatDate(date: string | Date, format = 'short') {
+export function formatDate(date: string | Date | null | undefined, format = 'short') {
+  if (!date) return '-';
   const d = new Date(date);
+  if (isNaN(d.getTime())) return '-';
   if (format === 'short') {
     return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   }
@@ -56,21 +58,39 @@ export function truncate(str: string, length = 50) {
 
 export function getBookingStatusColor(status: string) {
   const map: Record<string, string> = {
-    Pending: 'bg-yellow-100 text-yellow-800',
-    Ongoing: 'bg-blue-100 text-blue-800',
-    Completed: 'bg-green-100 text-green-800',
-    Cancelled: 'bg-red-100 text-red-800',
-    'In-dispute': 'bg-orange-100 text-orange-800',
-    'Amidst-Cancellation': 'bg-orange-100 text-orange-800',
+    pending:            'bg-yellow-100 text-yellow-800',
+    ongoing:            'bg-blue-100 text-blue-800',
+    completed:          'bg-green-100 text-green-800',
+    cancelled:          'bg-red-100 text-red-800',
+    in_dispute:         'bg-orange-100 text-orange-800',
+    amidst_completion:  'bg-purple-100 text-purple-800',
+    Pending:                     'bg-yellow-100 text-yellow-800',
+    Ongoing:                     'bg-blue-100 text-blue-800',
+    Completed:                   'bg-green-100 text-green-800',
+    Cancelled:                   'bg-red-100 text-red-800',
+    'In-dispute':                'bg-orange-100 text-orange-800',
+    'Amidst-Cancellation':       'bg-orange-100 text-orange-800',
     'Amidst-Completion-Process': 'bg-purple-100 text-purple-800',
   };
   return map[status] ?? 'bg-gray-100 text-gray-800';
 }
 
+export function getBookingStatusLabel(status: string) {
+  const map: Record<string, string> = {
+    pending:           'Pending',
+    ongoing:           'Ongoing',
+    completed:         'Completed',
+    cancelled:         'Cancelled',
+    in_dispute:        'In Dispute',
+    amidst_completion: 'In Review',
+  };
+  return map[status] ?? status;
+}
+
 export function getProfileStatusColor(status: string) {
   const map: Record<string, string> = {
     APPROVED: 'bg-green-100 text-green-800',
-    PENDING: 'bg-yellow-100 text-yellow-800',
+    PENDING:  'bg-yellow-100 text-yellow-800',
     REJECTED: 'bg-red-100 text-red-800',
   };
   return map[status] ?? 'bg-gray-100 text-gray-800';
@@ -78,9 +98,9 @@ export function getProfileStatusColor(status: string) {
 
 export function getRoleColor(role: string) {
   const map: Record<string, string> = {
-    ADMIN: 'bg-purple-100 text-purple-800',
+    ADMIN:  'bg-purple-100 text-purple-800',
     SELLER: 'bg-blue-100 text-blue-800',
-    BUYER: 'bg-green-100 text-green-800',
+    BUYER:  'bg-green-100 text-green-800',
   };
   return map[role] ?? 'bg-gray-100 text-gray-800';
 }
