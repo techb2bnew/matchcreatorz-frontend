@@ -1,7 +1,9 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { cn } from '@/lib/utils';
+import { preferencesApi } from '@/lib/adminApi';
+import toast from 'react-hot-toast';
 
 type Tab = 'notifications' | 'privacy' | 'payment' | 'support';
 const tabs: { key: Tab; label: string; icon: string; desc: string }[] = [
@@ -39,13 +41,60 @@ export default function SellerSettingsPage() {
   const [showEarnings, setShowEarnings]     = useState(false);
   const [showRating, setShowRating]         = useState(true);
   const [available, setAvailable]           = useState(true);
-  const [twoFactor, setTwoFactor]           = useState(false);
 
   // Payout
   const [minPayout, setMinPayout]   = useState('500');
   const [payMethod, setPayMethod]   = useState('bank');
   const [autoWithdraw, setAutoWithdraw] = useState(false);
   const [payoutSaved, setPayoutSaved] = useState(false);
+
+  // ── Load persisted preferences ──────────────────────────────
+  const hydrating = useRef(true);
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await preferencesApi.get('seller');
+        const p = res.data || {};
+        const n = p.notifications || {}, pr = p.privacy || {}, po = p.payout || {};
+        if (n.email       !== undefined) setEmailNotif(!!n.email);
+        if (n.sms         !== undefined) setSmsNotif(!!n.sms);
+        if (n.jobAlert    !== undefined) setJobAlert(!!n.jobAlert);
+        if (n.bookingAlert!== undefined) setBookingAlert(!!n.bookingAlert);
+        if (n.payAlert    !== undefined) setPayAlert(!!n.payAlert);
+        if (n.chatAlert   !== undefined) setChatAlert(!!n.chatAlert);
+        if (n.offerAlert  !== undefined) setOfferAlert(!!n.offerAlert);
+        if (pr.showProfile !== undefined) setShowProfile(!!pr.showProfile);
+        if (pr.showEarnings!== undefined) setShowEarnings(!!pr.showEarnings);
+        if (pr.showRating  !== undefined) setShowRating(!!pr.showRating);
+        if (pr.available   !== undefined) setAvailable(!!pr.available);
+        if (po.minPayout   !== undefined) setMinPayout(String(po.minPayout));
+        if (po.payMethod   !== undefined) setPayMethod(po.payMethod);
+        if (po.autoWithdraw!== undefined) setAutoWithdraw(!!po.autoWithdraw);
+      } catch { /* keep defaults */ }
+      finally { setTimeout(() => { hydrating.current = false; }, 0); }
+    })();
+  }, []);
+
+  // ── Auto-save notification + privacy toggles (debounced) ────
+  useEffect(() => {
+    if (hydrating.current) return;
+    const t = setTimeout(() => {
+      preferencesApi.update('seller', {
+        notifications: { email: emailNotif, sms: smsNotif, jobAlert, bookingAlert, payAlert, chatAlert, offerAlert },
+        privacy:       { showProfile, showEarnings, showRating, available },
+      }).then(() => toast.success('Preferences saved', { id: 'prefs' }))
+        .catch(() => toast.error('Failed to save preferences', { id: 'prefs' }));
+    }, 500);
+    return () => clearTimeout(t);
+  }, [emailNotif, smsNotif, jobAlert, bookingAlert, payAlert, chatAlert, offerAlert, showProfile, showEarnings, showRating, available]);
+
+  const savePayout = async () => {
+    try {
+      await preferencesApi.update('seller', { payout: { minPayout: Number(minPayout) || 0, payMethod, autoWithdraw } });
+      setPayoutSaved(true); setTimeout(() => setPayoutSaved(false), 2000);
+      toast.success('Payout settings saved');
+    } catch { toast.error('Failed to save payout settings'); }
+  };
 
   const notifItems = [
     { label: 'Email Notifications', desc: 'Receive updates via email',              val: emailNotif,  set: setEmailNotif  },
@@ -62,7 +111,6 @@ export default function SellerSettingsPage() {
     { label: 'Show Earnings',       desc: 'Display total earnings on your profile', val: showEarnings, set: setShowEarnings },
     { label: 'Show Ratings',        desc: 'Display your rating publicly',           val: showRating,   set: setShowRating   },
     { label: 'Available for Work',  desc: 'Show as available to buyers',            val: available,    set: setAvailable    },
-    { label: 'Two-Factor Auth',     desc: 'Extra security on login',                val: twoFactor,    set: setTwoFactor    },
   ];
 
   return (
@@ -163,7 +211,7 @@ export default function SellerSettingsPage() {
                     </div>
                     <Toggle on={autoWithdraw} onChange={() => setAutoWithdraw(v => !v)} />
                   </div>
-                  <button onClick={() => { setPayoutSaved(true); setTimeout(() => setPayoutSaved(false), 2500); }}
+                  <button onClick={savePayout}
                     className="inline-flex items-center gap-2 h-10 px-6 rounded-xl bg-[#e84545] text-white text-sm font-semibold hover:bg-[#c73333] transition shadow-sm w-full justify-center">
                     {payoutSaved ? <><i className="fa fa-check" /> Saved!</> : <><i className="fa fa-save" /> Save Payout Settings</>}
                   </button>

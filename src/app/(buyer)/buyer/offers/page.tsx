@@ -4,6 +4,7 @@ import DashboardLayout from '@/components/layout/DashboardLayout';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import Avatar from '@/components/ui/Avatar';
+import Modal from '@/components/ui/Modal';
 import { RichTextView } from '@/components/ui/RichTextEditor';
 import { cn, formatDate, formatCurrency } from '@/lib/utils';
 import { buyerOfferApi } from '@/lib/adminApi';
@@ -17,9 +18,12 @@ interface Offer {
   amount: number;
   delivery_days: number | null;
   status: string;
-  created_at: string;
+  created_at?: string;
+  createdAt?: string;
   seller: { id: number; name: string } | null;
 }
+
+const sentOn = (o: Offer) => o.created_at || o.createdAt || '';
 
 type Tab = 'pending' | 'accepted' | 'declined';
 
@@ -28,6 +32,7 @@ export default function BuyerOffersPage() {
   const [offers, setOffers]         = useState<Offer[]>([]);
   const [loading, setLoading]       = useState(true);
   const [actionId, setActionId]     = useState<number | null>(null);
+  const [viewOffer, setViewOffer]   = useState<Offer | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -127,12 +132,19 @@ export default function BuyerOffersPage() {
                     ? <RichTextView html={o.description} />
                     : <p className="text-sm text-gray-400 italic">No message</p>}
                   <p className="text-xs text-gray-400 mt-1">
-                    {o.delivery_days ? `${o.delivery_days} day delivery · ` : ''}{formatDate(o.created_at)}
+                    {o.delivery_days ? `${o.delivery_days} day delivery` : ''}
+                    {sentOn(o) ? `${o.delivery_days ? ' · ' : ''}${formatDate(sentOn(o))}` : ''}
                   </p>
                 </div>
                 <div className="text-right flex-shrink-0">
                   <p className="text-2xl font-black text-[#e84545]">{formatCurrency(o.amount)}</p>
                   <p className="text-xs text-gray-400">Offered price</p>
+                  <button
+                    onClick={() => setViewOffer(o)}
+                    className="mt-1.5 text-xs font-medium text-[#e84545] hover:underline"
+                  >
+                    <i className="fa fa-eye mr-1" />View
+                  </button>
                 </div>
               </div>
 
@@ -178,6 +190,68 @@ export default function BuyerOffersPage() {
           ))}
         </div>
       )}
+
+      {/* Offer detail modal */}
+      <Modal isOpen={!!viewOffer} onClose={() => setViewOffer(null)} title="Offer Details" size="md">
+        {viewOffer && (
+          <div className="space-y-4">
+            <div className="flex items-center gap-3">
+              <Avatar name={viewOffer.seller?.name || 'Seller'} size="md" />
+              <div>
+                <p className="font-semibold text-gray-900">{viewOffer.seller?.name || 'Seller'}</p>
+                <p className="text-xs text-gray-400">sent you an offer</p>
+              </div>
+            </div>
+
+            <div>
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Title</p>
+              <p className="text-sm font-medium text-gray-900">{viewOffer.title}</p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-gray-50 rounded-xl p-3 text-center">
+                <p className="text-xs text-gray-400">Amount</p>
+                <p className="text-lg font-bold text-[#e84545]">{formatCurrency(viewOffer.amount)}</p>
+              </div>
+              <div className="bg-gray-50 rounded-xl p-3 text-center">
+                <p className="text-xs text-gray-400">Delivery</p>
+                <p className="text-lg font-bold text-gray-800">{viewOffer.delivery_days ? `${viewOffer.delivery_days} days` : '—'}</p>
+              </div>
+            </div>
+
+            <div>
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Message</p>
+              {viewOffer.description
+                ? <RichTextView html={viewOffer.description} />
+                : <p className="text-sm text-gray-400 italic">No message</p>}
+            </div>
+
+            {sentOn(viewOffer) && <p className="text-xs text-gray-400">Sent {formatDate(sentOn(viewOffer))}</p>}
+
+            {(viewOffer.status || '').toLowerCase() === 'pending' && (
+              <div className="flex gap-3 pt-4 border-t border-gray-100">
+                <Button
+                  fullWidth
+                  className="bg-green-600 hover:bg-green-700 text-white border-0"
+                  loading={actionId === viewOffer.id}
+                  onClick={async () => { await handleAccept(viewOffer.id); setViewOffer(null); }}
+                >
+                  Accept Offer
+                </Button>
+                <Button
+                  variant="outline"
+                  fullWidth
+                  className="text-red-500 border-red-200 hover:bg-red-50"
+                  disabled={actionId === viewOffer.id}
+                  onClick={async () => { await handleDecline(viewOffer.id); setViewOffer(null); }}
+                >
+                  Decline
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
+      </Modal>
     </DashboardLayout>
   );
 }

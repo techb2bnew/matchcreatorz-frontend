@@ -46,7 +46,7 @@ export const loginUser = createAsyncThunk(
       try {
         const body: Record<string, string> = { password: payload.password };
         if (payload.email) body.email = payload.email;
-        if (payload.phone) body.phone = (payload.countryCode || '+91') + payload.phone;
+        if (payload.phone) body.phone = (payload.countryCode || '+1') + payload.phone;
 
         const res = await fetch(`${API}/api/v1/auth/login`, {
           method:  'POST',

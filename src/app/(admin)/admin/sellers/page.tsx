@@ -27,7 +27,7 @@ const MODAL_STEPS = [
 ];
 
 const emptyForm = {
-  name: '', email: '', phone: '', password: '', countryCode: '+91',
+  name: '', email: '', phone: '', password: '', countryCode: '+1',
   dob: '', gender: 'Male', range: RANGES[0], hourlyRate: '',
   country: 'India', state: 'Delhi', city: '', zip: '',
   tags: [] as string[], bio: '', responseTime: RESP_TIMES[2],
@@ -84,7 +84,7 @@ export default function SellersPage() {
 
   // -- Edit state --------------------------------------------
   const [editSeller, setEditSeller] = useState<any | null>(null);
-  const [editForm, setEditForm]     = useState({ name: '', phone: '', countryCode: '+91', bio: '', city: '', country: 'India', hourlyRate: '', tags: [] as string[] });
+  const [editForm, setEditForm]     = useState({ name: '', phone: '', countryCode: '+1', bio: '', city: '', country: 'India', hourlyRate: '', tags: [] as string[] });
   const [editLoading, setEditLoading] = useState(false);
 
   // -- Validation errors -------------------------------------
@@ -184,7 +184,7 @@ export default function SellersPage() {
     for (const c of codes) {
       if (full.startsWith(c)) return { countryCode: c, phone: full.slice(c.length) };
     }
-    return { countryCode: '+91', phone: full };
+    return { countryCode: '+1', phone: full };
   };
 
   // -- Open edit ---------------------------------------------
@@ -430,7 +430,7 @@ export default function SellersPage() {
                 <label className="text-sm font-medium text-gray-700">Phone Number</label>
                 <div className="flex gap-2">
                   <div className="w-[110px] flex-shrink-0">
-                    <CustomSelect value={form.countryCode} onChange={v => setForm({ ...form, countryCode: v })} options={['+91', '+1', '+44', '+61', '+971']} />
+                    <CustomSelect value={form.countryCode} onChange={v => setForm({ ...form, countryCode: v })} options={['+1', '+91', '+44', '+61', '+971']} />
                   </div>
                   <div className="flex-1">
                     <Input type="tel" placeholder="9876543210" maxLength={10} value={form.phone}
@@ -630,7 +630,7 @@ export default function SellersPage() {
                 <label className="text-sm font-medium text-gray-700">Phone Number</label>
                 <div className="flex gap-2">
                   <div className="w-[110px] flex-shrink-0">
-                    <CustomSelect value={editForm.countryCode} onChange={v => setEditForm({ ...editForm, countryCode: v })} options={['+91', '+1', '+44', '+61', '+971']} />
+                    <CustomSelect value={editForm.countryCode} onChange={v => setEditForm({ ...editForm, countryCode: v })} options={['+1', '+91', '+44', '+61', '+971']} />
                   </div>
                   <div className="flex-1">
                     <Input type="tel" placeholder="9876543210" maxLength={10} value={editForm.phone}

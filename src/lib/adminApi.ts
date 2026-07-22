@@ -144,12 +144,19 @@ export const buyerJobApi = {
     title: string; description?: string; category?: string;
     job_type?: string; budget_min?: number; budget_max?: number;
     deadline?: string; skills?: string[]; experience_level?: string;
+    attachments?: { url: string; name: string }[];
   }) => req('POST', `/api/v1/buyer/jobs`, body),
   update: (id: number, body: {
     title?: string; description?: string; category?: string;
     job_type?: string; budget_min?: number; budget_max?: number;
     deadline?: string; skills?: string[]; experience_level?: string;
+    attachments?: { url: string; name: string }[];
   }) => req('PUT', `/api/v1/buyer/jobs/${id}`, body),
+  uploadDocs: (files: File[]) => {
+    const fd = new FormData();
+    files.forEach((f) => fd.append('files', f));
+    return sendForm('POST', `/api/v1/buyer/jobs/upload`, fd);
+  },
   close:     (id: number)                  => req('PATCH',  `/api/v1/buyer/jobs/${id}/close`),
   delete:    (id: number)                  => req('DELETE', `/api/v1/buyer/jobs/${id}`),
   getBids:   (id: number)                   => req('GET',   `/api/v1/buyer/jobs/${id}/bids`),
@@ -387,6 +394,13 @@ export const sellerConnectApi = {
     ).toString();
     return req('GET', `/api/v1/seller/connects/history${q ? `?${q}` : ''}`);
   },
+};
+
+// -- Per-user preferences (settings toggles) ---------------------------
+export const preferencesApi = {
+  get:    (role: 'buyer' | 'seller') => req('GET', `/api/v1/${role}/preferences`),
+  update: (role: 'buyer' | 'seller', body: Record<string, unknown>) =>
+    req('PUT', `/api/v1/${role}/preferences`, body),
 };
 
 // -- Admin Settings -----------------------------------------------------

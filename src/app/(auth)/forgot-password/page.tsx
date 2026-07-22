@@ -41,7 +41,7 @@ export default function ForgotPasswordPage() {
   const [email, setEmail]       = useState('');
 
   // Phone
-  const [cc, setCc]             = useState(COUNTRY_CODES[0]);
+  const [cc, setCc]             = useState(COUNTRY_CODES.find(c => c.code === '+1') || COUNTRY_CODES[0]);
   const [showCC, setShowCC]     = useState(false);
   const [phone, setPhone]       = useState('');
 

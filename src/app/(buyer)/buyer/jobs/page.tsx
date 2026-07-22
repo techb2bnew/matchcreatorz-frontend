@@ -37,18 +37,26 @@ interface Job {
   job_type: string; budget_min: number | null; budget_max: number | null;
   deadline: string | null; skills: string[]; experience_level: string;
   status: string; bids_count: number; created_at: string;
+  attachments?: { url: string; name: string }[];
 }
 
+interface JobDoc { url: string; name: string }
 interface FormState {
   title: string; description: string; category: string[];
   job_type: string; budget_min: string; budget_max: string;
   deadline: string; skills: string; experience_level: string;
+  attachments: JobDoc[];
 }
 const EMPTY: FormState = {
   title: '', description: '', category: [],
   job_type: 'fixed', budget_min: '', budget_max: '',
-  deadline: '', skills: '', experience_level: 'any',
+  deadline: '', skills: '', experience_level: 'any', attachments: [],
 };
+
+// Rich-text descriptions are stored as HTML — show a clean plain-text preview
+const plainText = (html: string): string =>
+  html.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/\s+/g, ' ').trim();
 
 function BudgetDisplay({ min, max }: { min: number | null; max: number | null }) {
   if (!min && !max) return <span className="text-gray-400 text-xs">Not specified</span>;
@@ -65,11 +73,16 @@ export default function BuyerJobsPage() {
   const [refreshing, setRefreshing] = useState(false); // silent background refresh
   const [search, setSearch]       = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('');
   const [page, setPage]           = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const LIMIT = 10;
   const firstLoad = useRef(true);
-  const [categories, setCategories] = useState<string[]>(['Design', 'Development', 'Marketing', 'Writing', 'Video', 'Photography', 'Music', 'Animation']);
+
+  // category picker search + doc upload state
+  const [catSearch, setCatSearch] = useState('');
+  const [uploadingDocs, setUploadingDocs] = useState(false);
+  const [categories, setCategories] = useState<string[]>([]);
 
   // Form
   const [form, setForm]         = useState<FormState>(EMPTY);
@@ -96,14 +109,15 @@ export default function BuyerJobsPage() {
     else        setLoading(true);
     try {
       const params: Record<string, string | number> = { page, limit: LIMIT };
-      if (search.trim())  params.search = search.trim();
-      if (statusFilter)   params.status = statusFilter;
+      if (search.trim())    params.search = search.trim();
+      if (statusFilter)     params.status = statusFilter;
+      if (categoryFilter)   params.category = categoryFilter;
       const res = await buyerJobApi.list(params);
       setJobs(res.data || []);
       setTotalPages(res.meta?.totalPages || res.pagination?.pages || 1);
     } catch { setJobs([]); }
     finally { setLoading(false); setRefreshing(false); }
-  }, [page, search, statusFilter]);
+  }, [page, search, statusFilter, categoryFilter]);
 
   useEffect(() => {
     publicCategoryApi.list()
@@ -112,7 +126,7 @@ export default function BuyerJobsPage() {
   }, []);
 
   // Reset to first page whenever the search/filter changes
-  useEffect(() => { setPage(1); }, [search, statusFilter]);
+  useEffect(() => { setPage(1); }, [search, statusFilter, categoryFilter]);
 
   // Load jobs (skeleton on first load, silent refresh after)
   useEffect(() => {
@@ -161,6 +175,7 @@ export default function BuyerJobsPage() {
         deadline:         form.deadline   || undefined,
         skills:           form.skills ? form.skills.split(',').map(s => s.trim()).filter(Boolean) : [],
         experience_level: form.experience_level,
+        attachments:      form.attachments,
       });
       setPostMsg({ ok: true, text: 'Job posted successfully!' });
       setForm(EMPTY);
@@ -171,8 +186,9 @@ export default function BuyerJobsPage() {
     } finally { setSaving(false); }
   };
 
-  // Edit job
-  const openEdit = (job: Job) => {
+  // Edit job — fetch the full job so the editor gets the original (HTML) description,
+  // since the list now returns a cleaned plain-text preview.
+  const openEdit = async (job: Job) => {
     setEditJob(job);
     setEditForm({
       title:            job.title,
@@ -184,8 +200,14 @@ export default function BuyerJobsPage() {
       deadline:         job.deadline   || '',
       skills:           Array.isArray(job.skills) ? job.skills.join(', ') : '',
       experience_level: job.experience_level,
+      attachments:      Array.isArray(job.attachments) ? job.attachments : [],
     });
     setEditMsg(null);
+    try {
+      const full = await buyerJobApi.get(job.id);
+      const d = full?.data;
+      if (d) setEditForm(prev => ({ ...prev, description: d.description || '' }));
+    } catch { /* keep list value if fetch fails */ }
   };
 
   const handleEdit = async () => {
@@ -204,6 +226,7 @@ export default function BuyerJobsPage() {
         deadline:         editForm.deadline   || undefined,
         skills:           editForm.skills ? editForm.skills.split(',').map(s => s.trim()).filter(Boolean) : [],
         experience_level: editForm.experience_level,
+        attachments:      editForm.attachments,
       });
       setEditMsg({ ok: true, text: 'Job updated!' });
       await loadJobs(true);
@@ -259,20 +282,38 @@ export default function BuyerJobsPage() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
-          <label className={labelCls}><i className="fa fa-tag mr-1 text-[#e84545]" /> Category <span className="text-gray-400 normal-case font-normal">(select multiple)</span></label>
-          <div className="flex flex-wrap gap-2 p-3 border border-[#e8e8e8] rounded-xl bg-white min-h-[46px]">
-            {categories.map(cat => {
-              const selected = f.category.includes(cat);
-              return (
-                <button key={cat} type="button"
-                  onClick={() => setF(p => ({ ...p, category: selected ? p.category.filter(c => c !== cat) : [...p.category, cat] }))}
-                  className={cn('text-xs px-3 py-1.5 rounded-full border font-medium transition-all',
-                    selected ? 'bg-[#e84545] text-white border-[#e84545]' : 'bg-white text-gray-500 border-gray-200 hover:border-[#e84545] hover:text-[#e84545]'
-                  )}>
-                  {selected && <i className="fa fa-check mr-1 text-[10px]" />}{cat}
-                </button>
-              );
-            })}
+          <label className={labelCls}><i className="fa fa-tag mr-1 text-[#e84545]" /> Category <span className="text-gray-400 normal-case font-normal">(search &amp; select multiple)</span></label>
+          <div className="border border-[#e8e8e8] rounded-xl bg-white overflow-hidden">
+            {/* search box */}
+            <div className="relative border-b border-gray-100">
+              <i className="fa fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs" />
+              <input
+                type="text"
+                value={catSearch}
+                onChange={e => setCatSearch(e.target.value)}
+                placeholder="Search categories..."
+                className="w-full pl-8 pr-3 py-2 text-sm bg-gray-50 focus:outline-none focus:bg-white"
+              />
+            </div>
+            <div className="flex flex-wrap gap-2 p-3 min-h-[46px] max-h-32 overflow-y-auto">
+              {categories.filter(c => c.toLowerCase().includes(catSearch.toLowerCase())).map(cat => {
+                const selected = f.category.includes(cat);
+                return (
+                  <button key={cat} type="button"
+                    onClick={() => setF(p => ({ ...p, category: selected ? p.category.filter(c => c !== cat) : [...p.category, cat] }))}
+                    className={cn('text-xs px-3 py-1.5 rounded-full border font-medium transition-all',
+                      selected ? 'bg-[#e84545] text-white border-[#e84545]' : 'bg-white text-gray-500 border-gray-200 hover:border-[#e84545] hover:text-[#e84545]'
+                    )}>
+                    {selected && <i className="fa fa-check mr-1 text-[10px]" />}{cat}
+                  </button>
+                );
+              })}
+              {categories.length === 0 ? (
+                <span className="text-xs text-gray-400 py-1">Loading categories…</span>
+              ) : categories.filter(c => c.toLowerCase().includes(catSearch.toLowerCase())).length === 0 && (
+                <span className="text-xs text-gray-400 py-1">No categories match &quot;{catSearch}&quot;</span>
+              )}
+            </div>
           </div>
           {f.category.length === 0 && <p className="mt-1 text-xs text-gray-400">Select at least one category</p>}
         </div>
@@ -331,6 +372,43 @@ export default function BuyerJobsPage() {
           onChange={e => setF(p => ({ ...p, skills: e.target.value }))}
           placeholder="e.g. Photoshop, Illustrator, Branding (comma separated)" />
       </div>
+
+      {/* Attachments */}
+      <div>
+        <label className={labelCls}><i className="fa fa-paperclip mr-1 text-[#4f9ef8]" /> Attachments <span className="text-gray-400 normal-case font-normal">(PDF, DOC, image — optional)</span></label>
+        <label className={cn('flex items-center justify-center gap-2 border-2 border-dashed border-gray-200 rounded-xl py-4 cursor-pointer hover:border-[#e84545] hover:bg-red-50 transition', uploadingDocs && 'opacity-60 pointer-events-none')}>
+          <i className={`fa ${uploadingDocs ? 'fa-spinner fa-spin' : 'fa-cloud-upload'} text-[#e84545]`} />
+          <span className="text-sm text-gray-500">{uploadingDocs ? 'Uploading…' : 'Click to attach documents'}</span>
+          <input type="file" multiple hidden
+            accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,image/*"
+            onChange={async (e) => {
+              const files = Array.from(e.target.files || []);
+              e.target.value = '';
+              if (!files.length) return;
+              setUploadingDocs(true);
+              try {
+                const res = await buyerJobApi.uploadDocs(files);
+                const uploaded: JobDoc[] = res?.data?.files || [];
+                setF(p => ({ ...p, attachments: [...p.attachments, ...uploaded] }));
+              } catch (err) {
+                setPostMsg({ ok: false, text: (err as Error).message || 'Upload failed' });
+              } finally { setUploadingDocs(false); }
+            }}
+          />
+        </label>
+        {f.attachments.length > 0 && (
+          <div className="flex flex-wrap gap-2 mt-2">
+            {f.attachments.map((doc, i) => (
+              <span key={i} className="inline-flex items-center gap-2 bg-gray-100 rounded-lg px-3 py-1.5 text-xs text-gray-700">
+                <i className="fa fa-file-o text-[#e84545]" />
+                <a href={doc.url} target="_blank" rel="noreferrer" className="max-w-[160px] truncate hover:underline">{doc.name}</a>
+                <button type="button" onClick={() => setF(p => ({ ...p, attachments: p.attachments.filter((_, idx) => idx !== i) }))}
+                  className="text-gray-400 hover:text-red-500"><i className="fa fa-times" /></button>
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 
@@ -381,6 +459,14 @@ export default function BuyerJobsPage() {
 
               />
             </div>
+            <div className="w-44">
+              <CustomSelect
+                value={categoryFilter === '' ? 'All Categories' : categoryFilter}
+                onChange={val => setCategoryFilter(val === 'All Categories' ? '' : val)}
+                options={['All Categories', ...categories]}
+                leftIcon="fa-tag"
+              />
+            </div>
             <div className="w-40">
               <CustomSelect
                 value={statusFilter === '' ? 'All Status' : statusFilter === 'OPEN' ? 'Open' : statusFilter === 'IN_PROGRESS' ? 'In Progress' : statusFilter === 'CLOSED' ? 'Closed' : 'Cancelled'}
@@ -393,9 +479,9 @@ export default function BuyerJobsPage() {
               />
             </div>
 
-            {(search || statusFilter) && (
+            {(search || statusFilter || categoryFilter) && (
               <button
-                onClick={() => { setSearch(''); setStatusFilter(''); }}
+                onClick={() => { setSearch(''); setStatusFilter(''); setCategoryFilter(''); }}
                 className="inline-flex items-center gap-1.5 px-3 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-500 hover:bg-gray-50 transition"
               >
                 <i className="fa fa-times" /> Clear
@@ -446,7 +532,9 @@ export default function BuyerJobsPage() {
                       <span className="flex-shrink-0 text-xs font-semibold px-2.5 py-1 rounded-full" style={{ background: st.bg, color: st.color }}>{st.label}</span>
                     </div>
 
-                    {job.description && <p className="text-xs text-gray-500 mb-3 line-clamp-2">{job.description}</p>}
+                    {job.description && plainText(job.description) && (
+                      <p className="text-xs text-gray-500 mb-3 line-clamp-2">{plainText(job.description)}</p>
+                    )}
 
                     {job.skills?.length > 0 && (
                       <div className="flex flex-wrap gap-1 mb-3">

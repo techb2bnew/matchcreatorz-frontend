@@ -1,7 +1,9 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { cn } from '@/lib/utils';
+import { preferencesApi } from '@/lib/adminApi';
+import toast from 'react-hot-toast';
 
 type Tab = 'notifications' | 'privacy' | 'wallet' | 'support';
 const tabs: { key: Tab; label: string; icon: string; desc: string }[] = [
@@ -37,12 +39,56 @@ export default function BuyerSettingsPage() {
   const [showProfile, setShowProfile]   = useState(true);
   const [showActivity, setShowActivity] = useState(true);
   const [allowMsg, setAllowMsg]         = useState(false);
-  const [twoFactor, setTwoFactor]       = useState(false);
 
   // Wallet
   const [autoReload, setAutoReload]     = useState(false);
   const [reloadAmount, setReloadAmount] = useState('1000');
   const [walletSaved, setWalletSaved]   = useState(false);
+
+  // ── Load persisted preferences ──────────────────────────────
+  const hydrating = useRef(true);
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await preferencesApi.get('buyer');
+        const p = res.data || {};
+        const n = p.notifications || {}, pr = p.privacy || {}, w = p.wallet || {};
+        if (n.email       !== undefined) setEmailNotif(!!n.email);
+        if (n.sms         !== undefined) setSmsNotif(!!n.sms);
+        if (n.offerAlert  !== undefined) setOfferAlert(!!n.offerAlert);
+        if (n.bookingAlert!== undefined) setBookingAlert(!!n.bookingAlert);
+        if (n.payAlert    !== undefined) setPayAlert(!!n.payAlert);
+        if (n.chatAlert   !== undefined) setChatAlert(!!n.chatAlert);
+        if (pr.showProfile  !== undefined) setShowProfile(!!pr.showProfile);
+        if (pr.showActivity !== undefined) setShowActivity(!!pr.showActivity);
+        if (pr.allowMsg     !== undefined) setAllowMsg(!!pr.allowMsg);
+        if (w.autoReload    !== undefined) setAutoReload(!!w.autoReload);
+        if (w.reloadAmount  !== undefined) setReloadAmount(String(w.reloadAmount));
+      } catch { /* keep defaults */ }
+      finally { setTimeout(() => { hydrating.current = false; }, 0); }
+    })();
+  }, []);
+
+  // ── Auto-save notification + privacy toggles (debounced) ────
+  useEffect(() => {
+    if (hydrating.current) return;
+    const t = setTimeout(() => {
+      preferencesApi.update('buyer', {
+        notifications: { email: emailNotif, sms: smsNotif, offerAlert, bookingAlert, payAlert, chatAlert },
+        privacy:       { showProfile, showActivity, allowMsg },
+      }).then(() => toast.success('Preferences saved', { id: 'prefs' }))
+        .catch(() => toast.error('Failed to save preferences', { id: 'prefs' }));
+    }, 500);
+    return () => clearTimeout(t);
+  }, [emailNotif, smsNotif, offerAlert, bookingAlert, payAlert, chatAlert, showProfile, showActivity, allowMsg]);
+
+  const saveWallet = async () => {
+    try {
+      await preferencesApi.update('buyer', { wallet: { autoReload, reloadAmount: Number(reloadAmount) || 0 } });
+      setWalletSaved(true); setTimeout(() => setWalletSaved(false), 2000);
+      toast.success('Wallet settings saved');
+    } catch { toast.error('Failed to save wallet settings'); }
+  };
 
   const notifItems = [
     { label: 'Email Notifications', desc: 'Receive updates via email',              val: emailNotif,  set: setEmailNotif  },
@@ -57,7 +103,6 @@ export default function BuyerSettingsPage() {
     { label: 'Profile Visibility',    desc: 'Show your profile to sellers',          val: showProfile,  set: setShowProfile  },
     { label: 'Show Activity Status',  desc: 'Let sellers see when you are online',   val: showActivity, set: setShowActivity },
     { label: 'Allow Direct Messages', desc: 'Allow sellers to message you directly', val: allowMsg,     set: setAllowMsg     },
-    { label: 'Two-Factor Auth',       desc: 'Extra security on login',               val: twoFactor,    set: setTwoFactor    },
   ];
 
   return (
@@ -150,7 +195,7 @@ export default function BuyerSettingsPage() {
                     </div>
                     <Toggle on={autoReload} onChange={() => setAutoReload(v => !v)} />
                   </div>
-                  <button onClick={() => { setWalletSaved(true); setTimeout(() => setWalletSaved(false), 2500); }}
+                  <button onClick={saveWallet}
                     className="inline-flex items-center gap-2 h-10 px-6 rounded-xl bg-[#e84545] text-white text-sm font-semibold hover:bg-[#c73333] transition shadow-sm w-full justify-center">
                     {walletSaved ? <><i className="fa fa-check" /> Saved!</> : <><i className="fa fa-save" /> Save Settings</>}
                   </button>

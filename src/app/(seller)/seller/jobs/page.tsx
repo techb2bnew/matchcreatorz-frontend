@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import Modal           from '@/components/ui/Modal';
 import Button          from '@/components/ui/Button';
@@ -7,6 +8,11 @@ import { cn }          from '@/lib/utils';
 import { sellerJobApi, publicCategoryApi } from '@/lib/adminApi';
 import { OverlayLoader } from '@/components/ui/Loader';
 import RichTextEditor from '@/components/ui/RichTextEditor';
+
+// rich-text descriptions are HTML — clean plain-text preview for cards
+const plainText = (html: string): string =>
+  html.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/\s+/g, ' ').trim();
 
 const inputCls = 'w-full border border-[#e8e8e8] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#e84545] focus:ring-1 focus:ring-[#e84545] bg-white transition';
 const labelCls = 'block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide';
@@ -53,6 +59,7 @@ function BudgetDisplay({ min, max }: { min: number | null; max: number | null })
 }
 
 export default function SellerJobsPage() {
+  const router = useRouter();
   const [jobs, setJobs]             = useState<Job[]>([]);
   const [loading, setLoading]       = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -309,13 +316,14 @@ export default function SellerJobsPage() {
               {jobs.map(job => (
                 <div key={job.id} className="bg-white rounded-2xl border border-[#e8e8e8] shadow-sm p-5 hover:shadow-md transition flex flex-col">
                   <div className="flex items-start justify-between gap-3 mb-2">
-                    <h3 className="text-sm font-bold text-gray-900 leading-snug flex-1">{job.title}</h3>
+                    <h3 onClick={() => router.push(`/seller/jobs/${job.id}`)}
+                      className="text-sm font-bold text-gray-900 leading-snug flex-1 cursor-pointer hover:text-[#e84545] transition">{job.title}</h3>
                     <span className="flex-shrink-0 text-sm font-bold text-[#e84545]">
                       <BudgetDisplay min={job.budget_min} max={job.budget_max} />
                     </span>
                   </div>
-                  {job.description && (
-                    <p className="text-xs text-gray-500 mb-3 leading-relaxed line-clamp-2">{job.description}</p>
+                  {job.description && plainText(job.description) && (
+                    <p className="text-xs text-gray-500 mb-3 leading-relaxed line-clamp-2">{plainText(job.description)}</p>
                   )}
                   <div className="flex flex-wrap gap-1.5 mb-3">
                     {job.category && job.category.split(',').map((c: string) => c.trim()).filter((c: string) => c.length > 1).map((cat: string) => (
@@ -351,7 +359,13 @@ export default function SellerJobsPage() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-xs text-gray-400"><i className="fa fa-gavel mr-1" />{job.bids_count} bids</span>
+                      <button onClick={() => router.push(`/seller/jobs/${job.id}`)}
+                        className="text-xs text-gray-500 hover:text-[#e84545] font-medium transition">
+                        <i className="fa fa-eye mr-1" />Details
+                      </button>
+                      <span className="text-xs text-gray-400" title="Bids already applied">
+                        <i className="fa fa-gavel mr-1" />{job.bids_count} {job.bids_count === 1 ? 'bid' : 'bids'} applied
+                      </span>
                       {job.has_bid ? (
                         (job.my_bid?.status === 'countered' && job.my_bid?.counter_by === 'buyer') ? (
                           // Buyer countered → seller can accept or counter back

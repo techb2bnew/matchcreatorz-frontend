@@ -15,7 +15,7 @@ import toast from 'react-hot-toast';
 const COUNTRIES = ['India', 'USA', 'UK', 'Canada', 'Australia', 'UAE', 'Singapore', 'Germany'];
 const STATES    = ['Delhi', 'Maharashtra', 'Karnataka', 'Tamil Nadu', 'Gujarat', 'Rajasthan', 'Uttar Pradesh'];
 
-const emptyForm = { name: '', email: '', phone: '', password: '', countryCode: '+91', country: 'India', state: 'Delhi', city: '', zip: '' };
+const emptyForm = { name: '', email: '', phone: '', password: '', countryCode: '+1', country: 'India', state: 'Delhi', city: '', zip: '' };
 
 const statusClass = (s: string) => s === 'active' || s === 'ACTIVE' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700';
 
@@ -53,7 +53,7 @@ export default function BuyersPage() {
 
   // -- Edit state --------------------------------------------
   const [editBuyer, setEditBuyer]   = useState<any | null>(null);
-  const [editForm, setEditForm]     = useState({ name: '', phone: '', countryCode: '+91', city: '', state: 'Delhi', country: 'India', zip: '', company_name: '' });
+  const [editForm, setEditForm]     = useState({ name: '', phone: '', countryCode: '+1', city: '', state: 'Delhi', country: 'India', zip: '', company_name: '' });
   const [editLoading, setEditLoading] = useState(false);
 
   // -- Validation helpers ------------------------------------
@@ -149,7 +149,7 @@ export default function BuyersPage() {
     for (const c of codes) {
       if (full.startsWith(c)) return { countryCode: c, phone: full.slice(c.length) };
     }
-    return { countryCode: '+91', phone: full };
+    return { countryCode: '+1', phone: full };
   };
 
   // -- Open / submit edit ------------------------------------
@@ -326,7 +326,7 @@ export default function BuyersPage() {
                 <label className="text-sm font-medium text-gray-700">Phone Number</label>
                 <div className="flex gap-2">
                   <div className="w-[110px] flex-shrink-0">
-                    <CustomSelect value={form.countryCode} onChange={(v) => setForm({ ...form, countryCode: v })} options={['+91', '+1', '+44', '+61', '+971']} />
+                    <CustomSelect value={form.countryCode} onChange={(v) => setForm({ ...form, countryCode: v })} options={['+1', '+91', '+44', '+61', '+971']} />
                   </div>
                   <div className="flex-1">
                     <Input type="tel" placeholder="9876543210" maxLength={10} value={form.phone}
@@ -416,7 +416,7 @@ export default function BuyersPage() {
                   <label className="text-sm font-medium text-gray-700">Phone Number</label>
                   <div className="flex gap-2">
                     <div className="w-[110px] flex-shrink-0">
-                      <CustomSelect value={editForm.countryCode} onChange={v => setEditForm({ ...editForm, countryCode: v })} options={['+91', '+1', '+44', '+61', '+971']} />
+                      <CustomSelect value={editForm.countryCode} onChange={v => setEditForm({ ...editForm, countryCode: v })} options={['+1', '+91', '+44', '+61', '+971']} />
                     </div>
                     <div className="flex-1">
                       <Input type="tel" placeholder="9876543210" maxLength={10} value={editForm.phone}
