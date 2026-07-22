@@ -21,17 +21,17 @@ const statusClass = (s: string) => s === 'active' || s === 'ACTIVE' ? 'bg-green-
 
 // Map backend buyer -> display shape
 const mapBuyer = (b: any) => ({
-  id:       b.id,
-  name:     b.name,
-  email:    b.email,
-  phone:    b.phone || '--',
-  bookings: 0,
-  spent:    0,
-  status:   b.status || 'active',
-  joined:   b.joined || b.createdAt,
-  city:     b.profile?.city || '--',
-  country:  b.profile?.country || '--',
-  raw:      b,
+  id:        b.id,
+  name:      b.name,
+  email:     b.email,
+  phone:     b.phone || '--',
+  bookings:  0,
+  spent:     0,
+  status:    b.status || 'active',
+  joined:    b.joined || b.createdAt,
+  city:      b.profile?.city || '--',
+  country:   b.profile?.country || '--',
+  raw:       b,
 });
 
 export default function BuyersPage() {
@@ -72,7 +72,9 @@ export default function BuyersPage() {
     try {
       const params: Record<string, string | number> = { page, limit: LIMIT };
       if (debouncedSearch) params.search = debouncedSearch;
-      if (activeFilter !== 'All') params.status = activeFilter.toLowerCase();
+      if (activeFilter !== 'All') {
+        params.status = activeFilter.toLowerCase();
+      }
 
       const json = await buyerApi.list(params);
       setBuyers((json.data || []).map(mapBuyer));
@@ -207,7 +209,9 @@ export default function BuyersPage() {
           <div className="flex gap-2">
             {['All', 'Active', 'Banned'].map(f => (
               <button key={f} onClick={() => setActiveFilter(f)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${activeFilter === f ? 'bg-[#e84545] text-white' : 'text-gray-500 hover:bg-gray-100'}`}>
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                  activeFilter === f ? 'bg-[#e84545] text-white' : 'text-gray-500 hover:bg-gray-100'
+                }`}>
                 {f}
               </button>
             ))}

@@ -1,53 +1,130 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import { cn } from '@/lib/utils';
+import { buyerNotificationApi } from '@/lib/adminApi';
 
-const initialNotifications = [
-  { id: 1, type: 'Bookings', title: 'Booking Confirmed',      message: 'Your booking for Logo Design with Bob Smith is confirmed.', time: '5m ago',  read: false },
-  { id: 2, type: 'Bookings', title: 'Order Delivered',        message: 'Bob Smith has delivered your Logo Design order. Please review.', time: '2h ago',  read: false },
-  { id: 3, type: 'Payments', title: 'Payment Successful',     message: 'Your payment of $75 for Logo Design was successful.', time: '3h ago',  read: true  },
-  { id: 4, type: 'System',   title: 'New Offer Received',     message: 'Frank Miller sent you an offer for your WordPress job post.', time: '6h ago',  read: false },
-  { id: 5, type: 'Bookings', title: 'Booking Cancelled',      message: 'Your booking #B-2031 has been cancelled and refunded.', time: '1d ago',  read: true  },
-  { id: 6, type: 'Payments', title: 'Refund Processed',       message: 'Refund of $120 has been credited to your wallet.', time: '2d ago',  read: true  },
-  { id: 7, type: 'System',   title: 'Job Post Closed',        message: 'Your job post "Logo Design for My Bakery" has been auto-closed.', time: '3d ago',  read: true  },
-  { id: 8, type: 'Bookings', title: 'New Proposal',           message: 'You have 3 new proposals on your WordPress job post.', time: '5d ago',  read: true  },
-];
+// ── Types ──────────────────────────────────────────────────────────────────────
+interface ApiNotification {
+  id: number;
+  title: string;
+  body: string | null;
+  type: string | null;
+  data: Record<string, unknown> | null;
+  is_read: boolean;
+  isRead?: boolean;
+  created_at?: string;
+  createdAt?: string;
+}
 
-const typeIcon = (type: string): string => {
-  if (type === 'Payments') return 'fa-credit-card';
-  if (type === 'Bookings') return 'fa-calendar';
+// ── Helpers ────────────────────────────────────────────────────────────────────
+const typeToCategory = (type: string | null): string => {
+  if (!type) return 'System';
+  if (type.startsWith('booking') || type === 'work_submitted' || type === 'work_accepted') return 'Bookings';
+  if (type.startsWith('bid')) return 'Jobs';
+  return 'System';
+};
+
+const categoryIcon = (cat: string): string => {
+  if (cat === 'Bookings') return 'fa-calendar';
+  if (cat === 'Jobs')     return 'fa-briefcase';
   return 'fa-bell';
 };
 
-const typeColor = (type: string) => {
-  if (type === 'Payments') return 'bg-green-50 text-green-600';
-  if (type === 'Bookings') return 'bg-blue-50 text-blue-600';
+const categoryColor = (cat: string): string => {
+  if (cat === 'Bookings') return 'bg-blue-50 text-blue-600';
+  if (cat === 'Jobs')     return 'bg-purple-50 text-purple-600';
   return 'bg-[#fff0f0] text-[#e84545]';
 };
 
-const filters = ['All', 'Bookings', 'Payments', 'System'];
+const relativeTime = (iso: string | undefined): string => {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '';
+  const diff  = Date.now() - d.getTime();
+  const mins  = Math.floor(diff / 60_000);
+  const hours = Math.floor(diff / 3_600_000);
+  const days  = Math.floor(diff / 86_400_000);
+  if (mins  < 1)  return 'just now';
+  if (mins  < 60) return `${mins}m ago`;
+  if (hours < 24) return `${hours}h ago`;
+  if (days  < 30) return `${days}d ago`;
+  return d.toLocaleDateString();
+};
 
+const FILTERS = ['All', 'Bookings', 'Jobs', 'System'] as const;
+type Filter = typeof FILTERS[number];
+
+// ── Page ───────────────────────────────────────────────────────────────────────
 export default function BuyerNotificationsPage() {
-  const [notifications, setNotifications] = useState(initialNotifications);
-  const [activeFilter, setActiveFilter] = useState('All');
+  const [notifications, setNotifications] = useState<ApiNotification[]>([]);
+  const [loading, setLoading]             = useState(true);
+  const [activeFilter, setActiveFilter]   = useState<Filter>('All');
+  const [page, setPage]                   = useState(1);
+  const [total, setTotal]                 = useState(0);
+  const LIMIT = 20;
 
-  const filtered = notifications.filter((n) =>
-    activeFilter === 'All' || n.type === activeFilter
-  );
+  const fetchNotifications = useCallback(async (pg = 1) => {
+    try {
+      setLoading(true);
+      const res  = await buyerNotificationApi.list({ page: pg, limit: LIMIT });
+      const rows: ApiNotification[] = res?.data?.data ?? [];
+      setNotifications((prev) => pg === 1 ? rows : [...prev, ...rows]);
+      setTotal(res?.data?.total ?? 0);
+      setPage(pg);
+    } catch (err) {
+      console.error('Failed to fetch notifications', err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-  const markAllRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+  useEffect(() => { fetchNotifications(1); }, [fetchNotifications]);
+
+  const handleMarkRead = async (id: number) => {
+    try {
+      await buyerNotificationApi.markRead(id);
+      setNotifications((prev) => prev.map((n) => n.id === id ? { ...n, is_read: true } : n));
+    } catch { /* silent */ }
   };
+
+  const handleMarkAllRead = async () => {
+    try {
+      await buyerNotificationApi.markAllRead();
+      setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
+    } catch { /* silent */ }
+  };
+
+  const handleDelete = async (id: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      await buyerNotificationApi.delete(id);
+      setNotifications((prev) => prev.filter((n) => n.id !== id));
+      setTotal((t) => t - 1);
+    } catch { /* silent */ }
+  };
+
+  // normalise field names (Sequelize may return camelCase)
+  const normalised = notifications.map((n) => ({
+    ...n,
+    is_read:    n.is_read ?? n.isRead ?? false,
+    created_at: n.created_at ?? n.createdAt,
+  }));
+
+  const filtered = activeFilter === 'All'
+    ? normalised
+    : normalised.filter((n) => typeToCategory(n.type) === activeFilter);
+
+  const hasMore = notifications.length < total;
 
   return (
     <DashboardLayout role="BUYER" title="Notifications">
       {/* Top row */}
       <div className="flex items-center justify-between mb-5">
-        <div className="flex gap-2">
-          {filters.map((f) => (
+        <div className="flex gap-2 flex-wrap">
+          {FILTERS.map((f) => (
             <button
               key={f}
               onClick={() => setActiveFilter(f)}
@@ -59,36 +136,80 @@ export default function BuyerNotificationsPage() {
             </button>
           ))}
         </div>
-        <Button variant="outline" size="sm" leftIcon={<i className="fa fa-bell-slash text-sm" />} onClick={markAllRead}>
+        <Button variant="outline" size="sm" leftIcon={<i className="fa fa-bell-slash text-sm" />} onClick={handleMarkAllRead}>
           Mark all as read
         </Button>
       </div>
 
-      {/* Notifications list */}
+      {/* List */}
       <Card padding="none">
-        <div className="divide-y divide-gray-50">
-          {filtered.map((n) => {
-            const iconClass = typeIcon(n.type);
-            return (
-              <div
-                key={n.id}
-                className={cn(
-                  'flex items-start gap-4 px-5 py-4 transition-colors',
-                  !n.read ? 'bg-[#fff8f8] border-l-4 border-[#e84545]' : 'hover:bg-gray-50'
-                )}
-              >
-                <div className={`p-2.5 rounded-xl flex-shrink-0 ${typeColor(n.type)}`}>
-                  <i className={`fa ${iconClass} text-sm`} />
+        {loading && notifications.length === 0 ? (
+          <div className="flex justify-center items-center py-16 text-gray-400">
+            <i className="fa fa-spinner fa-spin mr-2" /> Loading…
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 text-gray-400">
+            <i className="fa fa-bell-slash text-3xl mb-3" />
+            <p className="text-sm">No notifications</p>
+          </div>
+        ) : (
+          <div className="divide-y divide-gray-50">
+            {filtered.map((n) => {
+              const cat   = typeToCategory(n.type);
+              const icon  = categoryIcon(cat);
+              const color = categoryColor(cat);
+              return (
+                <div
+                  key={n.id}
+                  onClick={() => !n.is_read && handleMarkRead(n.id)}
+                  className={cn(
+                    'flex items-start gap-4 px-5 py-4 transition-colors group',
+                    !n.is_read
+                      ? 'bg-[#fff8f8] border-l-4 border-[#e84545] cursor-pointer'
+                      : 'hover:bg-gray-50'
+                  )}
+                >
+                  <div className={`p-2.5 rounded-xl flex-shrink-0 ${color}`}>
+                    <i className={`fa ${icon} text-sm`} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-sm font-semibold ${n.is_read ? 'text-gray-600' : 'text-gray-900'}`}>
+                      {n.title}
+                    </p>
+                    {n.body && <p className="text-xs text-gray-500 mt-0.5">{n.body}</p>}
+                  </div>
+                  <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                    <span className="text-xs text-gray-400">{relativeTime(n.created_at)}</span>
+                    <button
+                      onClick={(e) => handleDelete(n.id, e)}
+                      className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-300 hover:text-red-400 text-xs"
+                      title="Delete"
+                    >
+                      <i className="fa fa-trash" />
+                    </button>
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className={`text-sm font-semibold ${n.read ? 'text-gray-600' : 'text-gray-900'}`}>{n.title}</p>
-                  <p className="text-xs text-gray-500 mt-0.5">{n.message}</p>
-                </div>
-                <span className="text-xs text-gray-400 flex-shrink-0">{n.time}</span>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
+
+        {hasMore && !loading && (
+          <div className="flex justify-center py-4 border-t border-gray-50">
+            <button
+              onClick={() => fetchNotifications(page + 1)}
+              className="text-sm text-[#e84545] hover:underline"
+            >
+              Load more
+            </button>
+          </div>
+        )}
+
+        {loading && notifications.length > 0 && (
+          <div className="flex justify-center py-4 border-t border-gray-50 text-gray-400 text-sm">
+            <i className="fa fa-spinner fa-spin mr-2" /> Loading…
+          </div>
+        )}
       </Card>
     </DashboardLayout>
   );

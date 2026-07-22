@@ -1,39 +1,84 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import Avatar from '@/components/ui/Avatar';
+import { RichTextView } from '@/components/ui/RichTextEditor';
 import { cn, formatDate, formatCurrency } from '@/lib/utils';
+import { buyerOfferApi } from '@/lib/adminApi';
+import { PageLoader } from '@/components/ui/Loader';
+import toast from 'react-hot-toast';
 
-const pendingOffers = [
-  { id: 1, seller: 'Bob Smith',    category: 'Designer',  ref: 'Logo Design for My Bakery', price: 220,  message: 'I can create a beautiful logo with 3 concepts and unlimited revisions. Delivery in 3 days.', date: '2024-11-10' },
-  { id: 2, seller: 'Frank Miller', category: 'Developer', ref: 'WordPress Blog Setup',       price: 380,  message: 'Full setup with premium Divi theme, SEO plugin, and 6 months free support included.', date: '2024-11-09' },
-];
-
-const acceptedOffers = [
-  { id: 3, seller: 'Diana Prince', category: 'Developer', ref: 'React Dashboard Project', price: 1200, message: 'React + TypeScript dashboard with auth, charts, and API integration. 2 week delivery.', date: '2024-11-07' },
-];
-
-const declinedOffers = [
-  { id: 4, seller: 'Grace Hopper', category: 'Writer', ref: 'Blog Content Package', price: 450, message: '10 SEO articles, each 1500+ words, with keyword research and meta descriptions.', date: '2024-11-05' },
-];
+interface Offer {
+  id: number;
+  title: string;
+  description: string | null;
+  amount: number;
+  delivery_days: number | null;
+  status: string;
+  created_at: string;
+  seller: { id: number; name: string } | null;
+}
 
 type Tab = 'pending' | 'accepted' | 'declined';
 
 export default function BuyerOffersPage() {
-  const [activeTab, setActiveTab] = useState<Tab>('pending');
+  const [activeTab, setActiveTab]   = useState<Tab>('pending');
+  const [offers, setOffers]         = useState<Offer[]>([]);
+  const [loading, setLoading]       = useState(true);
+  const [actionId, setActionId]     = useState<number | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await buyerOfferApi.list({ limit: 100 });
+      setOffers(res.data || []);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Failed to load offers');
+      setOffers([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const byStatus = (s: Tab) => offers.filter((o) => (o.status || '').toLowerCase() === s);
 
   const tabs: { key: Tab; label: string; count: number }[] = [
-    { key: 'pending',  label: 'Pending',  count: pendingOffers.length  },
-    { key: 'accepted', label: 'Accepted', count: acceptedOffers.length },
-    { key: 'declined', label: 'Declined', count: declinedOffers.length },
+    { key: 'pending',  label: 'Pending',  count: byStatus('pending').length  },
+    { key: 'accepted', label: 'Accepted', count: byStatus('accepted').length },
+    { key: 'declined', label: 'Declined', count: byStatus('declined').length },
   ];
 
-  const currentOffers =
-    activeTab === 'pending'  ? pendingOffers  :
-    activeTab === 'accepted' ? acceptedOffers :
-    declinedOffers;
+  const currentOffers = byStatus(activeTab);
+
+  const handleAccept = async (id: number) => {
+    setActionId(id);
+    try {
+      await buyerOfferApi.accept(id);
+      toast.success('Offer accepted');
+      await load();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Failed to accept offer');
+    } finally {
+      setActionId(null);
+    }
+  };
+
+  const handleDecline = async (id: number) => {
+    setActionId(id);
+    try {
+      await buyerOfferApi.decline(id);
+      toast.success('Offer declined');
+      await load();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Failed to decline offer');
+    } finally {
+      setActionId(null);
+    }
+  };
 
   return (
     <DashboardLayout role="BUYER" title="Offers">
@@ -58,57 +103,81 @@ export default function BuyerOffersPage() {
         ))}
       </div>
 
-      {/* Offer cards */}
-      <div className="space-y-4">
-        {currentOffers.map((o) => (
-          <Card key={o.id} padding="md">
-            <div className="flex flex-wrap items-start gap-4">
-              <div className="flex items-center gap-3 flex-shrink-0">
-                <Avatar name={o.seller} size="md" />
-                <div>
-                  <p className="font-semibold text-gray-900">{o.seller}</p>
-                  <p className="text-xs text-gray-400">{o.category}</p>
+      {loading ? (
+        <PageLoader text="Loading offers..." />
+      ) : currentOffers.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-20 text-gray-400">
+          <i className="fa fa-inbox text-3xl mb-3" />
+          <p className="text-sm">No {activeTab} offers</p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {currentOffers.map((o) => (
+            <Card key={o.id} padding="md">
+              <div className="flex flex-wrap items-start gap-4">
+                <div className="flex items-center gap-3 flex-shrink-0">
+                  <Avatar name={o.seller?.name || 'Seller'} size="md" />
+                  <div>
+                    <p className="font-semibold text-gray-900">{o.seller?.name || 'Seller'}</p>
+                    <p className="text-xs text-gray-400">Re: {o.title}</p>
+                  </div>
+                </div>
+                <div className="flex-1 min-w-0">
+                  {o.description
+                    ? <RichTextView html={o.description} />
+                    : <p className="text-sm text-gray-400 italic">No message</p>}
+                  <p className="text-xs text-gray-400 mt-1">
+                    {o.delivery_days ? `${o.delivery_days} day delivery · ` : ''}{formatDate(o.created_at)}
+                  </p>
+                </div>
+                <div className="text-right flex-shrink-0">
+                  <p className="text-2xl font-black text-[#e84545]">{formatCurrency(o.amount)}</p>
+                  <p className="text-xs text-gray-400">Offered price</p>
                 </div>
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-xs text-[#e84545] font-medium mb-1">Re: {o.ref}</p>
-                <p className="text-sm text-gray-600 italic">"{o.message}"</p>
-                <p className="text-xs text-gray-400 mt-1">{formatDate(o.date)}</p>
-              </div>
-              <div className="text-right flex-shrink-0">
-                <p className="text-2xl font-black text-[#e84545]">{formatCurrency(o.price)}</p>
-                <p className="text-xs text-gray-400">Offered price</p>
-              </div>
-            </div>
 
-            {/* Actions */}
-            {activeTab === 'pending' && (
-              <div className="flex gap-3 mt-4 pt-4 border-t border-gray-100">
-                <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white border-0">Accept</Button>
-                <Button variant="outline" size="sm" className="text-red-500 border-red-200 hover:bg-red-50">Decline</Button>
-                <Button variant="outline" size="sm">Counter</Button>
-              </div>
-            )}
-
-            {activeTab === 'accepted' && (
-              <div className="flex items-center gap-3 mt-4 pt-4 border-t border-gray-100">
-                <div className="flex items-center gap-2 text-green-600">
-                  <i className="fa fa-check-circle text-sm" />
-                  <span className="text-sm font-medium">Accepted</span>
+              {/* Actions */}
+              {activeTab === 'pending' && (
+                <div className="flex gap-3 mt-4 pt-4 border-t border-gray-100">
+                  <Button
+                    size="sm"
+                    className="bg-green-600 hover:bg-green-700 text-white border-0"
+                    loading={actionId === o.id}
+                    onClick={() => handleAccept(o.id)}
+                  >
+                    Accept
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-red-500 border-red-200 hover:bg-red-50"
+                    disabled={actionId === o.id}
+                    onClick={() => handleDecline(o.id)}
+                  >
+                    Decline
+                  </Button>
                 </div>
-                <Button variant="outline" size="sm" className="ml-auto">View Booking</Button>
-              </div>
-            )}
+              )}
 
-            {activeTab === 'declined' && (
-              <div className="flex items-center gap-2 mt-4 pt-4 border-t border-gray-100 text-red-500">
-                <i className="fa fa-times-circle text-sm" />
-                <span className="text-sm font-medium">Declined</span>
-              </div>
-            )}
-          </Card>
-        ))}
-      </div>
+              {activeTab === 'accepted' && (
+                <div className="flex items-center gap-3 mt-4 pt-4 border-t border-gray-100">
+                  <div className="flex items-center gap-2 text-green-600">
+                    <i className="fa fa-check-circle text-sm" />
+                    <span className="text-sm font-medium">Accepted</span>
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'declined' && (
+                <div className="flex items-center gap-2 mt-4 pt-4 border-t border-gray-100 text-red-500">
+                  <i className="fa fa-times-circle text-sm" />
+                  <span className="text-sm font-medium">Declined</span>
+                </div>
+              )}
+            </Card>
+          ))}
+        </div>
+      )}
     </DashboardLayout>
   );
 }

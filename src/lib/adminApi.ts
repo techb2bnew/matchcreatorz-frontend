@@ -155,12 +155,14 @@ export const buyerJobApi = {
   getBids:   (id: number)                   => req('GET',   `/api/v1/buyer/jobs/${id}/bids`),
   acceptBid: (jobId: number, bidId: number) => req('PATCH', `/api/v1/buyer/jobs/${jobId}/bids/${bidId}/accept`),
   rejectBid: (jobId: number, bidId: number) => req('PATCH', `/api/v1/buyer/jobs/${jobId}/bids/${bidId}/reject`),
+  counterBid: (jobId: number, bidId: number, body: { amount: number; delivery_days?: number; note?: string }) =>
+    req('PATCH', `/api/v1/buyer/jobs/${jobId}/bids/${bidId}/counter`, body),
 };
 
 // -- Buyer Bookings ----------------------------------------------------
 export const buyerBookingApi = {
   list:   (params: { tab?: string; page?: number; limit?: number } = {}) => {
-    const q = new URLSearchParams(Object.entries(params).filter(([,v]) => v !== undefined && v !== '').map(([k,v]) => [k, String(v)])).toString();
+    const q = new URLSearchParams(Object.entries(params).filter(([,v]) => v !== undefined && v !== null && String(v) !== '').map(([k,v]) => [k, String(v)])).toString();
     return req('GET', `/api/v1/buyer/bookings${q ? `?${q}` : ''}`);
   },
   get:    (id: number) => req('GET', `/api/v1/buyer/bookings/${id}`),
@@ -174,7 +176,7 @@ export const buyerBookingApi = {
 // -- Seller Bookings ---------------------------------------------------
 export const sellerBookingApi = {
   list:   (params: { tab?: string; page?: number; limit?: number } = {}) => {
-    const q = new URLSearchParams(Object.entries(params).filter(([,v]) => v !== undefined && v !== '').map(([k,v]) => [k, String(v)])).toString();
+    const q = new URLSearchParams(Object.entries(params).filter(([,v]) => v !== undefined && v !== null && String(v) !== '').map(([k,v]) => [k, String(v)])).toString();
     return req('GET', `/api/v1/seller/bookings${q ? `?${q}` : ''}`);
   },
   get:     (id: number) => req('GET',   `/api/v1/seller/bookings/${id}`),
@@ -186,7 +188,7 @@ export const sellerBookingApi = {
 // -- Admin Bookings ----------------------------------------------------
 export const adminBookingApi = {
   list:    (params: { status?: string; search?: string; page?: number; limit?: number } = {}) => {
-    const q = new URLSearchParams(Object.entries(params).filter(([,v]) => v !== undefined && v !== '').map(([k,v]) => [k, String(v)])).toString();
+    const q = new URLSearchParams(Object.entries(params).filter(([,v]) => v !== undefined && v !== null && String(v) !== '').map(([k,v]) => [k, String(v)])).toString();
     return req('GET', `/api/v1/admin/bookings${q ? `?${q}` : ''}`);
   },
   get:     (id: number) => req('GET',    `/api/v1/admin/bookings/${id}`),
@@ -237,7 +239,7 @@ export const sellerReviewApi = {
 // -- Admin Reviews -----------------------------------------------------
 export const adminReviewApi = {
   list:    (params: { search?: string; status?: string; page?: number; limit?: number } = {}) => {
-    const q = new URLSearchParams(Object.entries(params).filter(([,v]) => v !== undefined && v !== '').map(([k,v]) => [k, String(v)])).toString();
+    const q = new URLSearchParams(Object.entries(params).filter(([,v]) => v !== undefined && v !== null && String(v) !== '').map(([k,v]) => [k, String(v)])).toString();
     return req('GET', `/api/v1/admin/reviews${q ? `?${q}` : ''}`);
   },
   publish: (id: number) => req('PATCH',  `/api/v1/admin/reviews/${id}/publish`),
@@ -274,6 +276,10 @@ export const sellerJobApi = {
     req('PATCH',  `/api/v1/seller/jobs/${id}/bid`, body),
   withdrawBid: (id: number) =>
     req('DELETE', `/api/v1/seller/jobs/${id}/bid`),
+  counterBid:  (id: number, body: { amount: number; delivery_days?: number; note?: string }) =>
+    req('PATCH',  `/api/v1/seller/jobs/${id}/bid/counter`, body),
+  acceptCounter: (id: number) =>
+    req('PATCH',  `/api/v1/seller/jobs/${id}/bid/accept`),
 };
 
 // -- Stats (dashboard) -------------------------------------------------
@@ -291,3 +297,112 @@ export const adminJobApi = {
 };
 export const sellerStatsApi = { get: () => req('GET', `/api/v1/seller/stats`) };
 export const buyerStatsApi  = { get: () => req('GET', `/api/v1/buyer/stats`)  };
+
+// -- Buyer Notifications -----------------------------------------------
+export const buyerNotificationApi = {
+  list:        (params: { page?: number; limit?: number; unread_only?: boolean } = {}) => {
+    const q = new URLSearchParams(
+      Object.entries(params)
+        .filter(([, v]) => v !== undefined && v !== null && String(v) !== '')
+        .map(([k, v]) => [k, String(v)])
+    ).toString();
+    return req('GET', `/api/v1/buyer/notifications${q ? `?${q}` : ''}`);
+  },
+  unreadCount: ()           => req('GET',    `/api/v1/buyer/notifications/unread-count`),
+  markRead:    (id: number) => req('PUT',    `/api/v1/buyer/notifications/${id}/read`),
+  markAllRead: ()           => req('PUT',    `/api/v1/buyer/notifications/read-all`),
+  delete:      (id: number) => req('DELETE', `/api/v1/buyer/notifications/${id}`),
+};
+
+// -- Seller Notifications ----------------------------------------------
+export const sellerNotificationApi = {
+  list:        (params: { page?: number; limit?: number; unread_only?: boolean } = {}) => {
+    const q = new URLSearchParams(
+      Object.entries(params)
+        .filter(([, v]) => v !== undefined && v !== null && String(v) !== '')
+        .map(([k, v]) => [k, String(v)])
+    ).toString();
+    return req('GET', `/api/v1/seller/notifications${q ? `?${q}` : ''}`);
+  },
+  unreadCount: ()           => req('GET',    `/api/v1/seller/notifications/unread-count`),
+  markRead:    (id: number) => req('PUT',    `/api/v1/seller/notifications/${id}/read`),
+  markAllRead: ()           => req('PUT',    `/api/v1/seller/notifications/read-all`),
+  delete:      (id: number) => req('DELETE', `/api/v1/seller/notifications/${id}`),
+};
+
+// -- Buyer Favourites --------------------------------------------------
+export const buyerFavouriteApi = {
+  list: (params: { page?: number; limit?: number } = {}) => {
+    const q = new URLSearchParams(
+      Object.entries(params).filter(([, v]) => v !== undefined && v !== null && String(v) !== '').map(([k, v]) => [k, String(v)])
+    ).toString();
+    return req('GET', `/api/v1/buyer/favourites${q ? `?${q}` : ''}`);
+  },
+  ids:    ()               => req('GET',    `/api/v1/buyer/favourites/ids`),
+  add:    (serviceId: number) => req('POST',   `/api/v1/buyer/favourites/${serviceId}`),
+  remove: (serviceId: number) => req('DELETE', `/api/v1/buyer/favourites/${serviceId}`),
+};
+
+// -- Buyer Offers (received) -------------------------------------------
+export const buyerOfferApi = {
+  list: (params: { status?: string; page?: number; limit?: number } = {}) => {
+    const q = new URLSearchParams(
+      Object.entries(params).filter(([, v]) => v !== undefined && v !== null && String(v) !== '').map(([k, v]) => [k, String(v)])
+    ).toString();
+    return req('GET', `/api/v1/buyer/offers${q ? `?${q}` : ''}`);
+  },
+  accept:  (id: number) => req('PATCH', `/api/v1/buyer/offers/${id}/accept`),
+  decline: (id: number) => req('PATCH', `/api/v1/buyer/offers/${id}/decline`),
+};
+
+// -- Seller: buyer lookup (for offer picker) ---------------------------
+export const sellerBuyerApi = {
+  search: (params: { search?: string; page?: number; limit?: number } = {}) => {
+    const q = new URLSearchParams(
+      Object.entries(params).filter(([, v]) => v !== undefined && v !== null && String(v) !== '').map(([k, v]) => [k, String(v)])
+    ).toString();
+    return req('GET', `/api/v1/seller/buyers${q ? `?${q}` : ''}`);
+  },
+};
+
+// -- Seller Offers (sent) ----------------------------------------------
+export const sellerOfferApi = {
+  list: (params: { status?: string; page?: number; limit?: number } = {}) => {
+    const q = new URLSearchParams(
+      Object.entries(params).filter(([, v]) => v !== undefined && v !== null && String(v) !== '').map(([k, v]) => [k, String(v)])
+    ).toString();
+    return req('GET', `/api/v1/seller/offers${q ? `?${q}` : ''}`);
+  },
+  send:     (body: { buyer_id: number; service_id?: number; title: string; description?: string; amount: number; delivery_days?: number }) =>
+    req('POST', `/api/v1/seller/offers`, body),
+  withdraw: (id: number) => req('DELETE', `/api/v1/seller/offers/${id}`),
+};
+
+// -- Seller Connects ----------------------------------------------------
+export const sellerConnectApi = {
+  balance: () => req('GET', `/api/v1/seller/connects/balance`),
+  history: (params: { page?: number; limit?: number } = {}) => {
+    const q = new URLSearchParams(
+      Object.entries(params).filter(([, v]) => v !== undefined && v !== null && String(v) !== '').map(([k, v]) => [k, String(v)])
+    ).toString();
+    return req('GET', `/api/v1/seller/connects/history${q ? `?${q}` : ''}`);
+  },
+};
+
+// -- Admin Settings -----------------------------------------------------
+export const adminSettingApi = {
+  get:    ()             => req('GET', `/api/v1/admin/settings`),
+  update: (body: Record<string, unknown>) => req('PUT', `/api/v1/admin/settings`, body),
+};
+
+// -- Admin Connects -----------------------------------------------------
+export const adminConnectApi = {
+  add:     (sellerId: number, body: { amount: number; note?: string }) =>
+    req('POST', `/api/v1/admin/connects/${sellerId}`, body),
+  history: (sellerId: number, params: { page?: number; limit?: number } = {}) => {
+    const q = new URLSearchParams(
+      Object.entries(params).filter(([, v]) => v !== undefined && v !== null && String(v) !== '').map(([k, v]) => [k, String(v)])
+    ).toString();
+    return req('GET', `/api/v1/admin/connects/${sellerId}/history${q ? `?${q}` : ''}`);
+  },
+};

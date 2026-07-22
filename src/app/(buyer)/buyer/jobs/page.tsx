@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import Modal           from '@/components/ui/Modal';
 import Button          from '@/components/ui/Button';
@@ -7,6 +7,7 @@ import { cn }          from '@/lib/utils';
 import { buyerJobApi, publicCategoryApi } from '@/lib/adminApi';
 import { useRouter } from 'next/navigation';
 import CustomSelect from '@/components/ui/CustomSelect';
+import RichTextEditor from '@/components/ui/RichTextEditor';
 
 type Tab = 'posted' | 'post';
 const tabs: { key: Tab; label: string; icon: string }[] = [
@@ -64,6 +65,10 @@ export default function BuyerJobsPage() {
   const [refreshing, setRefreshing] = useState(false); // silent background refresh
   const [search, setSearch]       = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [page, setPage]           = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const LIMIT = 10;
+  const firstLoad = useRef(true);
   const [categories, setCategories] = useState<string[]>(['Design', 'Development', 'Marketing', 'Writing', 'Video', 'Photography', 'Music', 'Animation']);
 
   // Form
@@ -86,31 +91,37 @@ export default function BuyerJobsPage() {
   const [closeTarget, setCloseTarget]   = useState<Job | null>(null);
   const [closing, setClosing]           = useState(false);
 
-  const loadJobs = useCallback(async (q?: { search?: string; status?: string }, silent = false) => {
+  const loadJobs = useCallback(async (silent = false) => {
     if (silent) setRefreshing(true);
     else        setLoading(true);
     try {
-      const params: Record<string, string> = {};
-      if (q?.search?.trim()) params.search = q.search.trim();
-      if (q?.status)         params.status = q.status;
+      const params: Record<string, string | number> = { page, limit: LIMIT };
+      if (search.trim())  params.search = search.trim();
+      if (statusFilter)   params.status = statusFilter;
       const res = await buyerJobApi.list(params);
       setJobs(res.data || []);
+      setTotalPages(res.meta?.totalPages || res.pagination?.pages || 1);
     } catch { setJobs([]); }
     finally { setLoading(false); setRefreshing(false); }
-  }, []);
+  }, [page, search, statusFilter]);
 
   useEffect(() => {
-    loadJobs();
     publicCategoryApi.list()
       .then(r => { if (r.data?.length) setCategories(r.data.map((c: { name: string }) => c.name)); })
       .catch(() => {});
-  }, [loadJobs]);
+  }, []);
 
-  // Auto-search on typing (debounced 300ms, silent so no skeleton flicker)
+  // Reset to first page whenever the search/filter changes
+  useEffect(() => { setPage(1); }, [search, statusFilter]);
+
+  // Load jobs (skeleton on first load, silent refresh after)
   useEffect(() => {
-    const t = setTimeout(() => loadJobs({ search, status: statusFilter }, true), 300);
+    const t = setTimeout(() => {
+      loadJobs(!firstLoad.current);
+      firstLoad.current = false;
+    }, firstLoad.current ? 0 : 300);
     return () => clearTimeout(t);
-  }, [search, statusFilter, loadJobs]);
+  }, [loadJobs]);
 
   // Stats
   const total      = jobs.length;
@@ -153,7 +164,7 @@ export default function BuyerJobsPage() {
       });
       setPostMsg({ ok: true, text: 'Job posted successfully!' });
       setForm(EMPTY);
-      await loadJobs(undefined, true);
+      await loadJobs(true);
       setTimeout(() => { setPostMsg(null); setActiveTab('posted'); }, 1500);
     } catch (e: unknown) {
       setPostMsg({ ok: false, text: (e as Error).message || 'Failed to post job' });
@@ -195,7 +206,7 @@ export default function BuyerJobsPage() {
         experience_level: editForm.experience_level,
       });
       setEditMsg({ ok: true, text: 'Job updated!' });
-      await loadJobs(undefined, true);
+      await loadJobs(true);
       setTimeout(() => setEditJob(null), 1000);
     } catch (e: unknown) {
       setEditMsg({ ok: false, text: (e as Error).message || 'Failed to update' });
@@ -209,7 +220,7 @@ export default function BuyerJobsPage() {
     try {
       await buyerJobApi.close(closeTarget.id);
       setCloseTarget(null);
-      await loadJobs(undefined, true);
+      await loadJobs(true);
     } catch { /* ignore */ }
     finally { setClosing(false); }
   };
@@ -221,7 +232,7 @@ export default function BuyerJobsPage() {
     try {
       await buyerJobApi.delete(deleteTarget.id);
       setDeleteTarget(null);
-      await loadJobs(undefined, true);
+      await loadJobs(true);
     } catch { /* ignore */ }
     finally { setDeleting(false); }
   };
@@ -238,9 +249,12 @@ export default function BuyerJobsPage() {
 
       <div>
         <label className={labelCls}><i className="fa fa-align-left mr-1 text-[#e84545]" /> Description</label>
-        <textarea className={inputCls + ' resize-none py-3 overflow-hidden'} rows={4} value={f.description}
-          onChange={e => { setF(p => ({ ...p, description: e.target.value })); e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; }}
-          placeholder="Describe what you need, including requirements, references..." />
+        <RichTextEditor
+          variant="full"
+          placeholder="Describe what you need, including requirements, references..."
+          value={f.description}
+          onChange={html => setF(p => ({ ...p, description: html }))}
+        />
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -488,6 +502,33 @@ export default function BuyerJobsPage() {
                 );
               })}
               </div>
+            </div>
+          )}
+
+          {/* Pagination */}
+          {!loading && totalPages > 1 && (
+            <div className="flex items-center justify-center gap-1 pt-2">
+              <button
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={page <= 1}
+                className="h-8 px-3 rounded-lg border border-gray-200 text-sm text-gray-500 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
+              >
+                <i className="fa fa-chevron-left text-xs" />
+              </button>
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
+                <button key={p} onClick={() => setPage(p)}
+                  className={cn('h-8 w-8 rounded-lg text-sm font-medium transition-colors',
+                    p === page ? 'bg-[#e84545] text-white' : 'text-gray-500 hover:bg-gray-100')}>
+                  {p}
+                </button>
+              ))}
+              <button
+                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                disabled={page >= totalPages}
+                className="h-8 px-3 rounded-lg border border-gray-200 text-sm text-gray-500 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
+              >
+                <i className="fa fa-chevron-right text-xs" />
+              </button>
             </div>
           )}
           </>

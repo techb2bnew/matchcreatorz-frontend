@@ -6,6 +6,7 @@ import Button          from '@/components/ui/Button';
 import Input           from '@/components/ui/Input';
 import Modal           from '@/components/ui/Modal';
 import { CardSkeleton } from '@/components/ui/Loader';
+import RichTextEditor from '@/components/ui/RichTextEditor';
 import { formatCurrency } from '@/lib/utils';
 import { sellerServiceApi, publicCategoryApi } from '@/lib/adminApi';
 
@@ -274,9 +275,13 @@ function ServiceModal({
           price:         String(editService.price),
           delivery_days: String(editService.delivery_days),
           revisions:     String(editService.revisions),
-          category_ids:  editService.category_ids?.length
-            ? editService.category_ids
-            : editService.category_id ? [editService.category_id] : [],
+          category_ids:  (() => {
+            const validIds = categories.map((c) => c.id);
+            const stored = editService.category_ids?.length
+              ? editService.category_ids
+              : editService.category_id ? [editService.category_id] : [];
+            return stored.filter((id) => validIds.includes(id));
+          })(),
           tags: (editService.tags || []).join(', '),
         });
         setImgs((editService.images || []).map((u) => ({ kind: 'url', url: u })));
@@ -341,20 +346,13 @@ function ServiceModal({
           value={form.title}
           onChange={set('title')}
         />
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1.5">Description</label>
-          <textarea
-            rows={4}
-            placeholder="Describe what you offer..."
-            value={form.description}
-            onChange={(e) => {
-              set('description')(e);
-              e.target.style.height = 'auto';
-              e.target.style.height = e.target.scrollHeight + 'px';
-            }}
-            className="w-full border border-gray-200 rounded-2xl px-4 py-3 text-sm text-gray-800 placeholder-gray-400 bg-gray-50 focus:bg-white focus:outline-none focus:border-[#e84545] focus:ring-2 focus:ring-[#e84545]/10 resize-none overflow-hidden transition-all leading-relaxed"
-          />
-        </div>
+        <RichTextEditor
+          label="Description"
+          placeholder="Describe what you offer..."
+          value={form.description}
+          onChange={(html) => setForm((f) => ({ ...f, description: html }))}
+          variant="full"
+        />
 
         <ImageUploader items={imgItems} onChange={setImgs} />
 
@@ -416,7 +414,9 @@ export default function SellerServicesPage() {
   const [loading, setLoading]       = useState(true);
   const [search, setSearch]         = useState('');
   const [statusFilter, setStatus]   = useState('');
-  const [page]                      = useState(1);
+  const [page, setPage]             = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const LIMIT = 12;
   const [actionLoading, setAction]  = useState<Record<number, string>>({});
 
   const [addModal, setAddModal]   = useState(false);
@@ -427,11 +427,12 @@ export default function SellerServicesPage() {
   const fetchServices = useCallback(async () => {
     setLoading(true);
     try {
-      const params: Record<string, string | number> = { page, limit: 20 };
+      const params: Record<string, string | number> = { page, limit: LIMIT };
       if (search)       params.search = search;
       if (statusFilter) params.status = statusFilter;
       const res = await sellerServiceApi.list(params);
       setServices(res.data || []);
+      setTotalPages(res.meta?.totalPages || res.pagination?.pages || 1);
     } catch {
       setServices([]);
     } finally {
@@ -442,6 +443,9 @@ export default function SellerServicesPage() {
   useEffect(() => {
     publicCategoryApi.list().then((r) => setCategories(r.data || [])).catch(() => {});
   }, []);
+
+  // Reset to first page when search / status filter changes
+  useEffect(() => { setPage(1); }, [search, statusFilter]);
 
   useEffect(() => {
     const t = setTimeout(fetchServices, 350);
@@ -576,6 +580,32 @@ export default function SellerServicesPage() {
               </div>
             </Card>
           ))}
+        </div>
+      )}
+
+      {/* Pagination */}
+      {!loading && totalPages > 1 && (
+        <div className="flex items-center justify-center gap-1 mt-6">
+          <button
+            onClick={() => setPage(p => Math.max(1, p - 1))}
+            disabled={page <= 1}
+            className="h-8 px-3 rounded-lg border border-gray-200 text-sm text-gray-500 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
+          >
+            <i className="fa fa-chevron-left text-xs" />
+          </button>
+          {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
+            <button key={p} onClick={() => setPage(p)}
+              className={`h-8 w-8 rounded-lg text-sm font-medium transition-colors ${p === page ? 'bg-[#e84545] text-white' : 'text-gray-500 hover:bg-gray-100'}`}>
+              {p}
+            </button>
+          ))}
+          <button
+            onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+            disabled={page >= totalPages}
+            className="h-8 px-3 rounded-lg border border-gray-200 text-sm text-gray-500 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
+          >
+            <i className="fa fa-chevron-right text-xs" />
+          </button>
         </div>
       )}
 

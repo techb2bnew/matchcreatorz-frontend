@@ -6,7 +6,8 @@ import Card from '@/components/ui/Card';
 import Avatar from '@/components/ui/Avatar';
 import CustomSelect from '@/components/ui/CustomSelect';
 import { formatCurrency } from '@/lib/utils';
-import { buyerSearchApi, publicCategoryApi, buyerBookingApi } from '@/lib/adminApi';
+import { buyerSearchApi, publicCategoryApi, buyerBookingApi, buyerFavouriteApi } from '@/lib/adminApi';
+import toast from 'react-hot-toast';
 
 interface Service {
   id: number;
@@ -357,6 +358,13 @@ export default function BuyerSearchPage() {
       .finally(() => setCatsLoading(false));
   }, []);
 
+  // Initialise the heart state from the buyer's favourited service ids
+  useEffect(() => {
+    buyerFavouriteApi.ids()
+      .then((res: { data?: number[] }) => setLiked(res.data || []))
+      .catch(() => {/* silent -- keep empty */});
+  }, []);
+
   const fetchServices = useCallback(async (pg = 1) => {
     setLoading(true);
     setError('');
@@ -395,9 +403,19 @@ export default function BuyerSearchPage() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const toggleLike = (e: React.MouseEvent, id: number) => {
+  const toggleLike = async (e: React.MouseEvent, id: number) => {
     e.stopPropagation();
-    setLiked((prev) => prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]);
+    const wasLiked = liked.includes(id);
+    // optimistic update
+    setLiked((prev) => wasLiked ? prev.filter((i) => i !== id) : [...prev, id]);
+    try {
+      if (wasLiked) await buyerFavouriteApi.remove(id);
+      else          await buyerFavouriteApi.add(id);
+    } catch (err: unknown) {
+      // revert on failure
+      setLiked((prev) => wasLiked ? [...prev, id] : prev.filter((i) => i !== id));
+      toast.error(err instanceof Error ? err.message : 'Could not update favourite');
+    }
   };
 
   const handleBook = (s: Service) => {

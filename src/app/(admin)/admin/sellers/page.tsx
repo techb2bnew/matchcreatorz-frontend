@@ -107,7 +107,9 @@ export default function SellersPage() {
     try {
       const params: Record<string, string | number> = { page, limit: LIMIT };
       if (debouncedSearch) params.search = debouncedSearch;
-      if (activeFilter !== 'All') params.approval_status = activeFilter.toLowerCase();
+      if (activeFilter !== 'All') {
+        params.approval_status = activeFilter.toLowerCase();
+      }
 
       const json = await sellerApi.list(params);
       setSellers((json.data || []).map(mapSeller));
@@ -249,7 +251,9 @@ export default function SellersPage() {
           <div className="flex gap-2">
             {['All', 'Approved', 'Pending', 'Rejected'].map(f => (
               <button key={f} onClick={() => setActiveFilter(f)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${activeFilter === f ? 'bg-[#e84545] text-white' : 'text-gray-500 hover:bg-gray-100'}`}>
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                  activeFilter === f ? 'bg-[#e84545] text-white' : 'text-gray-500 hover:bg-gray-100'
+                }`}>
                 {f}
               </button>
             ))}

@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
+import RichTextEditor from '@/components/ui/RichTextEditor';
 import { cn } from '@/lib/utils';
 import { profileApi } from '@/lib/adminApi';
 
@@ -140,8 +141,7 @@ export default function BuyerAccountPage() {
                   <input className={inputCls} value={form.location} onChange={e => setForm(f => ({ ...f, location: e.target.value }))} placeholder="City, Country" />
                 </div>
                 <div className="sm:col-span-2">
-                  <label className={labelCls}>Bio</label>
-                  <textarea className={inputCls + ' resize-none py-3'} rows={3} value={form.bio} onChange={e => setForm(f => ({ ...f, bio: e.target.value }))} placeholder="Tell sellers about yourself..." />
+                  <RichTextEditor label="Bio" variant="compact" value={form.bio} onChange={html => setForm(f => ({ ...f, bio: html }))} placeholder="Tell sellers about yourself..." />
                 </div>
                 <div className="sm:col-span-2 flex items-center gap-3 pt-2 border-t border-gray-100">
                   <button onClick={saveProfile} disabled={profSaving}

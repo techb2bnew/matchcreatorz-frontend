@@ -1,7 +1,9 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { cn } from '@/lib/utils';
+import { adminSettingApi } from '@/lib/adminApi';
+import toast from 'react-hot-toast';
 
 type Tab = 'platform' | 'plans' | 'appinfo';
 
@@ -38,6 +40,94 @@ export default function AdminSettingsPage() {
   const [timezone, setTimezone]         = useState('Asia/Kolkata');
   const [currency, setCurrency]         = useState('INR');
   const [appSaved, setAppSaved]         = useState(false);
+
+  const [savingFees, setSavingFees]   = useState(false);
+  const [savingPlans, setSavingPlans] = useState(false);
+  const [savingApp, setSavingApp]     = useState(false);
+
+  // Load persisted settings on mount
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await adminSettingApi.get();
+        const d = res.data || {};
+        if (d.platform_fees) {
+          if (d.platform_fees.platform_fee   != null) setPlatformFee(String(d.platform_fees.platform_fee));
+          if (d.platform_fees.min_settlement != null) setMinSettle(String(d.platform_fees.min_settlement));
+          if (d.platform_fees.tax_rate       != null) setTaxRate(String(d.platform_fees.tax_rate));
+        }
+        if (Array.isArray(d.connect_plans) && d.connect_plans.length) {
+          setPlans(d.connect_plans.map((p: { id: number; name: string; price: number | string; connects: number | string; color?: string; icon?: string }, i: number) => ({
+            id: p.id ?? i + 1,
+            name: p.name,
+            price: String(p.price),
+            connects: String(p.connects),
+            color: p.color || ['#e84545', '#4f9ef8', '#10b981'][i % 3],
+            icon: p.icon || 'fa-link',
+          })));
+        }
+        if (d.app_info) {
+          if (d.app_info.app_name)      setAppName(d.app_info.app_name);
+          if (d.app_info.support_email) setSupportEmail(d.app_info.support_email);
+          if (d.app_info.support_phone) setSupportPhone(d.app_info.support_phone);
+          if (d.app_info.app_version)   setAppVersion(d.app_info.app_version);
+          if (d.app_info.timezone)      setTimezone(d.app_info.timezone);
+          if (d.app_info.currency)      setCurrency(d.app_info.currency);
+        }
+      } catch {
+        /* keep defaults if load fails */
+      }
+    })();
+  }, []);
+
+  const saveFees = async () => {
+    setSavingFees(true);
+    try {
+      await adminSettingApi.update({
+        platform_fees: {
+          platform_fee:   Number(platformFee) || 0,
+          min_settlement: Number(minSettle)   || 0,
+          tax_rate:       Number(taxRate)     || 0,
+        },
+      });
+      toast.success('Platform fees saved');
+      setFeeSaved(true); setTimeout(() => setFeeSaved(false), 2000);
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Failed to save fees');
+    } finally { setSavingFees(false); }
+  };
+
+  const savePlans = async () => {
+    setSavingPlans(true);
+    try {
+      await adminSettingApi.update({
+        connect_plans: plans.map((p) => ({
+          id: p.id, name: p.name, price: Number(p.price) || 0,
+          connects: Number(p.connects) || 0, color: p.color, icon: p.icon,
+        })),
+      });
+      toast.success('Connect plans saved');
+      setPlanSaved(true); setTimeout(() => setPlanSaved(false), 2000);
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Failed to save plans');
+    } finally { setSavingPlans(false); }
+  };
+
+  const saveApp = async () => {
+    setSavingApp(true);
+    try {
+      await adminSettingApi.update({
+        app_info: {
+          app_name: appName, support_email: supportEmail, support_phone: supportPhone,
+          app_version: appVersion, timezone, currency,
+        },
+      });
+      toast.success('App info saved');
+      setAppSaved(true); setTimeout(() => setAppSaved(false), 2000);
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Failed to save app info');
+    } finally { setSavingApp(false); }
+  };
 
   return (
     <DashboardLayout role="ADMIN" title="Settings">
@@ -141,10 +231,11 @@ export default function AdminSettingsPage() {
 
                 <div className="flex items-center gap-3 mt-6 pt-5 border-t border-gray-100">
                   <button
-                    onClick={() => { setFeeSaved(true); setTimeout(() => setFeeSaved(false), 2000); }}
-                    className="inline-flex items-center gap-2 h-10 px-6 rounded-xl bg-[#e84545] text-white text-sm font-semibold hover:bg-[#c73333] transition shadow-sm"
+                    onClick={saveFees}
+                    disabled={savingFees}
+                    className="inline-flex items-center gap-2 h-10 px-6 rounded-xl bg-[#e84545] text-white text-sm font-semibold hover:bg-[#c73333] transition shadow-sm disabled:opacity-60"
                   >
-                    {feeSaved ? <><i className="fa fa-check" /> Saved!</> : <><i className="fa fa-save" /> Save Fees</>}
+                    {savingFees ? <><i className="fa fa-spinner fa-spin" /> Saving...</> : feeSaved ? <><i className="fa fa-check" /> Saved!</> : <><i className="fa fa-save" /> Save Fees</>}
                   </button>
                   {feeSaved && <span className="text-green-600 text-sm font-medium flex items-center gap-1"><i className="fa fa-check-circle" /> Changes saved</span>}
                 </div>
@@ -213,10 +304,11 @@ export default function AdminSettingsPage() {
                 <div className="flex items-center gap-3">
                   {planSaved && <span className="text-green-600 text-sm font-medium flex items-center gap-1"><i className="fa fa-check-circle" /> Saved!</span>}
                   <button
-                    onClick={() => { setPlanSaved(true); setTimeout(() => setPlanSaved(false), 2000); }}
-                    className="inline-flex items-center gap-2 h-10 px-6 rounded-xl bg-[#e84545] text-white text-sm font-semibold hover:bg-[#c73333] transition shadow-sm"
+                    onClick={savePlans}
+                    disabled={savingPlans}
+                    className="inline-flex items-center gap-2 h-10 px-6 rounded-xl bg-[#e84545] text-white text-sm font-semibold hover:bg-[#c73333] transition shadow-sm disabled:opacity-60"
                   >
-                    <i className="fa fa-save" /> Save Plans
+                    {savingPlans ? <><i className="fa fa-spinner fa-spin" /> Saving...</> : <><i className="fa fa-save" /> Save Plans</>}
                   </button>
                 </div>
               </div>
@@ -269,10 +361,11 @@ export default function AdminSettingsPage() {
                 </div>
                 <div className="flex items-center gap-3 mt-6 pt-5 border-t border-gray-100">
                   <button
-                    onClick={() => { setAppSaved(true); setTimeout(() => setAppSaved(false), 2000); }}
-                    className="inline-flex items-center gap-2 h-10 px-6 rounded-xl bg-[#e84545] text-white text-sm font-semibold hover:bg-[#c73333] transition shadow-sm"
+                    onClick={saveApp}
+                    disabled={savingApp}
+                    className="inline-flex items-center gap-2 h-10 px-6 rounded-xl bg-[#e84545] text-white text-sm font-semibold hover:bg-[#c73333] transition shadow-sm disabled:opacity-60"
                   >
-                    {appSaved ? <><i className="fa fa-check" /> Saved!</> : <><i className="fa fa-save" /> Save App Info</>}
+                    {savingApp ? <><i className="fa fa-spinner fa-spin" /> Saving...</> : appSaved ? <><i className="fa fa-check" /> Saved!</> : <><i className="fa fa-save" /> Save App Info</>}
                   </button>
                   {appSaved && <span className="text-green-600 text-sm font-medium flex items-center gap-1"><i className="fa fa-check-circle" /> Settings saved</span>}
                 </div>

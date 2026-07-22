@@ -1,17 +1,22 @@
 'use client';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import Modal           from '@/components/ui/Modal';
 import Button          from '@/components/ui/Button';
 import { cn }          from '@/lib/utils';
 import { sellerJobApi, publicCategoryApi } from '@/lib/adminApi';
 import { OverlayLoader } from '@/components/ui/Loader';
+import RichTextEditor from '@/components/ui/RichTextEditor';
 
 const inputCls = 'w-full border border-[#e8e8e8] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#e84545] focus:ring-1 focus:ring-[#e84545] bg-white transition';
 const labelCls = 'block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide';
 
 interface Buyer { id: number; name: string; email: string; }
-interface MyBid { id: number; amount: number; delivery_days: number; proposal: string | null; status: string; }
+interface MyBid {
+  id: number; amount: number; delivery_days: number; proposal: string | null; status: string;
+  counter_amount?: number | null; counter_delivery_days?: number | null;
+  counter_by?: 'buyer' | 'seller' | null; counter_note?: string | null;
+}
 interface Job {
   id: number; title: string; description: string; category: string;
   job_type: string; budget_min: number | null; budget_max: number | null;
@@ -54,6 +59,10 @@ export default function SellerJobsPage() {
   const [search, setSearch]         = useState('');
   const [activeCategory, setActiveCategory] = useState('All');
   const [categories, setCategories] = useState<string[]>([]);
+  const [page, setPage]             = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const LIMIT = 10;
+  const firstLoad = useRef(true);
 
   // Place bid state
   const [bidJob, setBidJob]       = useState<Job | null>(null);
@@ -75,30 +84,36 @@ export default function SellerJobsPage() {
   const [withdrawJob, setWithdrawJob]   = useState<Job | null>(null);
   const [withdrawing, setWithdrawing]   = useState(false);
 
-  const loadJobs = useCallback(async (q?: { search?: string; category?: string }, silent = false) => {
+  const loadJobs = useCallback(async (silent = false) => {
     if (silent) setRefreshing(true);
     else        setLoading(true);
     try {
-      const params: Record<string, string> = {};
-      if (q?.search?.trim())                   params.search   = q.search.trim();
-      if (q?.category && q.category !== 'All') params.category = q.category;
+      const params: Record<string, string | number> = { page, limit: LIMIT };
+      if (search.trim())                          params.search   = search.trim();
+      if (activeCategory && activeCategory !== 'All') params.category = activeCategory;
       const res = await sellerJobApi.list(params);
       setJobs(res.data || []);
+      setTotalPages(res.meta?.totalPages || res.pagination?.pages || 1);
     } catch { setJobs([]); }
     finally { setLoading(false); setRefreshing(false); }
-  }, []);
+  }, [page, search, activeCategory]);
 
   useEffect(() => {
-    loadJobs();
     publicCategoryApi.list()
       .then(r => { if (r.data?.length) setCategories(r.data.map((c: { name: string }) => c.name)); })
       .catch(() => {});
-  }, [loadJobs]);
+  }, []);
+
+  // Reset to first page whenever the search/category changes
+  useEffect(() => { setPage(1); }, [search, activeCategory]);
 
   useEffect(() => {
-    const t = setTimeout(() => loadJobs({ search, category: activeCategory }, true), 300);
+    const t = setTimeout(() => {
+      loadJobs(!firstLoad.current);
+      firstLoad.current = false;
+    }, firstLoad.current ? 0 : 300);
     return () => clearTimeout(t);
-  }, [search, activeCategory, loadJobs]);
+  }, [loadJobs]);
 
   // -- Place bid -----------------------------------------------------------
   const openBid = (job: Job) => {
@@ -116,7 +131,7 @@ export default function SellerJobsPage() {
         proposal:      proposal || undefined,
       });
       setBidMsg({ ok: true, text: 'Bid placed successfully!' });
-      await loadJobs({ search, category: activeCategory }, true);
+      await loadJobs(true);
       setTimeout(() => setBidJob(null), 1200);
     } catch (e: unknown) {
       setBidMsg({ ok: false, text: (e as Error).message || 'Failed to place bid' });
@@ -144,7 +159,7 @@ export default function SellerJobsPage() {
         proposal:      editProposal || undefined,
       });
       setEditMsg({ ok: true, text: 'Bid updated successfully!' });
-      await loadJobs({ search, category: activeCategory }, true);
+      await loadJobs(true);
       setTimeout(() => setEditJob(null), 1200);
     } catch (e: unknown) {
       setEditMsg({ ok: false, text: (e as Error).message || 'Failed to update bid' });
@@ -158,9 +173,50 @@ export default function SellerJobsPage() {
     try {
       await sellerJobApi.withdrawBid(withdrawJob.id);
       setWithdrawJob(null);
-      await loadJobs({ search, category: activeCategory }, true);
+      await loadJobs(true);
     } catch { /* ignore */ }
     finally { setWithdrawing(false); }
+  };
+
+  // -- Counter-offer (seller responds to buyer's counter) ------------------
+  const [counterJob, setCounterJob]     = useState<Job | null>(null);
+  const [cAmount, setCAmount]           = useState('');
+  const [cDays, setCDays]               = useState('');
+  const [cNote, setCNote]               = useState('');
+  const [cSaving, setCSaving]           = useState(false);
+  const [cMsg, setCMsg]                 = useState('');
+  const [acceptingJob, setAcceptingJob] = useState<number | null>(null);
+
+  const openCounter = (job: Job) => {
+    if (!job.my_bid) return;
+    setCounterJob(job);
+    setCAmount(String(job.my_bid.counter_amount ?? job.my_bid.amount));
+    setCDays(String(job.my_bid.counter_delivery_days ?? job.my_bid.delivery_days));
+    setCNote(''); setCMsg('');
+  };
+
+  const handleCounter = async () => {
+    if (!counterJob) return;
+    if (!cAmount || Number(cAmount) <= 0) { setCMsg('Enter a valid amount'); return; }
+    setCSaving(true); setCMsg('');
+    try {
+      await sellerJobApi.counterBid(counterJob.id, {
+        amount: Number(cAmount), delivery_days: cDays ? Number(cDays) : undefined, note: cNote || undefined,
+      });
+      setCounterJob(null);
+      await loadJobs(true);
+    } catch (e) {
+      setCMsg((e as Error).message || 'Failed to send counter');
+    } finally { setCSaving(false); }
+  };
+
+  const handleAcceptCounter = async (job: Job) => {
+    setAcceptingJob(job.id);
+    try {
+      await sellerJobApi.acceptCounter(job.id);
+      await loadJobs(true);
+    } catch { /* ignore */ }
+    finally { setAcceptingJob(null); }
   };
 
   const allCategories = ['All', ...categories];
@@ -297,16 +353,34 @@ export default function SellerJobsPage() {
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-gray-400"><i className="fa fa-gavel mr-1" />{job.bids_count} bids</span>
                       {job.has_bid ? (
-                        <div className="flex items-center gap-1.5">
-                          <button onClick={() => openEditBid(job)}
-                            className="text-xs px-3 py-1.5 rounded-lg bg-blue-50 text-blue-600 font-semibold border border-blue-200 hover:bg-blue-100 transition">
-                            <i className="fa fa-pencil mr-1" />Edit
-                          </button>
-                          <button onClick={() => setWithdrawJob(job)}
-                            className="text-xs px-3 py-1.5 rounded-lg bg-red-50 text-[#e84545] font-semibold border border-red-200 hover:bg-red-100 transition">
-                            <i className="fa fa-times mr-1" />Withdraw
-                          </button>
-                        </div>
+                        (job.my_bid?.status === 'countered' && job.my_bid?.counter_by === 'buyer') ? (
+                          // Buyer countered → seller can accept or counter back
+                          <div className="flex items-center gap-1.5">
+                            <button onClick={() => handleAcceptCounter(job)} disabled={acceptingJob === job.id}
+                              className="text-xs px-3 py-1.5 rounded-lg bg-green-50 text-green-700 font-semibold border border-green-200 hover:bg-green-100 transition disabled:opacity-60">
+                              <i className="fa fa-check mr-1" />{acceptingJob === job.id ? 'Accepting…' : `Accept $${job.my_bid?.counter_amount}`}
+                            </button>
+                            <button onClick={() => openCounter(job)}
+                              className="text-xs px-3 py-1.5 rounded-lg bg-blue-50 text-blue-600 font-semibold border border-blue-200 hover:bg-blue-100 transition">
+                              <i className="fa fa-exchange mr-1" />Counter
+                            </button>
+                          </div>
+                        ) : (job.my_bid?.status === 'countered' && job.my_bid?.counter_by === 'seller') ? (
+                          <span className="text-xs text-blue-600 font-medium px-2 py-1.5">
+                            <i className="fa fa-clock-o mr-1" />Counter sent — awaiting buyer
+                          </span>
+                        ) : (
+                          <div className="flex items-center gap-1.5">
+                            <button onClick={() => openEditBid(job)}
+                              className="text-xs px-3 py-1.5 rounded-lg bg-blue-50 text-blue-600 font-semibold border border-blue-200 hover:bg-blue-100 transition">
+                              <i className="fa fa-pencil mr-1" />Edit
+                            </button>
+                            <button onClick={() => setWithdrawJob(job)}
+                              className="text-xs px-3 py-1.5 rounded-lg bg-red-50 text-[#e84545] font-semibold border border-red-200 hover:bg-red-100 transition">
+                              <i className="fa fa-times mr-1" />Withdraw
+                            </button>
+                          </div>
+                        )
                       ) : (
                         <button onClick={() => openBid(job)}
                           className="text-xs px-4 py-1.5 rounded-lg bg-[#e84545] text-white font-semibold hover:bg-[#c73333] transition shadow-sm">
@@ -318,6 +392,33 @@ export default function SellerJobsPage() {
                 </div>
               ))}
             </div>
+          </div>
+        )}
+
+        {/* Pagination */}
+        {!loading && totalPages > 1 && (
+          <div className="flex items-center justify-center gap-1 pt-2">
+            <button
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              disabled={page <= 1}
+              className="h-8 px-3 rounded-lg border border-gray-200 text-sm text-gray-500 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
+            >
+              <i className="fa fa-chevron-left text-xs" />
+            </button>
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
+              <button key={p} onClick={() => setPage(p)}
+                className={cn('h-8 w-8 rounded-lg text-sm font-medium transition-colors',
+                  p === page ? 'bg-[#e84545] text-white' : 'text-gray-500 hover:bg-gray-100')}>
+                {p}
+              </button>
+            ))}
+            <button
+              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+              disabled={page >= totalPages}
+              className="h-8 px-3 rounded-lg border border-gray-200 text-sm text-gray-500 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
+            >
+              <i className="fa fa-chevron-right text-xs" />
+            </button>
           </div>
         )}
 
@@ -348,9 +449,12 @@ export default function SellerJobsPage() {
             </div>
             <div>
               <label className={labelCls}><i className="fa fa-pencil mr-1 text-[#e84545]" /> Proposal</label>
-              <textarea className={inputCls + ' resize-none'} rows={4}
+              <RichTextEditor
+                variant="compact"
                 placeholder="Describe why you are the best fit for this job..."
-                value={proposal} onChange={e => setProposal(e.target.value)} />
+                value={proposal}
+                onChange={setProposal}
+              />
             </div>
             <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl p-3">
               <i className="fa fa-bolt text-sm text-amber-500 flex-shrink-0 mt-0.5" />
@@ -397,9 +501,12 @@ export default function SellerJobsPage() {
             </div>
             <div>
               <label className={labelCls}><i className="fa fa-pencil mr-1 text-[#e84545]" /> Proposal</label>
-              <textarea className={inputCls + ' resize-none'} rows={4}
+              <RichTextEditor
+                variant="compact"
                 placeholder="Update your proposal..."
-                value={editProposal} onChange={e => setEditProposal(e.target.value)} />
+                value={editProposal}
+                onChange={setEditProposal}
+              />
             </div>
             {editMsg && (
               <div className={cn('flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium border',
@@ -433,6 +540,44 @@ export default function SellerJobsPage() {
             <div className="flex gap-3 pt-1">
               <Button variant="outline" fullWidth onClick={() => setWithdrawJob(null)} disabled={withdrawing}>Cancel</Button>
               <Button variant="danger" fullWidth onClick={handleWithdraw} loading={withdrawing}>Yes, Withdraw</Button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Counter-back modal */}
+      <Modal isOpen={!!counterJob} onClose={() => setCounterJob(null)} title="Counter the Buyer" size="sm">
+        {counterJob && counterJob.my_bid && (
+          <div className="space-y-4">
+            <div className="bg-blue-50 border border-blue-100 rounded-xl p-3">
+              <p className="text-xs font-semibold text-blue-600 uppercase tracking-wide mb-1">Buyer&apos;s Counter</p>
+              <p className="text-sm text-gray-700">
+                <b>${counterJob.my_bid.counter_amount}</b> &middot; {counterJob.my_bid.counter_delivery_days ?? counterJob.my_bid.delivery_days} days
+              </p>
+              {counterJob.my_bid.counter_note && <p className="text-xs text-gray-500 mt-1">{counterJob.my_bid.counter_note}</p>}
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className={labelCls}>Your Amount ($)</label>
+                <input type="number" value={cAmount} onChange={(e) => setCAmount(e.target.value)} className={inputCls} />
+              </div>
+              <div>
+                <label className={labelCls}>Delivery (days)</label>
+                <input type="number" value={cDays} onChange={(e) => setCDays(e.target.value)} className={inputCls} />
+              </div>
+            </div>
+            <div>
+              <label className={labelCls}>Note (optional)</label>
+              <textarea rows={2} value={cNote} onChange={(e) => setCNote(e.target.value)}
+                placeholder="Add a note for the buyer..."
+                className={inputCls + ' resize-none'} />
+            </div>
+            {cMsg && <p className="text-sm text-center text-red-600 font-medium">{cMsg}</p>}
+            <div className="flex gap-2">
+              <Button variant="outline" fullWidth onClick={() => setCounterJob(null)}>Cancel</Button>
+              <Button variant="primary" fullWidth disabled={cSaving} onClick={handleCounter}>
+                {cSaving ? 'Sending...' : 'Send Counter'}
+              </Button>
             </div>
           </div>
         )}
