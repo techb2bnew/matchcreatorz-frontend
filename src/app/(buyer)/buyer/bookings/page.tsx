@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
+import MessageButton from '@/components/chat/MessageButton';
 import Card from '@/components/ui/Card';
 import Avatar from '@/components/ui/Avatar';
 import Modal from '@/components/ui/Modal';
@@ -191,6 +192,7 @@ export default function BuyerBookingsPage() {
                           {cfg.label}
                         </span>
                         <div className="flex items-center gap-2 flex-shrink-0">
+                          {b.seller?.id && <MessageButton recipientId={b.seller.id} role="buyer" />}
                           {b.status === 'amidst_completion' && (
                             <>
                               <button onClick={() => doAction(() => buyerBookingApi.accept(b.id), 'Work accepted!')}

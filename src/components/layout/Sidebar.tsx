@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
-import { toggleSidebarCollapse } from '@/store/slices/uiSlice';
+import { toggleSidebarCollapse, closeMobileSidebar } from '@/store/slices/uiSlice';
 import { logoutUser } from '@/store/slices/authSlice';
 import { adminNav, sellerNav, buyerNav } from '@/constants/navigation';
 import Logo from '@/components/ui/Logo';
@@ -25,7 +25,7 @@ export default function Sidebar({ role }: SidebarProps) {
   const pathname = usePathname();
   const router   = useRouter();
   const dispatch = useAppDispatch();
-  const { sidebarCollapsed } = useAppSelector((s) => s.ui);
+  const { sidebarCollapsed, mobileSidebarOpen } = useAppSelector((s) => s.ui);
   const { user } = useAppSelector((s) => s.auth);
 
   const handleLogout = async () => {
@@ -35,10 +35,19 @@ export default function Sidebar({ role }: SidebarProps) {
   const nav = navByRole[role];
 
   return (
+    <>
+    {/* Mobile overlay (behind the drawer) */}
+    {mobileSidebarOpen && (
+      <div className="fixed inset-0 bg-black/50 z-40 lg:hidden" onClick={() => dispatch(closeMobileSidebar())} />
+    )}
     <aside
       className={cn(
-        'fixed left-0 top-0 h-screen flex flex-col z-40 sidebar-transition',
-        sidebarCollapsed ? 'w-[72px]' : 'w-[240px]'
+        'fixed left-0 top-0 h-screen flex flex-col z-50 sidebar-transition w-[240px]',
+        // desktop width follows collapse state
+        sidebarCollapsed ? 'lg:w-[72px]' : 'lg:w-[240px]',
+        // mobile: slide in/out; desktop: always visible
+        mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full',
+        'lg:translate-x-0'
       )}
       style={{ background: '#1e2235' }}
     >
@@ -54,7 +63,7 @@ export default function Sidebar({ role }: SidebarProps) {
               {/* Collapse arrow only when expanded */}
               <button
                 onClick={() => dispatch(toggleSidebarCollapse())}
-                className="absolute right-2 top-1/2 -translate-y-1/2 h-6 w-6 rounded-md flex items-center justify-center text-gray-500 hover:text-white hover:bg-white/10 transition-colors"
+                className="absolute right-2 top-1/2 -translate-y-1/2 h-6 w-6 rounded-md hidden lg:flex items-center justify-center text-gray-500 hover:text-white hover:bg-white/10 transition-colors"
                 title="Collapse"
               >
                 <i className="fa fa-angle-left text-sm" />
@@ -82,6 +91,7 @@ export default function Sidebar({ role }: SidebarProps) {
             <Link
               key={item.href}
               href={item.href}
+              onClick={() => dispatch(closeMobileSidebar())}
               title={sidebarCollapsed ? item.label : undefined}
               className={cn(
                 'flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-all duration-150',
@@ -139,5 +149,6 @@ export default function Sidebar({ role }: SidebarProps) {
 
       </div>
     </aside>
+    </>
   );
 }

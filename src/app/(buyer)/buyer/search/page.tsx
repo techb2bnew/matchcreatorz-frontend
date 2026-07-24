@@ -217,17 +217,15 @@ function ServiceDetailModal({
         style={{ maxHeight: '90vh' }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Image carousel -- fixed top */}
+        {/* Image carousel -- only shown when the service has images */}
+        {images.length > 0 && (
         <div className="flex-shrink-0 relative h-48 bg-gray-100">
-          {images.length > 0 ? (
-            <img
-              src={images[imgIdx]}
-              alt={`${service.title} ${imgIdx + 1}`}
-              className="w-full h-48 object-cover"
-            />
-          ) : (
-            <div className={`h-48 bg-gradient-to-br ${CARD_GRADIENTS[service.id % CARD_GRADIENTS.length]}`} />
-          )}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={images[imgIdx]}
+            alt={`${service.title} ${imgIdx + 1}`}
+            className="w-full h-48 object-cover"
+          />
 
           {images.length > 1 && (
             <>
@@ -261,6 +259,7 @@ function ServiceDetailModal({
             </span>
           )}
         </div>
+        )}
 
         {/* Scrollable body */}
         <div className="flex-1 overflow-y-auto p-5">

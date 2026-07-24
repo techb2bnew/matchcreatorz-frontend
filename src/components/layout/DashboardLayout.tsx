@@ -19,11 +19,11 @@ export default function DashboardLayout({ children, title, role }: DashboardLayo
       <Header title={title} role={role} />
       <main
         className={cn(
-          'pt-16 min-h-screen sidebar-transition',
-          sidebarCollapsed ? 'pl-[92px]' : 'pl-[254px]'
+          'pt-16 min-h-screen sidebar-transition pl-0',
+          sidebarCollapsed ? 'lg:pl-[92px]' : 'lg:pl-[254px]'
         )}
       >
-        <div className="p-5 page-fade-in">
+        <div className="p-4 sm:p-5 page-fade-in">
           {children}
         </div>
       </main>

@@ -6,6 +6,7 @@ import Card from '@/components/ui/Card';
 import Avatar from '@/components/ui/Avatar';
 import Modal from '@/components/ui/Modal';
 import Button from '@/components/ui/Button';
+import MessageButton from '@/components/chat/MessageButton';
 import { formatCurrency } from '@/lib/utils';
 import { buyerJobApi } from '@/lib/adminApi';
 
@@ -228,9 +229,12 @@ export default function JobDetailPage() {
                             <p className="font-semibold text-gray-900">{bid.seller?.name || 'Seller'}</p>
                             <p className="text-xs text-gray-400">{bid.seller?.email}</p>
                           </div>
-                          <span className={`px-2.5 py-1 rounded-full text-xs font-medium flex-shrink-0 ${cfg.color}`}>
-                            {cfg.label}
-                          </span>
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            {bid.seller?.id && <MessageButton recipientId={bid.seller.id} role="buyer" />}
+                            <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${cfg.color}`}>
+                              {cfg.label}
+                            </span>
+                          </div>
                         </div>
 
                         <div className="flex items-center gap-5 mt-3">

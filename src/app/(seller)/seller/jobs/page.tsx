@@ -314,7 +314,17 @@ export default function SellerJobsPage() {
             {refreshing && <OverlayLoader text="Loading jobs..." />}
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
               {jobs.map(job => (
-                <div key={job.id} className="bg-white rounded-2xl border border-[#e8e8e8] shadow-sm p-5 hover:shadow-md transition flex flex-col">
+                <div key={job.id} className={cn(
+                  'rounded-2xl shadow-sm p-5 hover:shadow-md transition flex flex-col',
+                  job.has_bid
+                    ? 'bg-[#fff6f2] border-2 border-[#e84545]/40 ring-1 ring-[#e84545]/10'
+                    : 'bg-white border border-[#e8e8e8]'
+                )}>
+                  {job.has_bid && (
+                    <span className="inline-flex items-center gap-1 self-start mb-2 text-[10px] font-bold text-[#e84545] bg-[#e84545]/10 px-2 py-0.5 rounded-full">
+                      <i className="fa fa-check-circle" /> You&apos;ve bid on this
+                    </span>
+                  )}
                   <div className="flex items-start justify-between gap-3 mb-2">
                     <h3 onClick={() => router.push(`/seller/jobs/${job.id}`)}
                       className="text-sm font-bold text-gray-900 leading-snug flex-1 cursor-pointer hover:text-[#e84545] transition">{job.title}</h3>

@@ -1,7 +1,7 @@
 'use client';
 import { useState, useRef, useEffect } from 'react';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
-import { toggleSidebarCollapse } from '@/store/slices/uiSlice';
+import { toggleMobileSidebar } from '@/store/slices/uiSlice';
 import { logout } from '@/store/slices/authSlice';
 import Avatar from '@/components/ui/Avatar';
 import { cn } from '@/lib/utils';
@@ -59,13 +59,13 @@ export default function Header({ title, role }: HeaderProps) {
   return (
     <header
       className={cn(
-        'fixed top-0 right-0 h-16 bg-white border-b border-[#d8d8d8] z-30 flex items-center px-5 gap-4 sidebar-transition',
-        sidebarCollapsed ? 'left-[92px]' : 'left-[254px]'
+        'fixed top-0 right-0 h-16 bg-white border-b border-[#d8d8d8] z-30 flex items-center px-5 gap-4 sidebar-transition left-0',
+        sidebarCollapsed ? 'lg:left-[92px]' : 'lg:left-[254px]'
       )}
     >
-      {/* Mobile menu toggle */}
+      {/* Mobile menu toggle — opens the slide-in sidebar drawer */}
       <button
-        onClick={() => dispatch(toggleSidebarCollapse())}
+        onClick={() => dispatch(toggleMobileSidebar())}
         className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors lg:hidden"
       >
         <i className="fa fa-bars text-lg" />

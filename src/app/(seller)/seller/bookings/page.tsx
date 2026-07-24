@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
+import MessageButton from '@/components/chat/MessageButton';
 import Card from '@/components/ui/Card';
 import Avatar from '@/components/ui/Avatar';
 import Modal from '@/components/ui/Modal';
@@ -133,6 +134,7 @@ export default function SellerBookingsPage() {
                           {cfg.label}
                         </span>
                         <div className="flex items-center gap-2 flex-shrink-0">
+                          {b.buyer?.id && <MessageButton recipientId={b.buyer.id} role="seller" />}
                           {b.status === 'pending' && (
                             <button onClick={() => doAction(() => sellerBookingApi.accept(b.id), 'Order accepted!')}
                               className="px-3 py-1.5 bg-green-500 text-white text-xs rounded-lg hover:bg-green-600 font-medium">

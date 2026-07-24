@@ -396,6 +396,34 @@ export const sellerConnectApi = {
   },
 };
 
+// -- Chat --------------------------------------------------------------
+export const chatApi = {
+  conversations: (params: { page?: number; limit?: number } = {}) => {
+    const q = new URLSearchParams(
+      Object.entries(params).filter(([, v]) => v !== undefined && v !== null && String(v) !== '').map(([k, v]) => [k, String(v)])
+    ).toString();
+    return req('GET', `/api/v1/chat/conversations${q ? `?${q}` : ''}`);
+  },
+  open:      (recipient_id: number) => req('POST', `/api/v1/chat/conversations`, { recipient_id }),
+  get:       (id: number) => req('GET', `/api/v1/chat/conversations/${id}`),
+  messages:  (id: number, params: { page?: number; limit?: number } = {}) => {
+    const q = new URLSearchParams(
+      Object.entries(params).filter(([, v]) => v !== undefined && v !== null && String(v) !== '').map(([k, v]) => [k, String(v)])
+    ).toString();
+    return req('GET', `/api/v1/chat/conversations/${id}/messages${q ? `?${q}` : ''}`);
+  },
+  send:      (id: number, body: string, attachment?: { url: string; name: string; type?: string }) =>
+    req('POST', `/api/v1/chat/conversations/${id}/messages`, { body, attachment }),
+  markRead:  (id: number) => req('PATCH', `/api/v1/chat/conversations/${id}/read`),
+  unread:    () => req('GET', `/api/v1/chat/unread-count`),
+  archive:   (id: number) => req('DELETE', `/api/v1/chat/conversations/${id}`),
+  upload:    (file: File) => {
+    const fd = new FormData();
+    fd.append('file', file);
+    return sendForm('POST', `/api/v1/chat/upload`, fd);
+  },
+};
+
 // -- Per-user preferences (settings toggles) ---------------------------
 export const preferencesApi = {
   get:    (role: 'buyer' | 'seller') => req('GET', `/api/v1/${role}/preferences`),
