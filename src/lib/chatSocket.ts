@@ -23,7 +23,13 @@ export const connectSocket = (): Socket | null => {
   if (socket) { socket.removeAllListeners(); socket.disconnect(); socket = null; }
 
   socket = io(API, {
-    transports: ['websocket', 'polling'],
+    // Start with HTTP long-polling (works through any proxy), then let
+    // Socket.IO upgrade to WebSocket once the connection is live. This avoids
+    // "WebSocket is closed before the connection is established" when the
+    // reverse proxy hasn't been configured for the WS Upgrade handshake.
+    transports: ['polling', 'websocket'],
+    path: '/socket.io',
+    withCredentials: true,
     auth: { token },
     reconnection: true,
     reconnectionAttempts: Infinity,
