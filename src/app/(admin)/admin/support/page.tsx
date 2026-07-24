@@ -1,6 +1,11 @@
 'use client';
+import { Suspense } from 'react';
 import ChatWorkspace from '@/components/chat/ChatWorkspace';
 
 export default function AdminSupportChatPage() {
-  return <ChatWorkspace role="ADMIN" title="Support Chat" />;
+  return (
+    <Suspense fallback={null}>
+      <ChatWorkspace role="ADMIN" title="Support Chat" />
+    </Suspense>
+  );
 }

@@ -1,6 +1,11 @@
 'use client';
+import { Suspense } from 'react';
 import ChatWorkspace from '@/components/chat/ChatWorkspace';
 
 export default function SellerChatPage() {
-  return <ChatWorkspace role="SELLER" title="Messages" />;
+  return (
+    <Suspense fallback={null}>
+      <ChatWorkspace role="SELLER" title="Messages" />
+    </Suspense>
+  );
 }
