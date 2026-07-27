@@ -1,115 +1,107 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
-import Card, { CardHeader, CardTitle } from '@/components/ui/Card';
+import Card, { CardTitle } from '@/components/ui/Card';
 import StatCard from '@/components/ui/StatCard';
-import Avatar from '@/components/ui/Avatar';
 import Button from '@/components/ui/Button';
-import Badge from '@/components/ui/Badge';
-import Modal from '@/components/ui/Modal';
-import Input from '@/components/ui/Input';
 import { formatCurrency, formatDate } from '@/lib/utils';
+import { walletApi } from '@/lib/adminApi';
+import toast from 'react-hot-toast';
 
-const withdrawals = [
-  { id: 1, name: 'Bob Smith',    amount: 840,  iban: 'GB29NWBK60161331926819', date: '2024-11-10', status: 'Pending' },
-  { id: 2, name: 'Diana Prince', amount: 1200, iban: 'DE89370400440532013000', date: '2024-11-09', status: 'Pending' },
-  { id: 3, name: 'Frank Miller', amount: 360,  iban: 'FR7630006000011234567890189', date: '2024-11-08', status: 'Pending' },
-  { id: 4, name: 'Jake Long',    amount: 2100, iban: 'ES9121000418450200051332', date: '2024-11-07', status: 'Approved' },
-  { id: 5, name: 'Iris West',    amount: 500,  iban: 'IT60X0542811101000000123456', date: '2024-11-06', status: 'Rejected' },
-];
+interface Overview {
+  platform_revenue: number; escrow_held: number; total_topups: number;
+  total_earnings_paid: number; pending_withdrawals: number; paid_withdrawals: number;
+  admin_wallet: { balance: number };
+}
+interface Wd { id: number; amount: string | number; status: string; created_at?: string; createdAt?: string; seller?: { name: string; email: string } }
+
+const BADGE: Record<string, string> = {
+  pending: 'bg-amber-100 text-amber-700', approved: 'bg-blue-100 text-blue-700',
+  paid: 'bg-green-100 text-green-700', rejected: 'bg-gray-200 text-gray-600', failed: 'bg-red-100 text-red-700',
+};
 
 export default function AdminWalletPage() {
-  const [selected, setSelected] = useState<typeof withdrawals[0] | null>(null);
+  const [ov, setOv] = useState<Overview | null>(null);
+  const [wds, setWds] = useState<Wd[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState('pending');
+  const [busyId, setBusyId] = useState<number | null>(null);
 
-  const statusColor: Record<string, string> = {
-    Pending:  'bg-yellow-100 text-yellow-700',
-    Approved: 'bg-green-100 text-green-700',
-    Rejected: 'bg-red-100 text-red-700',
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [o, w] = await Promise.all([walletApi.adminOverview(), walletApi.adminWithdrawals({ status: filter, limit: 50 })]);
+      setOv(o.data); setWds(w.data || []);
+    } catch (e) { toast.error((e as Error).message); } finally { setLoading(false); }
+  }, [filter]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const approve = async (id: number) => {
+    setBusyId(id);
+    try { await walletApi.approveWithdrawal(id); toast.success('Approved & paid out'); load(); }
+    catch (e) { toast.error((e as Error).message); } finally { setBusyId(null); }
+  };
+  const reject = async (id: number) => {
+    const note = window.prompt('Reason for rejection (optional):') || undefined;
+    setBusyId(id);
+    try { await walletApi.rejectWithdrawal(id, note); toast.success('Rejected & refunded'); load(); }
+    catch (e) { toast.error((e as Error).message); } finally { setBusyId(null); }
   };
 
+  const v = (n?: number) => (loading ? '…' : formatCurrency(n || 0));
+
   return (
-    <DashboardLayout role="ADMIN" title="Wallet & Withdrawals">
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-        <StatCard title="Total Payouts"   value="$84,200" icon="fa-dollar" color="red"    change="8% this month" />
-        <StatCard title="This Month"      value="$12,400" icon="fa-line-chart"  color="green"  change="12% vs last" />
-        <StatCard title="Pending Requests" value="3"      icon="fa-clock-o"       color="orange" />
+    <DashboardLayout role="ADMIN" title="Wallet & Payments">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <StatCard title="Platform Revenue"   value={v(ov?.platform_revenue)}    icon="fa-line-chart" color="green" change="Fees earned" />
+        <StatCard title="In Escrow"          value={v(ov?.escrow_held)}         icon="fa-lock"       color="purple" change="Held for bookings" />
+        <StatCard title="Pending Withdrawals" value={v(ov?.pending_withdrawals)} icon="fa-clock-o"   color="red"   change="Awaiting approval" />
+        <StatCard title="Paid Out"           value={v(ov?.paid_withdrawals)}    icon="fa-check"      color="blue"  change="All time" />
+      </div>
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+        <StatCard title="Total Top-ups"      value={v(ov?.total_topups)}        icon="fa-arrow-down" color="green" change="Buyer deposits" />
+        <StatCard title="Earnings Paid to Sellers" value={v(ov?.total_earnings_paid)} icon="fa-users" color="blue" change="All time" />
+        <StatCard title="Platform Wallet"    value={v(ov?.admin_wallet?.balance)} icon="fa-dollar"   color="purple" change="Current balance" />
       </div>
 
       <Card padding="none">
-        <div className="p-4 border-b border-gray-100 flex items-center justify-between">
+        <div className="p-4 border-b border-gray-100 flex items-center justify-between flex-wrap gap-3">
           <CardTitle>Withdrawal Requests</CardTitle>
-          <div className="flex gap-2">
-            {['All', 'Pending', 'Approved', 'Rejected'].map((f) => (
-              <button key={f} className="px-3 py-1.5 rounded-lg text-xs font-medium text-gray-500 hover:bg-gray-100 transition-colors">{f}</button>
+          <div className="flex gap-1 text-xs">
+            {['pending', 'approved', 'paid', 'rejected', ''].map((s) => (
+              <button key={s || 'all'} onClick={() => setFilter(s)}
+                className={`px-2.5 py-1 rounded-full capitalize ${filter === s ? 'bg-[#e84545] text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+                {s || 'all'}
+              </button>
             ))}
           </div>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="bg-gray-50 border-b border-gray-100">
-                {['Seller', 'Amount', 'IBAN', 'Date', 'Status', 'Actions'].map((h) => (
-                  <th key={h} className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wider px-4 py-3">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50">
-              {withdrawals.map((w) => (
-                <tr key={w.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <Avatar name={w.name} size="sm" />
-                      <span className="font-medium text-gray-900">{w.name}</span>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 font-bold text-gray-900">{formatCurrency(w.amount)}</td>
-                  <td className="px-4 py-3 font-mono text-xs text-gray-500 truncate max-w-[180px]">{w.iban}</td>
-                  <td className="px-4 py-3 text-gray-400 text-xs">{formatDate(w.date)}</td>
-                  <td className="px-4 py-3">
-                    <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${statusColor[w.status]}`}>{w.status}</span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-1">
-                      <button onClick={() => setSelected(w)} className="p-1.5 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"><i className="fa fa-eye text-sm" /></button>
-                      {w.status === 'Pending' && (
-                        <>
-                          <button className="p-1.5 rounded-lg text-gray-400 hover:text-green-600 hover:bg-green-50 transition-colors"><i className="fa fa-check-circle text-sm" /></button>
-                          <button className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"><i className="fa fa-times-circle text-sm" /></button>
-                        </>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </Card>
-
-      <Modal isOpen={!!selected} onClose={() => setSelected(null)} title="Withdrawal Details">
-        {selected && (
-          <div className="space-y-3">
-            {[
-              { label: 'Seller', value: selected.name },
-              { label: 'Amount', value: formatCurrency(selected.amount) },
-              { label: 'IBAN', value: selected.iban },
-              { label: 'Request Date', value: formatDate(selected.date) },
-              { label: 'Status', value: selected.status },
-            ].map((i) => (
-              <div key={i.label} className="flex items-center justify-between py-2 border-b border-gray-50">
-                <span className="text-sm text-gray-500">{i.label}</span>
-                <span className="text-sm font-medium text-gray-900">{i.value}</span>
+        {loading ? (
+          <div className="p-8 text-center text-gray-400 text-sm">Loading…</div>
+        ) : wds.length === 0 ? (
+          <div className="p-8 text-center text-gray-400 text-sm">No withdrawal requests.</div>
+        ) : (
+          <div className="divide-y divide-gray-50">
+            {wds.map((w) => (
+              <div key={w.id} className="flex items-center gap-4 px-5 py-4">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-gray-900 truncate">{w.seller?.name || 'Seller'}</p>
+                  <p className="text-xs text-gray-400 truncate">{w.seller?.email} · {formatDate(w.created_at || w.createdAt || '')}</p>
+                </div>
+                <p className="font-bold text-gray-900">{formatCurrency(Number(w.amount))}</p>
+                <span className={`text-[11px] font-medium px-2 py-1 rounded-full capitalize ${BADGE[w.status] || 'bg-gray-100 text-gray-600'}`}>{w.status}</span>
+                {w.status === 'pending' && (
+                  <div className="flex gap-2">
+                    <Button size="sm" disabled={busyId === w.id} onClick={() => approve(w.id)}>Approve</Button>
+                    <Button size="sm" variant="outline" disabled={busyId === w.id} onClick={() => reject(w.id)}>Reject</Button>
+                  </div>
+                )}
               </div>
             ))}
-            {selected.status === 'Pending' && (
-              <div className="flex gap-3 pt-2">
-                <Button variant="success" fullWidth>Approve & Transfer</Button>
-                <Button variant="danger" fullWidth>Reject</Button>
-              </div>
-            )}
           </div>
         )}
-      </Modal>
+      </Card>
     </DashboardLayout>
   );
 }

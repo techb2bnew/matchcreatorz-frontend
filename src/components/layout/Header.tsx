@@ -1,12 +1,21 @@
 'use client';
 import { useState, useRef, useEffect } from 'react';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
-import { toggleMobileSidebar } from '@/store/slices/uiSlice';
+import { toggleMobileSidebar, setNotificationCount } from '@/store/slices/uiSlice';
 import { logout } from '@/store/slices/authSlice';
 import Avatar from '@/components/ui/Avatar';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { adminNotificationApi, sellerNotificationApi, buyerNotificationApi } from '@/lib/adminApi';
+
+const unreadCountApi: Record<string, { unreadCount: () => Promise<{ data?: { count?: number } }> }> = {
+  ADMIN:  adminNotificationApi,
+  SELLER: sellerNotificationApi,
+  BUYER:  buyerNotificationApi,
+};
+
+const POLL_MS = 30_000;
 
 interface HeaderProps {
   title?: string;
@@ -49,6 +58,21 @@ export default function Header({ title, role }: HeaderProps) {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  // Poll the unread notification count for this role's inbox
+  useEffect(() => {
+    let cancelled = false;
+    const api = unreadCountApi[role];
+    const fetchCount = async () => {
+      try {
+        const res = await api.unreadCount();
+        if (!cancelled) dispatch(setNotificationCount(res?.data?.count ?? 0));
+      } catch { /* silent */ }
+    };
+    fetchCount();
+    const id = setInterval(fetchCount, POLL_MS);
+    return () => { cancelled = true; clearInterval(id); };
+  }, [role, dispatch]);
 
   const handleLogout = () => {
     setDropdownOpen(false);

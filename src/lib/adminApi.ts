@@ -337,6 +337,22 @@ export const sellerNotificationApi = {
   delete:      (id: number) => req('DELETE', `/api/v1/seller/notifications/${id}`),
 };
 
+// -- Admin Notifications ------------------------------------------------
+export const adminNotificationApi = {
+  list:        (params: { page?: number; limit?: number; unread_only?: boolean } = {}) => {
+    const q = new URLSearchParams(
+      Object.entries(params)
+        .filter(([, v]) => v !== undefined && v !== null && String(v) !== '')
+        .map(([k, v]) => [k, String(v)])
+    ).toString();
+    return req('GET', `/api/v1/admin/notifications${q ? `?${q}` : ''}`);
+  },
+  unreadCount: ()           => req('GET',    `/api/v1/admin/notifications/unread-count`),
+  markRead:    (id: number) => req('PUT',    `/api/v1/admin/notifications/${id}/read`),
+  markAllRead: ()           => req('PUT',    `/api/v1/admin/notifications/read-all`),
+  delete:      (id: number) => req('DELETE', `/api/v1/admin/notifications/${id}`),
+};
+
 // -- Buyer Favourites --------------------------------------------------
 export const buyerFavouriteApi = {
   list: (params: { page?: number; limit?: number } = {}) => {
@@ -394,6 +410,10 @@ export const sellerConnectApi = {
     ).toString();
     return req('GET', `/api/v1/seller/connects/history${q ? `?${q}` : ''}`);
   },
+  plans:          () => req('GET',  `/api/v1/seller/connects/plans`),
+  purchase:       (planId: string, body: { success_url?: string; cancel_url?: string } = {}) =>
+    req('POST', `/api/v1/seller/connects/purchase`, { plan_id: planId, ...body }),
+  confirmPurchase: (sessionId: string) => req('GET', `/api/v1/seller/connects/purchase/confirm?session_id=${encodeURIComponent(sessionId)}`),
 };
 
 // -- Chat --------------------------------------------------------------
@@ -422,6 +442,72 @@ export const chatApi = {
     fd.append('file', file);
     return sendForm('POST', `/api/v1/chat/upload`, fd);
   },
+};
+
+// -- Support tickets (user opens; admin queue handles) ------------------
+export const supportApi = {
+  tickets: (params: { page?: number; limit?: number; status?: string; scope?: string } = {}) => {
+    const q = new URLSearchParams(
+      Object.entries(params).filter(([, v]) => v !== undefined && v !== null && String(v) !== '').map(([k, v]) => [k, String(v)])
+    ).toString();
+    return req('GET', `/api/v1/support/tickets${q ? `?${q}` : ''}`);
+  },
+  open:     (body: { subject?: string; body: string; attachment?: { url: string; name: string; type?: string } }) =>
+    req('POST', `/api/v1/support/tickets`, body),
+  get:      (id: number) => req('GET', `/api/v1/support/tickets/${id}`),
+  messages: (id: number, params: { page?: number; limit?: number } = {}) => {
+    const q = new URLSearchParams(
+      Object.entries(params).filter(([, v]) => v !== undefined && v !== null && String(v) !== '').map(([k, v]) => [k, String(v)])
+    ).toString();
+    return req('GET', `/api/v1/support/tickets/${id}/messages${q ? `?${q}` : ''}`);
+  },
+  send:     (id: number, body: string, attachment?: { url: string; name: string; type?: string }) =>
+    req('POST', `/api/v1/support/tickets/${id}/messages`, { body, attachment }),
+  assign:   (id: number, admin_id?: number) => req('PATCH', `/api/v1/support/tickets/${id}/assign`, admin_id ? { admin_id } : {}),
+  setStatus:(id: number, status: string) => req('PATCH', `/api/v1/support/tickets/${id}/status`, { status }),
+  markRead: (id: number) => req('PATCH', `/api/v1/support/tickets/${id}/read`),
+  unread:   () => req('GET', `/api/v1/support/unread-count`),
+  upload:   (file: File) => {
+    const fd = new FormData();
+    fd.append('file', file);
+    return sendForm('POST', `/api/v1/support/upload`, fd);
+  },
+};
+
+// -- Wallet & payments -------------------------------------------------
+export const walletApi = {
+  summary:      () => req('GET', `/api/v1/wallet`),
+  config:       () => req('GET', `/api/v1/wallet/config`),
+  transactions: (params: { page?: number; limit?: number; type?: string } = {}) => {
+    const q = new URLSearchParams(
+      Object.entries(params).filter(([, v]) => v !== undefined && v !== null && String(v) !== '').map(([k, v]) => [k, String(v)])
+    ).toString();
+    return req('GET', `/api/v1/wallet/transactions${q ? `?${q}` : ''}`);
+  },
+  // buyer top-up
+  topup:        (amount: number) => req('POST', `/api/v1/wallet/topup`, { amount }),
+  confirmTopup: (sessionId: string) => req('GET', `/api/v1/wallet/topup/confirm?session_id=${encodeURIComponent(sessionId)}`),
+  // seller payouts
+  connectOnboard: () => req('POST', `/api/v1/wallet/connect/onboard`),
+  connectStatus:  () => req('GET', `/api/v1/wallet/connect/status`),
+  withdraw:       (amount: number) => req('POST', `/api/v1/wallet/withdraw`, { amount }),
+  myWithdrawals:  (params: { page?: number; limit?: number } = {}) => {
+    const q = new URLSearchParams(
+      Object.entries(params).filter(([, v]) => v !== undefined && v !== null && String(v) !== '').map(([k, v]) => [k, String(v)])
+    ).toString();
+    return req('GET', `/api/v1/wallet/withdrawals${q ? `?${q}` : ''}`);
+  },
+  // admin
+  adminOverview:    () => req('GET', `/api/v1/wallet/admin/overview`),
+  adminWithdrawals: (params: { page?: number; limit?: number; status?: string } = {}) => {
+    const q = new URLSearchParams(
+      Object.entries(params).filter(([, v]) => v !== undefined && v !== null && String(v) !== '').map(([k, v]) => [k, String(v)])
+    ).toString();
+    return req('GET', `/api/v1/wallet/admin/withdrawals${q ? `?${q}` : ''}`);
+  },
+  approveWithdrawal: (id: number) => req('PATCH', `/api/v1/wallet/admin/withdrawals/${id}/approve`),
+  rejectWithdrawal:  (id: number, note?: string) => req('PATCH', `/api/v1/wallet/admin/withdrawals/${id}/reject`, { note }),
+  adminAdjust:       (body: { user_id: number; amount: number; note?: string }) => req('POST', `/api/v1/wallet/admin/adjust`, body),
 };
 
 // -- Per-user preferences (settings toggles) ---------------------------

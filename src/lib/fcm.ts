@@ -23,7 +23,6 @@ const getAuthHeaders = () => {
 
 const roleEndpoint = (role: string): string | null => {
   const r = role.toLowerCase();
-  if (r === 'admin') return null;
   return `${API}/api/v1/${r}/fcm-token`;
 };
 
