@@ -84,6 +84,7 @@ export default function AdminConnectsPage() {
   const handleAdd = async () => {
     if (!addSellerId)                              return setAddErr('Please select a seller');
     if (!addAmount || Number(addAmount) === 0)     return setAddErr('Enter a non-zero amount');
+    if (Number(addAmount) < 0 && !addNote.trim())  return setAddErr('A note is required when deducting connects');
     setAddErr('');
     setAdding(true);
     try {
@@ -212,11 +213,19 @@ export default function AdminConnectsPage() {
             value={addAmount}
             onChange={(e) => { setAddAmount(e.target.value); setAddErr(''); }}
           />
+          {Number(addAmount) < 0 && (
+            <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-xs text-red-700">
+              <i className="fa fa-exclamation-triangle mr-1.5" />
+              This will deduct <strong>{Math.abs(Number(addAmount))}</strong> connects from this seller&apos;s balance. Please add a note explaining why.
+            </div>
+          )}
           <div>
-            <label className="block text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wide">Note (optional)</label>
+            <label className="block text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wide">
+              Note {Number(addAmount) < 0 ? '(required)' : '(optional)'}
+            </label>
             <textarea
               className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:border-[#e84545] focus:ring-2 focus:ring-[#e84545]/20 resize-none h-20 transition"
-              placeholder="Reason for adding connects..."
+              placeholder="Reason for adding or deducting connects..."
               value={addNote}
               onChange={(e) => setAddNote(e.target.value)}
             />
@@ -224,8 +233,8 @@ export default function AdminConnectsPage() {
           {addErr && <p className="text-xs text-red-500">{addErr}</p>}
           <div className="flex gap-3 pt-1">
             <Button variant="outline" fullWidth onClick={() => setAddModal(false)} disabled={adding}>Cancel</Button>
-            <Button fullWidth onClick={handleAdd} loading={adding}>
-              <i className="fa fa-plus mr-1.5" /> Add Connects
+            <Button fullWidth variant={Number(addAmount) < 0 ? 'danger' : 'primary'} onClick={handleAdd} loading={adding}>
+              <i className={`fa ${Number(addAmount) < 0 ? 'fa-minus' : 'fa-plus'} mr-1.5`} /> {Number(addAmount) < 0 ? 'Deduct Connects' : 'Add Connects'}
             </Button>
           </div>
         </div>

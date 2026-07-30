@@ -68,6 +68,12 @@ export const publicCategoryApi = {
       .then(r => r.json()),
 };
 
+export interface PublicPlatformStats { total_creators: number; avg_rating: number; satisfaction_pct: number; avg_bids_per_job: number }
+export const publicStatsApi = {
+  get: (): Promise<{ data: PublicPlatformStats }> =>
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/public/stats`).then(r => r.json()),
+};
+
 // -- Seller Services ---------------------------------------------------
 export const sellerServiceApi = {
   list: (params: Record<string, string | number>) => {
@@ -109,6 +115,29 @@ export const categoryApi = {
   delete: (id: number)             => req('DELETE', `/api/v1/admin/categories/${id}`),
 };
 
+// -- Banners (admin) ----------------------------------------------------
+export interface AdminBanner {
+  id: number; title: string; image_url: string; link_url: string | null;
+  position: string; is_active: boolean; display_order: number;
+  createdAt?: string; created_at?: string;
+}
+export const adminBannerApi = {
+  list:   (): Promise<{ data: AdminBanner[] }> => req('GET', `/api/v1/admin/banners`),
+  create: (formData: FormData) => sendForm('POST', `/api/v1/admin/banners`, formData),
+  update: (id: number, formData: FormData) => sendForm('PUT', `/api/v1/admin/banners/${id}`, formData),
+  delete: (id: number) => req('DELETE', `/api/v1/admin/banners/${id}`),
+};
+
+// -- Static Pages (admin) -------------------------------------------------
+export interface AdminPage {
+  id: number; slug: string; title: string; content: string;
+  createdAt?: string; updatedAt?: string;
+}
+export const adminPageApi = {
+  list:   (): Promise<{ data: AdminPage[] }> => req('GET', `/api/v1/admin/pages`),
+  update: (id: number, body: { title?: string; content?: string }) => req('PUT', `/api/v1/admin/pages/${id}`, body),
+};
+
 // -- Profile API (works for admin, seller, buyer) ----------------------
 export const profileApi = {
   /** GET /api/v1/{role}/profile */
@@ -134,6 +163,10 @@ export const profileApi = {
     fd.append('resume', file);
     return sendForm('POST', `/api/v1/seller/upload/resume`, fd);
   },
+
+  /** DELETE /api/v1/{role}/account — permanently (soft-)deletes the account */
+  deleteAccount: (role: 'seller' | 'buyer', reason?: string) =>
+    req('DELETE', `/api/v1/${role}/account`, reason ? { reason } : undefined),
 };
 
 // -- Buyer Jobs --------------------------------------------------------
@@ -147,6 +180,8 @@ export const buyerJobApi = {
     return req('GET', `/api/v1/buyer/jobs${q ? `?${q}` : ''}`);
   },
   get:    (id: number)                  => req('GET',    `/api/v1/buyer/jobs/${id}`),
+  /** GET /api/v1/buyer/jobs/stats — aggregate counters across ALL of the buyer's jobs, not just the current page */
+  stats:  ()                            => req('GET',    `/api/v1/buyer/jobs/stats`),
   create: (body: {
     title: string; description?: string; category?: string;
     job_type?: string; budget_min?: number; budget_max?: number;
@@ -227,6 +262,7 @@ export const adminBookingApi = {
 // -- Buyer Search (services) -------------------------------------------
 export const buyerSearchApi = {
   search: (params: {
+    id?: number | string;
     search?: string;
     category?: string;
     price_min?: number | string;
@@ -312,6 +348,9 @@ export const sellerJobApi = {
 
 // -- Stats (dashboard) -------------------------------------------------
 export const adminStatsApi  = { get: () => req('GET', `/api/v1/admin/stats`)  };
+
+// -- System health (public /health endpoint, no /api/v1 prefix) --------
+export const systemApi = { health: () => req('GET', `/health`) };
 
 // -- Admin Jobs --------------------------------------------------------
 export const adminJobApi = {
@@ -493,6 +532,12 @@ export const supportApi = {
     fd.append('file', file);
     return sendForm('POST', `/api/v1/support/upload`, fd);
   },
+};
+
+// -- Feedback (Settings → Send Feedback) --------------------------------
+export const feedbackApi = {
+  send: (role: 'buyer' | 'seller', body: { subject?: string; message: string }) =>
+    req('POST', `/api/v1/${role}/feedback`, body),
 };
 
 // -- Wallet & payments -------------------------------------------------

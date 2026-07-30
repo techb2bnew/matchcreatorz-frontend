@@ -9,7 +9,7 @@ import { walletApi } from '@/lib/adminApi';
 import toast from 'react-hot-toast';
 
 interface Overview {
-  platform_revenue: number; escrow_held: number; total_topups: number;
+  platform_revenue: number; total_topups: number;
   total_earnings_paid: number; pending_withdrawals: number; paid_withdrawals: number;
   admin_wallet: { balance: number };
 }
@@ -53,9 +53,8 @@ export default function AdminWalletPage() {
 
   return (
     <DashboardLayout role="ADMIN" title="Wallet & Payments">
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
         <StatCard title="Platform Revenue"   value={v(ov?.platform_revenue)}    icon="fa-line-chart" color="green" change="Fees earned" />
-        <StatCard title="In Escrow"          value={v(ov?.escrow_held)}         icon="fa-lock"       color="purple" change="Held for bookings" />
         <StatCard title="Pending Withdrawals" value={v(ov?.pending_withdrawals)} icon="fa-clock-o"   color="red"   change="Awaiting approval" />
         <StatCard title="Paid Out"           value={v(ov?.paid_withdrawals)}    icon="fa-check"      color="blue"  change="All time" />
       </div>

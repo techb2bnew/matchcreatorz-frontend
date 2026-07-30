@@ -123,8 +123,8 @@ export default function FavouritesPage() {
 
               <p className="text-sm font-bold text-[#e84545] mb-3">From {formatCurrency(s.price)}</p>
 
-              <Button variant="outline" size="sm" fullWidth onClick={() => router.push('/buyer/search')}>
-                View Services
+              <Button variant="outline" size="sm" fullWidth onClick={() => router.push(`/buyer/search?serviceId=${s.id}`)}>
+                View Service
               </Button>
             </Card>
           );

@@ -5,7 +5,7 @@ import DashboardLayout from '@/components/layout/DashboardLayout';
 import Modal           from '@/components/ui/Modal';
 import Button          from '@/components/ui/Button';
 import { cn }          from '@/lib/utils';
-import { sellerJobApi, publicCategoryApi } from '@/lib/adminApi';
+import { sellerJobApi, publicCategoryApi, sellerConnectApi } from '@/lib/adminApi';
 import { OverlayLoader } from '@/components/ui/Loader';
 import RichTextEditor from '@/components/ui/RichTextEditor';
 
@@ -68,6 +68,7 @@ export default function SellerJobsPage() {
   const [categories, setCategories] = useState<string[]>([]);
   const [page, setPage]             = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [connectsBalance, setConnectsBalance] = useState<number | null>(null);
   const LIMIT = 10;
   const firstLoad = useRef(true);
 
@@ -109,6 +110,9 @@ export default function SellerJobsPage() {
     publicCategoryApi.list()
       .then(r => { if (r.data?.length) setCategories(r.data.map((c: { name: string }) => c.name)); })
       .catch(() => {});
+    sellerConnectApi.balance()
+      .then(r => setConnectsBalance(Number(r.data?.balance ?? 0)))
+      .catch(() => {});
   }, []);
 
   // Reset to first page whenever the search/category changes
@@ -139,6 +143,7 @@ export default function SellerJobsPage() {
       });
       setBidMsg({ ok: true, text: 'Bid placed successfully!' });
       await loadJobs(true);
+      sellerConnectApi.balance().then(r => setConnectsBalance(Number(r.data?.balance ?? 0))).catch(() => {});
       setTimeout(() => setBidJob(null), 1200);
     } catch (e: unknown) {
       setBidMsg({ ok: false, text: (e as Error).message || 'Failed to place bid' });
@@ -181,6 +186,7 @@ export default function SellerJobsPage() {
       await sellerJobApi.withdrawBid(withdrawJob.id);
       setWithdrawJob(null);
       await loadJobs(true);
+      sellerConnectApi.balance().then(r => setConnectsBalance(Number(r.data?.balance ?? 0))).catch(() => {});
     } catch { /* ignore */ }
     finally { setWithdrawing(false); }
   };
@@ -242,7 +248,7 @@ export default function SellerJobsPage() {
           {[
             { label: 'Open Jobs',   val: String(jobs.length), icon: 'fa-briefcase', color: '#e84545', bg: '#fef2f2' },
             { label: 'My Bids',     val: String(myBidsCount), icon: 'fa-gavel',     color: '#10b981', bg: '#ecfdf5' },
-            { label: 'Connects',    val: '48',                icon: 'fa-bolt',      color: '#f59e0b', bg: '#fffbeb' },
+            { label: 'Connects',    val: connectsBalance === null ? '…' : String(connectsBalance), icon: 'fa-bolt', color: '#f59e0b', bg: '#fffbeb' },
             { label: 'Avg. Budget', val: avgBudget,           icon: 'fa-dollar',    color: '#4f9ef8', bg: '#eff6ff' },
           ].map(s => (
             <div key={s.label} className="bg-white rounded-2xl border border-[#e8e8e8] shadow-sm p-4 flex items-center gap-3">

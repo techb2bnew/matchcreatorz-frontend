@@ -4,7 +4,7 @@ import DashboardLayout from '@/components/layout/DashboardLayout';
 import { useAppSelector } from '@/store/hooks';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import Link from 'next/link';
-import { buyerStatsApi } from '@/lib/adminApi';
+import { buyerStatsApi, publicStatsApi, PublicPlatformStats } from '@/lib/adminApi';
 import { formatCurrency, formatDate, getBookingStatusColor, getBookingStatusLabel } from '@/lib/utils';
 import Avatar from '@/components/ui/Avatar';
 
@@ -48,6 +48,7 @@ export default function BuyerHomePage() {
   const [data,    setData]    = useState<StatsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState<string | null>(null);
+  const [platformStats, setPlatformStats] = useState<PublicPlatformStats | null>(null);
 
   useEffect(() => {
     buyerStatsApi.get()
@@ -57,6 +58,7 @@ export default function BuyerHomePage() {
         setError(err?.message || 'Failed to load dashboard data');
       })
       .finally(() => setLoading(false));
+    publicStatsApi.get().then(r => setPlatformStats(r.data)).catch(() => {});
   }, []);
 
   const s = data?.stats;
@@ -89,11 +91,11 @@ export default function BuyerHomePage() {
           </div>
           <div className="hidden sm:flex items-center gap-4">
             {[
-              { icon: 'fa-users', label: '12,000+', sub: 'Creators'   },
-              { icon: 'fa-star',  label: '4.8',     sub: 'Avg Rating' },
-              { icon: 'fa-check', label: '98%',     sub: 'Satisfied'  },
+              { icon: 'fa-users', label: platformStats ? `${platformStats.total_creators}+` : '…', sub: 'Creators'   },
+              { icon: 'fa-star',  label: platformStats ? String(platformStats.avg_rating || '-') : '…', sub: 'Avg Rating' },
+              { icon: 'fa-check', label: platformStats ? `${platformStats.satisfaction_pct}%` : '…', sub: 'Satisfied'  },
             ].map(i => (
-              <div key={i.label} className="text-center bg-white/10 rounded-2xl px-4 py-3">
+              <div key={i.sub} className="text-center bg-white/10 rounded-2xl px-4 py-3">
                 <i className={`fa ${i.icon} text-white text-lg mb-1 block`} />
                 <p className="text-white font-bold text-base">{i.label}</p>
                 <p className="text-red-100 text-xs">{i.sub}</p>

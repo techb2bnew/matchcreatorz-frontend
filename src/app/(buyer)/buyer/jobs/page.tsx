@@ -4,7 +4,7 @@ import DashboardLayout from '@/components/layout/DashboardLayout';
 import Modal           from '@/components/ui/Modal';
 import Button          from '@/components/ui/Button';
 import { cn }          from '@/lib/utils';
-import { buyerJobApi, publicCategoryApi } from '@/lib/adminApi';
+import { buyerJobApi, publicCategoryApi, publicStatsApi, PublicPlatformStats } from '@/lib/adminApi';
 import { useRouter } from 'next/navigation';
 import CustomSelect from '@/components/ui/CustomSelect';
 import RichTextEditor from '@/components/ui/RichTextEditor';
@@ -76,6 +76,7 @@ export default function BuyerJobsPage() {
   const [categoryFilter, setCategoryFilter] = useState('');
   const [page, setPage]           = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [jobStats, setJobStats]   = useState<{ total: number; open: number; inProgress: number; totalBids: number } | null>(null);
   const LIMIT = 10;
   const firstLoad = useRef(true);
 
@@ -83,6 +84,11 @@ export default function BuyerJobsPage() {
   const [catSearch, setCatSearch] = useState('');
   const [uploadingDocs, setUploadingDocs] = useState(false);
   const [categories, setCategories] = useState<string[]>([]);
+  const [platformStats, setPlatformStats] = useState<PublicPlatformStats | null>(null);
+
+  useEffect(() => {
+    publicStatsApi.get().then(r => setPlatformStats(r.data)).catch(() => {});
+  }, []);
 
   // Form
   const [form, setForm]         = useState<FormState>(EMPTY);
@@ -112,9 +118,13 @@ export default function BuyerJobsPage() {
       if (search.trim())    params.search = search.trim();
       if (statusFilter)     params.status = statusFilter;
       if (categoryFilter)   params.category = categoryFilter;
-      const res = await buyerJobApi.list(params);
+      const [res, statsRes] = await Promise.all([
+        buyerJobApi.list(params),
+        buyerJobApi.stats().catch(() => null),
+      ]);
       setJobs(res.data || []);
       setTotalPages(res.meta?.totalPages || res.pagination?.pages || 1);
+      if (statsRes?.data) setJobStats(statsRes.data);
     } catch { setJobs([]); }
     finally { setLoading(false); setRefreshing(false); }
   }, [page, search, statusFilter, categoryFilter]);
@@ -137,17 +147,12 @@ export default function BuyerJobsPage() {
     return () => clearTimeout(t);
   }, [loadJobs]);
 
-  // Stats
-  const total      = jobs.length;
-  const open       = jobs.filter(j => j.status === 'OPEN').length;
-  const inProgress = jobs.filter(j => j.status === 'IN_PROGRESS').length;
-  const totalBids  = jobs.reduce((s, j) => s + (j.bids_count || 0), 0);
-
+  // Stats — aggregate across ALL of the buyer's jobs (from /jobs/stats), not just the current page
   const stats = [
-    { label: 'Total Posted', val: String(total),      icon: 'fa-briefcase',   color: '#e84545', bg: '#fef2f2' },
-    { label: 'Open',         val: String(open),        icon: 'fa-circle',      color: '#10b981', bg: '#ecfdf5' },
-    { label: 'In Progress',  val: String(inProgress),  icon: 'fa-spinner',     color: '#4f9ef8', bg: '#eff6ff' },
-    { label: 'Total Bids',   val: String(totalBids),   icon: 'fa-gavel',       color: '#f59e0b', bg: '#fffbeb' },
+    { label: 'Total Posted', val: jobStats ? String(jobStats.total)      : '…', icon: 'fa-briefcase', color: '#e84545', bg: '#fef2f2' },
+    { label: 'Open',         val: jobStats ? String(jobStats.open)       : '…', icon: 'fa-circle',     color: '#10b981', bg: '#ecfdf5' },
+    { label: 'In Progress',  val: jobStats ? String(jobStats.inProgress) : '…', icon: 'fa-spinner',    color: '#4f9ef8', bg: '#eff6ff' },
+    { label: 'Total Bids',   val: jobStats ? String(jobStats.totalBids)  : '…', icon: 'fa-gavel',      color: '#f59e0b', bg: '#fffbeb' },
   ];
 
   // Post job
@@ -667,9 +672,8 @@ export default function BuyerJobsPage() {
               <div className="bg-white rounded-2xl border border-[#e8e8e8] shadow-sm p-5">
                 <h4 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2"><i className="fa fa-bar-chart text-[#4f9ef8]" /> Platform Stats</h4>
                 {[
-                  { label: 'Avg. Bids per Job', val: '8-12',     color: '#e84545' },
-                  { label: 'Avg. Hire Time',    val: '24 hours', color: '#4f9ef8' },
-                  { label: 'Active Creators',   val: '12,000+',  color: '#10b981' },
+                  { label: 'Avg. Bids per Job', val: platformStats ? String(platformStats.avg_bids_per_job || '-') : '…', color: '#e84545' },
+                  { label: 'Active Creators',   val: platformStats ? `${platformStats.total_creators}+` : '…', color: '#10b981' },
                 ].map(s => (
                   <div key={s.label} className="flex justify-between items-center py-2.5 border-b border-gray-50 last:border-0">
                     <p className="text-xs text-gray-500">{s.label}</p>
@@ -681,7 +685,7 @@ export default function BuyerJobsPage() {
               <div className="bg-gradient-to-br from-[#e84545] to-[#c02a2a] rounded-2xl p-5 text-white">
                 <i className="fa fa-shield text-2xl mb-2 block" />
                 <h4 className="text-sm font-bold mb-1">Buyer Protection</h4>
-                <p className="text-xs text-red-100">Your payment is held in escrow and released only when you approve the work.</p>
+                <p className="text-xs text-red-100">You&apos;re only charged when you approve delivered work — nothing is deducted upfront.</p>
               </div>
             </div>
           </div>

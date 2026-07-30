@@ -1,6 +1,6 @@
 'use client';
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, useCallback, useRef, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import Card from '@/components/ui/Card';
 import Avatar from '@/components/ui/Avatar';
@@ -320,8 +320,9 @@ function ServiceDetailModal({
 }
 
 /* -- Main Page ----------------------------------------------------- */
-export default function BuyerSearchPage() {
+function BuyerSearchInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const [searchQuery, setSearchQuery]   = useState('');
   const [activeChip,  setActiveChip]    = useState('All');
@@ -364,6 +365,19 @@ export default function BuyerSearchPage() {
       .then((res: { data?: number[] }) => setLiked(res.data || []))
       .catch(() => {/* silent -- keep empty */});
   }, []);
+
+  // Deep-link support: /buyer/search?serviceId=123 opens that service's detail modal directly
+  useEffect(() => {
+    const serviceId = searchParams.get('serviceId');
+    if (!serviceId) return;
+    buyerSearchApi.search({ id: serviceId })
+      .then((res: { data?: Service[] }) => {
+        const svc = (res.data || [])[0];
+        if (svc) setSelected(svc);
+        else toast.error('That service is no longer available');
+      })
+      .catch(() => toast.error('Failed to load service'));
+  }, [searchParams]);
 
   const fetchServices = useCallback(async (pg = 1) => {
     setLoading(true);
@@ -705,4 +719,8 @@ export default function BuyerSearchPage() {
       </div>
     </DashboardLayout>
   );
+}
+
+export default function BuyerSearchPage() {
+  return <Suspense fallback={null}><BuyerSearchInner /></Suspense>;
 }

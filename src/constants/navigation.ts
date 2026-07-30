@@ -10,6 +10,7 @@ export const adminNav: NavItem[] = [
   { label: 'Sellers',        href: '/admin/sellers',       icon: 'fa-briefcase'      },
   { label: 'Buyers',         href: '/admin/buyers',        icon: 'fa-users'          },
   { label: 'Bookings',       href: '/admin/bookings',      icon: 'fa-calendar-check-o'},
+  { label: 'Jobs',           href: '/admin/jobs',          icon: 'fa-briefcase'      },
   { label: 'Services',       href: '/admin/services',      icon: 'fa-cubes'          },
   { label: 'Categories',     href: '/admin/categories',    icon: 'fa-tags'           },
   { label: 'Connects',       href: '/admin/connects',      icon: 'fa-link'           },
@@ -19,6 +20,7 @@ export const adminNav: NavItem[] = [
   { label: 'Notifications',  href: '/admin/notifications', icon: 'fa-bell'           },
   { label: 'Banners',        href: '/admin/banners',       icon: 'fa-picture-o'      },
   { label: 'Pages',          href: '/admin/pages',         icon: 'fa-file-text-o'    },
+  { label: 'My Profile',     href: '/admin/profile',       icon: 'fa-user-circle-o'  },
   { label: 'Settings',       href: '/admin/settings',      icon: 'fa-cog'            },
 ];
 

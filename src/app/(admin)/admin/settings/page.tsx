@@ -1,8 +1,8 @@
 'use client';
 import { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
-import { cn } from '@/lib/utils';
-import { adminSettingApi } from '@/lib/adminApi';
+import { cn, formatCurrency } from '@/lib/utils';
+import { adminSettingApi, adminStatsApi, systemApi } from '@/lib/adminApi';
 import toast from 'react-hot-toast';
 
 type Tab = 'platform' | 'plans' | 'appinfo';
@@ -45,6 +45,23 @@ export default function AdminSettingsPage() {
   const [savingFees, setSavingFees]   = useState(false);
   const [savingPlans, setSavingPlans] = useState(false);
   const [savingApp, setSavingApp]     = useState(false);
+
+  interface PlatformStats { totalUsers: number; newUsersToday: number; totalRevenue: number; openTickets: number }
+  interface SystemHealth { db: string; env: string; uptime_secs: number }
+  const [platformStats, setPlatformStats] = useState<PlatformStats | null>(null);
+  const [systemHealth, setSystemHealth]   = useState<SystemHealth | null>(null);
+
+  useEffect(() => {
+    adminStatsApi.get().then(r => setPlatformStats(r.data?.stats || null)).catch(() => {});
+    systemApi.health().then(r => setSystemHealth(r)).catch(() => {});
+  }, []);
+
+  const formatUptime = (secs: number) => {
+    const h = Math.floor(secs / 3600);
+    const m = Math.floor((secs % 3600) / 60);
+    if (h > 0) return `${h}h ${m}m`;
+    return `${m}m`;
+  };
 
   // Load persisted settings on mount
   useEffect(() => {
@@ -164,10 +181,10 @@ export default function AdminSettingsPage() {
             <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-3">Platform Stats</h4>
             <div className="space-y-3">
               {[
-                { label: 'Total Users',   val: '2,847', color: '#4f9ef8', icon: 'fa-users'     },
-                { label: 'Active Today',  val: '412',   color: '#10b981', icon: 'fa-circle'    },
-                { label: 'Revenue',       val: '$48.2K',color: '#e84545', icon: 'fa-dollar'    },
-                { label: 'Open Tickets',  val: '14',    color: '#f59e0b', icon: 'fa-life-ring' },
+                { label: 'Total Users',      val: platformStats ? platformStats.totalUsers.toLocaleString() : '…', color: '#4f9ef8', icon: 'fa-users'     },
+                { label: 'New Today',        val: platformStats ? String(platformStats.newUsersToday) : '…',        color: '#10b981', icon: 'fa-circle'    },
+                { label: 'Revenue',          val: platformStats ? formatCurrency(platformStats.totalRevenue) : '…', color: '#e84545', icon: 'fa-dollar'    },
+                { label: 'Open Tickets',     val: platformStats ? String(platformStats.openTickets) : '…',          color: '#f59e0b', icon: 'fa-life-ring' },
               ].map(s => (
                 <div key={s.label} className="flex items-center gap-3">
                   <div className="h-8 w-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: s.color + '15' }}>
@@ -400,10 +417,10 @@ export default function AdminSettingsPage() {
                 </h3>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                   {[
-                    { label: 'API Status',   val: 'Online',  color: '#10b981', icon: 'fa-check-circle',  bg: '#d1fae5' },
-                    { label: 'DB Status',    val: 'Healthy', color: '#10b981', icon: 'fa-database',      bg: '#d1fae5' },
-                    { label: 'Uptime',       val: '99.9%',   color: '#4f9ef8', icon: 'fa-clock-o',       bg: '#dbeafe' },
-                    { label: 'Last Backup',  val: '2h ago',  color: '#f59e0b', icon: 'fa-hdd-o',         bg: '#fef3c7' },
+                    { label: 'API Status',   val: systemHealth ? 'Online' : 'Checking…', color: '#10b981', icon: 'fa-check-circle',  bg: '#d1fae5' },
+                    { label: 'DB Status',    val: systemHealth ? (systemHealth.db === 'healthy' ? 'Healthy' : 'Unreachable') : '…', color: systemHealth?.db === 'healthy' ? '#10b981' : '#ef4444', icon: 'fa-database', bg: systemHealth?.db === 'healthy' ? '#d1fae5' : '#fee2e2' },
+                    { label: 'Uptime',       val: systemHealth ? formatUptime(systemHealth.uptime_secs) : '…', color: '#4f9ef8', icon: 'fa-clock-o', bg: '#dbeafe' },
+                    { label: 'Environment',  val: systemHealth ? systemHealth.env : '…',  color: '#f59e0b', icon: 'fa-server',        bg: '#fef3c7' },
                   ].map(s => (
                     <div key={s.label} className="rounded-xl p-4 text-center" style={{ background: s.bg }}>
                       <i className={`fa ${s.icon} text-xl mb-2`} style={{ color: s.color }} />
