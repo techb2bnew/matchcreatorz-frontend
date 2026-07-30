@@ -56,6 +56,21 @@ export function truncate(str: string, length = 50) {
   return str.slice(0, length) + '...';
 }
 
+/** Strip HTML tags/entities from rich-text (Quill) content for plain-text previews. */
+export function stripHtml(html: string | null | undefined) {
+  if (!html) return '';
+  return html
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 export function getBookingStatusColor(status: string) {
   const map: Record<string, string> = {
     pending:            'bg-yellow-100 text-yellow-800',

@@ -1,11 +1,13 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import Card from '@/components/ui/Card';
 import Avatar from '@/components/ui/Avatar';
 import Modal from '@/components/ui/Modal';
 import Button from '@/components/ui/Button';
-import { formatCurrency, formatTimeAgo } from '@/lib/utils';
+import { formatCurrency, formatTimeAgo, stripHtml } from '@/lib/utils';
+import { RichTextView } from '@/components/ui/RichTextEditor';
 import { sellerBidApi, sellerJobApi } from '@/lib/adminApi';
 
 interface BidJob {
@@ -25,7 +27,11 @@ interface Bid {
   amount: string;
   delivery_days: number;
   proposal: string | null;
-  status: 'pending' | 'accepted' | 'rejected';
+  status: 'pending' | 'countered' | 'accepted' | 'rejected';
+  counter_amount: string | number | null;
+  counter_delivery_days: number | null;
+  counter_by: 'buyer' | 'seller' | null;
+  counter_note: string | null;
   createdAt: string;
   job: BidJob | null;
 }
@@ -38,12 +44,13 @@ interface Stats {
 }
 
 const STATUS_CFG: Record<string, { label: string; color: string; icon: string }> = {
-  pending:  { label: 'Pending',  color: 'bg-yellow-100 text-yellow-700', icon: 'fa-clock-o'      },
-  accepted: { label: 'Accepted', color: 'bg-green-100 text-green-700',   icon: 'fa-check-circle' },
-  rejected: { label: 'Rejected', color: 'bg-red-100 text-red-700',       icon: 'fa-times-circle' },
+  pending:   { label: 'Pending',   color: 'bg-yellow-100 text-yellow-700', icon: 'fa-clock-o'      },
+  countered: { label: 'Countered', color: 'bg-blue-100 text-blue-700',     icon: 'fa-exchange'     },
+  accepted:  { label: 'Accepted',  color: 'bg-green-100 text-green-700',   icon: 'fa-check-circle' },
+  rejected:  { label: 'Rejected',  color: 'bg-red-100 text-red-700',       icon: 'fa-times-circle' },
 };
 
-const TABS = ['All', 'Pending', 'Accepted', 'Rejected'];
+const TABS = ['All', 'Pending', 'Countered', 'Accepted', 'Rejected'];
 
 function SkeletonRow() {
   return (
@@ -64,6 +71,7 @@ function SkeletonRow() {
 }
 
 export default function SellerBidsPage() {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState('All');
   const [bids,      setBids]      = useState<Bid[]>([]);
   const [stats,     setStats]     = useState<Stats>({ total: 0, pending: 0, accepted: 0, success_rate: 0 });
@@ -224,8 +232,28 @@ export default function SellerBidsPage() {
                             )}
                           </div>
 
+                          {bid.status === 'countered' && bid.counter_amount != null && (
+                            <div className="flex items-center gap-2 mt-2 flex-wrap">
+                              <div className="flex items-center gap-1.5 text-xs text-blue-700 bg-blue-50 rounded-lg px-2.5 py-1.5 w-fit">
+                                <i className="fa fa-exchange" />
+                                <span>
+                                  {bid.counter_by === 'buyer' ? 'Buyer countered' : 'You countered'}: <b>{formatCurrency(Number(bid.counter_amount))}</b>
+                                  {bid.counter_delivery_days != null && ` · ${bid.counter_delivery_days} days`}
+                                </span>
+                              </div>
+                              {bid.job?.status === 'OPEN' && (
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); router.push(`/seller/jobs/${bid.job_id}`); }}
+                                  className="text-xs font-semibold text-[#e84545] hover:underline px-1"
+                                >
+                                  {bid.counter_by === 'buyer' ? 'Respond' : 'Update counter'}
+                                </button>
+                              )}
+                            </div>
+                          )}
+
                           {bid.proposal && (
-                            <p className="text-xs text-gray-400 mt-2 line-clamp-1">{bid.proposal}</p>
+                            <p className="text-xs text-gray-400 mt-2 line-clamp-1">{stripHtml(bid.proposal)}</p>
                           )}
                         </div>
 
@@ -275,10 +303,28 @@ export default function SellerBidsPage() {
               </div>
             )}
 
+            {selected.status === 'countered' && selected.counter_amount != null && (
+              <div>
+                <p className="text-xs font-semibold text-blue-600 uppercase tracking-wider mb-2">
+                  <i className="fa fa-exchange mr-1" />
+                  {selected.counter_by === 'buyer' ? 'Buyer Countered' : 'Your Counter (awaiting buyer)'}
+                </p>
+                <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 space-y-1">
+                  <p className="text-sm text-gray-700">
+                    <b>{formatCurrency(Number(selected.counter_amount))}</b>
+                    {selected.counter_delivery_days != null && <> &middot; {selected.counter_delivery_days} days</>}
+                  </p>
+                  {selected.counter_note && <p className="text-xs text-gray-500">{selected.counter_note}</p>}
+                </div>
+              </div>
+            )}
+
             {selected.proposal && (
               <div>
                 <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Your Proposal</p>
-                <p className="text-sm text-gray-700 leading-relaxed bg-gray-50 rounded-xl p-3">{selected.proposal}</p>
+                <div className="text-sm text-gray-700 leading-relaxed bg-gray-50 rounded-xl p-3">
+                  <RichTextView html={selected.proposal} />
+                </div>
               </div>
             )}
 
@@ -292,6 +338,19 @@ export default function SellerBidsPage() {
               <p className={`text-sm text-center font-medium ${withdrawMsg.includes('success') ? 'text-green-600' : 'text-red-600'}`}>
                 {withdrawMsg}
               </p>
+            )}
+
+            {selected.status === 'countered' && selected.job?.status === 'OPEN' && (
+              <div className="flex gap-2 pt-1">
+                <Button
+                  variant="primary"
+                  fullWidth
+                  onClick={() => router.push(`/seller/jobs/${selected.job_id}`)}
+                >
+                  <i className="fa fa-exchange mr-1" />
+                  {selected.counter_by === 'buyer' ? 'Respond to Counter' : 'Update Your Counter'}
+                </Button>
+              </div>
             )}
 
             {selected.status === 'pending' && selected.job?.status === 'OPEN' && (

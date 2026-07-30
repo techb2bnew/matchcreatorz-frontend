@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
@@ -21,6 +22,7 @@ interface Offer {
   amount: number;
   delivery_days: number | null;
   status: string;
+  booking_id: number | null;
   created_at: string;
   buyer: { id: number; name: string } | null;
 }
@@ -43,6 +45,7 @@ interface SendForm {
 const EMPTY_FORM: SendForm = { buyer_id: '', title: '', amount: '', delivery_days: '', description: '' };
 
 export default function SellerOffersPage() {
+  const router = useRouter();
   const [offers, setOffers]     = useState<Offer[]>([]);
   const [loading, setLoading]   = useState(true);
   const [actionId, setActionId] = useState<number | null>(null);
@@ -208,6 +211,14 @@ export default function SellerOffersPage() {
                     onClick={() => handleWithdraw(o.id)}
                   >
                     Withdraw
+                  </Button>
+                </div>
+              )}
+
+              {(o.status || '').toLowerCase() === 'accepted' && o.booking_id && (
+                <div className="flex justify-end mt-4 pt-4 border-t border-gray-100">
+                  <Button size="sm" onClick={() => router.push(`/seller/bookings/${o.booking_id}`)}>
+                    View Booking
                   </Button>
                 </div>
               )}

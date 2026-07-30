@@ -29,6 +29,7 @@ export default function AdminSettingsPage() {
     { id: 2, name: 'Pro',      price: '19.99', connects: '80',  color: '#4f9ef8', icon: 'fa-bolt'    },
     { id: 3, name: 'Business', price: '39.99', connects: '200', color: '#10b981', icon: 'fa-building' },
   ]);
+  const [connectsPerBid, setConnectsPerBid] = useState('1');
   const [planSaved, setPlanSaved] = useState(false);
   const updatePlan = (id: number, field: 'price' | 'connects', value: string) =>
     setPlans(prev => prev.map(p => p.id === id ? { ...p, [field]: value } : p));
@@ -56,6 +57,7 @@ export default function AdminSettingsPage() {
           if (d.platform_fees.min_settlement != null) setMinSettle(String(d.platform_fees.min_settlement));
           if (d.platform_fees.tax_rate       != null) setTaxRate(String(d.platform_fees.tax_rate));
         }
+        if (d.bid_settings?.connects_per_bid != null) setConnectsPerBid(String(d.bid_settings.connects_per_bid));
         if (Array.isArray(d.connect_plans) && d.connect_plans.length) {
           setPlans(d.connect_plans.map((p: { id: number; name: string; price: number | string; connects: number | string; color?: string; icon?: string }, i: number) => ({
             id: p.id ?? i + 1,
@@ -105,6 +107,7 @@ export default function AdminSettingsPage() {
           id: p.id, name: p.name, price: Number(p.price) || 0,
           connects: Number(p.connects) || 0, color: p.color, icon: p.icon,
         })),
+        bid_settings: { connects_per_bid: Number(connectsPerBid) || 1 },
       });
       toast.success('Connect plans saved');
       setPlanSaved(true); setTimeout(() => setPlanSaved(false), 2000);
@@ -249,6 +252,25 @@ export default function AdminSettingsPage() {
               <div className="bg-[#e8f4fd] border border-[#4f9ef8]/30 rounded-2xl p-4 flex items-start gap-3">
                 <i className="fa fa-info-circle text-[#4f9ef8] text-lg mt-0.5 flex-shrink-0" />
                 <p className="text-sm text-[#1e40af]">Connect plans allow sellers to bid on buyer jobs. Set the price and number of connects for each plan tier.</p>
+              </div>
+
+              <div className="bg-white rounded-2xl border border-[#e8e8e8] shadow-sm p-6">
+                <h3 className="text-base font-bold text-gray-800 mb-1 flex items-center gap-2">
+                  <i className="fa fa-gavel text-[#e84545]" /> Bidding Cost
+                </h3>
+                <p className="text-xs text-gray-400 mb-4">How many connects a seller spends each time they place a bid on a job</p>
+                <div className="max-w-xs">
+                  <label className={labelCls}><i className="fa fa-link mr-1 text-[#e84545]" /> Connects Deducted per Bid</label>
+                  <input
+                    className={inputCls}
+                    type="number"
+                    min={1}
+                    value={connectsPerBid}
+                    onChange={e => setConnectsPerBid(e.target.value)}
+                    placeholder="1"
+                  />
+                  <p className="text-xs text-gray-400 mt-1.5">Refunded automatically if the seller withdraws the bid</p>
+                </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

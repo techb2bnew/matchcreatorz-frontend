@@ -105,9 +105,18 @@ function ConnectsPageInner() {
     }
   };
 
-  const isCredit = (l: Ledger) => Number(l.amount) >= 0 && !/debit|spend|use|bid/i.test(l.type || '');
-  const totalCredited = history.filter(isCredit).reduce((s, h) => s + Math.abs(Number(h.amount)), 0);
-  const totalUsed     = history.filter((h) => !isCredit(h)).reduce((s, h) => s + Math.abs(Number(h.amount)), 0);
+  // Row-level indicator: any positive-amount entry shows as a credit (green ↑).
+  const isCredit = (l: Ledger) => Number(l.amount) >= 0;
+
+  // Aggregate stats: "Received" = connects that actually came in from outside
+  // (admin credit / purchase). "Used" = connects actually spent on bids, net of
+  // any refunds for withdrawn bids -- a bid-then-withdraw should net to zero,
+  // not inflate both "Received" and "Used".
+  const sumByType = (types: string[]) =>
+    history.filter((h) => types.includes(h.type)).reduce((s, h) => s + Math.abs(Number(h.amount)), 0);
+
+  const totalCredited = sumByType(['admin_credit', 'purchase']);
+  const totalUsed      = Math.max(0, sumByType(['bid_deduct']) - sumByType(['refund']));
 
   return (
     <DashboardLayout role="SELLER" title="Connects">

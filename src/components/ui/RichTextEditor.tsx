@@ -110,7 +110,8 @@ export function RichTextView({ html, className = '' }: { html?: string | null; c
   if (!html) return null;
   return (
     <div
-      className={`prose prose-sm max-w-none text-gray-700 ${className}`}
+      className={`prose prose-sm max-w-none text-gray-700 break-words ${className}`}
+      style={{ overflowWrap: 'anywhere' }}
       dangerouslySetInnerHTML={{ __html: html }}
     />
   );

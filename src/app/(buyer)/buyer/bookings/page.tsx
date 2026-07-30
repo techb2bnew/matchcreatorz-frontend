@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import MessageButton from '@/components/chat/MessageButton';
 import Card from '@/components/ui/Card';
@@ -7,9 +8,15 @@ import Avatar from '@/components/ui/Avatar';
 import Modal from '@/components/ui/Modal';
 import Button from '@/components/ui/Button';
 import { formatCurrency, formatTimeAgo } from '@/lib/utils';
-import { buyerBookingApi, buyerReviewApi } from '@/lib/adminApi';
+import { buyerBookingApi, buyerReviewApi, BookingAttachment } from '@/lib/adminApi';
+import toast from 'react-hot-toast';
 
 interface BookingUser { id: number; name: string; }
+interface Milestone {
+  id: number;
+  amount: string;
+  status: 'pending' | 'submitted' | 'approved' | 'rejected';
+}
 interface Booking {
   id: number;
   title: string;
@@ -20,9 +27,12 @@ interface Booking {
   cancel_reason: string | null;
   dispute_reason: string | null;
   delivery_days: number | null;
+  attachments: BookingAttachment[];
+  submission_notes: string | null;
   createdAt: string;
   seller: BookingUser | null;
   buyer: BookingUser | null;
+  milestones: Milestone[];
 }
 
 const STATUS_CFG: Record<string, { label: string; color: string; dot: string }> = {
@@ -74,6 +84,7 @@ function SkeletonRow() {
 }
 
 export default function BuyerBookingsPage() {
+  const router = useRouter();
   const [tab,      setTab]      = useState('active');
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading,  setLoading]  = useState(true);
@@ -84,6 +95,9 @@ export default function BuyerBookingsPage() {
   const [showCancel, setShowCancel] = useState(false);
   const [showReject, setShowReject] = useState(false);
   const [reason,    setReason]    = useState('');
+
+  // Row-level Accept (whole booking) — charges + releases in one click
+  const [acceptingId, setAcceptingId] = useState<number | null>(null);
 
   // Review state
   const [reviewTarget,  setReviewTarget]  = useState<Booking | null>(null);
@@ -120,6 +134,17 @@ export default function BuyerBookingsPage() {
     } finally { setActing(false); }
   };
 
+  const acceptWork = async (bookingId: number) => {
+    setAcceptingId(bookingId);
+    try {
+      await buyerBookingApi.accept(bookingId);
+      toast.success('Work accepted — payment released to the seller!');
+      fetchBookings(tab);
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Failed to accept — please add funds to your wallet and try again');
+    } finally { setAcceptingId(null); }
+  };
+
   const submitReview = async () => {
     if (!reviewTarget || reviewRating === 0) { setReviewMsg('Please select a rating'); return; }
     setReviewLoading(true); setReviewMsg('');
@@ -139,6 +164,8 @@ export default function BuyerBookingsPage() {
       setReviewMsg(e instanceof Error ? e.message : 'Failed to submit review');
     } finally { setReviewLoading(false); }
   };
+
+  const hasMilestones = (b: Booking) => Array.isArray(b.milestones) && b.milestones.length > 0;
 
   return (
     <DashboardLayout role="BUYER" title="My Bookings">
@@ -173,6 +200,10 @@ export default function BuyerBookingsPage() {
               : bookings.map(b => {
                   const cfg = STATUS_CFG[b.status] || STATUS_CFG.pending;
                   const alreadyReviewed = reviewedIds.has(b.id);
+                  const milestoned = hasMilestones(b);
+                  const submittedMilestones = milestoned ? b.milestones.filter(m => m.status === 'submitted').length : 0;
+                  const approvedMilestones  = milestoned ? b.milestones.filter(m => m.status === 'approved').length : 0;
+                  const releasedAmount = milestoned ? b.milestones.filter(m => m.status === 'approved').reduce((s, m) => s + Number(m.amount), 0) : 0;
                   return (
                     <div key={b.id} className="p-5 hover:bg-gray-50 transition-colors">
                       <div className="flex items-center gap-4">
@@ -182,6 +213,15 @@ export default function BuyerBookingsPage() {
                           <p className="text-xs text-gray-400 mt-0.5">
                             Seller: {b.seller?.name || '-'} &nbsp;&middot;&nbsp; {formatTimeAgo(b.createdAt)}
                           </p>
+                          {milestoned && (
+                            <p className="text-xs mt-0.5">
+                              <span className="text-blue-600">
+                                <i className="fa fa-flag-checkered mr-1" />
+                                Released {formatCurrency(releasedAmount)} of {formatCurrency(Number(b.amount))} ({approvedMilestones}/{b.milestones.length})
+                              </span>
+                              {submittedMilestones > 0 && <span className="text-purple-600 ml-2"><i className="fa fa-clock-o mr-1" />{submittedMilestones} awaiting your review</span>}
+                            </p>
+                          )}
                         </div>
                         <div className="text-right flex-shrink-0">
                           <p className="font-bold text-gray-900 text-sm">{formatCurrency(Number(b.amount))}</p>
@@ -193,11 +233,11 @@ export default function BuyerBookingsPage() {
                         </span>
                         <div className="flex items-center gap-2 flex-shrink-0">
                           {b.seller?.id && <MessageButton recipientId={b.seller.id} role="buyer" />}
-                          {b.status === 'amidst_completion' && (
+                          {b.status === 'amidst_completion' && !milestoned && (
                             <>
-                              <button onClick={() => doAction(() => buyerBookingApi.accept(b.id), 'Work accepted!')}
-                                className="px-3 py-1.5 bg-green-500 text-white text-xs rounded-lg hover:bg-green-600 transition-colors font-medium">
-                                Accept
+                              <button onClick={() => acceptWork(b.id)} disabled={acceptingId === b.id}
+                                className="px-3 py-1.5 bg-green-500 text-white text-xs rounded-lg hover:bg-green-600 transition-colors font-medium disabled:opacity-60">
+                                {acceptingId === b.id ? 'Processing...' : 'Accept'}
                               </button>
                               <button onClick={() => { setSelected(b); setShowReject(true); }}
                                 className="px-3 py-1.5 bg-red-500 text-white text-xs rounded-lg hover:bg-red-600 transition-colors font-medium">
@@ -222,7 +262,7 @@ export default function BuyerBookingsPage() {
                               <i className="fa fa-check-circle" />Reviewed
                             </span>
                           )}
-                          <button onClick={() => { setSelected(b); setShowCancel(false); setShowReject(false); }}
+                          <button onClick={() => router.push(`/buyer/bookings/${b.id}`)}
                             className="p-2 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors">
                             <i className="fa fa-eye text-sm" />
                           </button>
@@ -288,76 +328,6 @@ export default function BuyerBookingsPage() {
         </Modal>
       )}
 
-      {/* Detail modal */}
-      {selected && !showCancel && !showReject && (
-        <Modal isOpen onClose={() => setSelected(null)} title="Booking Details" size="md">
-          <div className="space-y-4">
-            <div className="flex items-start justify-between">
-              <div>
-                <h3 className="font-bold text-gray-900">{selected.title}</h3>
-                <div className="flex items-center gap-2 mt-1">
-                  <Avatar name={selected.seller?.name || 'Seller'} size="xs" />
-                  <span className="text-sm text-gray-500">{selected.seller?.name}</span>
-                </div>
-              </div>
-              <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${STATUS_CFG[selected.status]?.color}`}>
-                {STATUS_CFG[selected.status]?.label}
-              </span>
-            </div>
-            <div className="grid grid-cols-3 gap-3">
-              {[
-                { label: 'Amount',       value: formatCurrency(Number(selected.amount)),      highlight: true },
-                { label: 'Platform Fee', value: formatCurrency(Number(selected.platform_fee))               },
-                { label: 'Delivery',     value: selected.delivery_days ? `${selected.delivery_days} days` : '-' },
-              ].map(i => (
-                <div key={i.label} className="bg-gray-50 rounded-xl p-3 text-center">
-                  <p className="text-xs text-gray-400">{i.label}</p>
-                  <p className={`font-semibold text-sm mt-0.5 ${i.highlight ? 'text-[#e84545]' : 'text-gray-800'}`}>{i.value}</p>
-                </div>
-              ))}
-            </div>
-            {selected.notes && (
-              <div>
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Notes</p>
-                <p className="text-sm text-gray-700 bg-gray-50 rounded-xl p-3">{selected.notes}</p>
-              </div>
-            )}
-            {selected.dispute_reason && (
-              <div>
-                <p className="text-xs font-semibold text-red-500 uppercase tracking-wider mb-1">Dispute Reason</p>
-                <p className="text-sm text-gray-700 bg-red-50 rounded-xl p-3">{selected.dispute_reason}</p>
-              </div>
-            )}
-            {selected.cancel_reason && (
-              <div>
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Cancel Reason</p>
-                <p className="text-sm text-gray-700 bg-gray-50 rounded-xl p-3">{selected.cancel_reason}</p>
-              </div>
-            )}
-            {actionMsg && <p className={`text-sm text-center font-medium ${actionMsg.includes('!') ? 'text-green-600' : 'text-red-600'}`}>{actionMsg}</p>}
-            {selected.status === 'amidst_completion' && (
-              <div className="flex gap-2">
-                <Button variant="primary" fullWidth disabled={acting}
-                  onClick={() => doAction(() => buyerBookingApi.accept(selected.id), 'Work accepted!')}>
-                  {acting ? 'Processing...' : 'Accept Work'}
-                </Button>
-                <Button variant="outline" fullWidth disabled={acting}
-                  className="text-red-600 border-red-200"
-                  onClick={() => setShowReject(true)}>
-                  Reject
-                </Button>
-              </div>
-            )}
-            {['pending','ongoing'].includes(selected.status) && (
-              <Button variant="outline" fullWidth className="text-red-600 border-red-200 hover:bg-red-50"
-                onClick={() => setShowCancel(true)}>
-                Cancel Booking
-              </Button>
-            )}
-          </div>
-        </Modal>
-      )}
-
       {/* Cancel confirm */}
       {selected && showCancel && (
         <Modal isOpen onClose={() => { setShowCancel(false); setReason(''); }} title="Cancel Booking" size="sm">
@@ -378,7 +348,7 @@ export default function BuyerBookingsPage() {
         </Modal>
       )}
 
-      {/* Reject confirm */}
+      {/* Reject confirm (whole booking) */}
       {selected && showReject && (
         <Modal isOpen onClose={() => { setShowReject(false); setReason(''); }} title="Reject Work" size="sm">
           <div className="space-y-4">
@@ -397,6 +367,7 @@ export default function BuyerBookingsPage() {
           </div>
         </Modal>
       )}
+
     </DashboardLayout>
   );
 }

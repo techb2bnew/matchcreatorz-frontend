@@ -5,6 +5,7 @@ import Card            from '@/components/ui/Card';
 import Button          from '@/components/ui/Button';
 import Modal           from '@/components/ui/Modal';
 import { Spinner, TableSkeleton } from '@/components/ui/Loader';
+import { RichTextView }           from '@/components/ui/RichTextEditor';
 import { formatCurrency }          from '@/lib/utils';
 import { adminServiceApi, categoryApi } from '@/lib/adminApi';
 
@@ -148,7 +149,7 @@ function ServiceDetailModal({
               {s.description && (
                 <>
                   <div className="border-t border-gray-200 my-2.5" />
-                  <p className="text-sm text-gray-500 leading-relaxed">{s.description}</p>
+                  <RichTextView html={s.description} className="text-sm text-gray-500" />
                 </>
               )}
             </div>

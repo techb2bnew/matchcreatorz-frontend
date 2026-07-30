@@ -2,6 +2,13 @@ import Cookies from 'js-cookie';
 
 const API = process.env.NEXT_PUBLIC_API_URL;
 
+export interface BookingAttachment {
+  url: string;
+  name: string;
+  type?: string;
+  size?: number;
+}
+
 const headers = () => ({
   'Content-Type': 'application/json',
   Authorization: `Bearer ${Cookies.get('mc_token') || ''}`,
@@ -178,6 +185,10 @@ export const buyerBookingApi = {
   accept: (id: number) => req('PATCH', `/api/v1/buyer/bookings/${id}/accept`),
   reject: (id: number, dispute_reason?: string) => req('PATCH', `/api/v1/buyer/bookings/${id}/reject`, { dispute_reason }),
   cancel: (id: number, cancel_reason?: string)  => req('PATCH', `/api/v1/buyer/bookings/${id}/cancel`, { cancel_reason }),
+  acceptMilestone: (id: number, milestoneId: number) =>
+    req('PATCH', `/api/v1/buyer/bookings/${id}/milestones/${milestoneId}/accept`),
+  rejectMilestone: (id: number, milestoneId: number, dispute_reason?: string) =>
+    req('PATCH', `/api/v1/buyer/bookings/${id}/milestones/${milestoneId}/reject`, { dispute_reason }),
 };
 
 // -- Seller Bookings ---------------------------------------------------
@@ -188,8 +199,18 @@ export const sellerBookingApi = {
   },
   get:     (id: number) => req('GET',   `/api/v1/seller/bookings/${id}`),
   accept:  (id: number) => req('PATCH', `/api/v1/seller/bookings/${id}/accept`),
-  submit:  (id: number) => req('PATCH', `/api/v1/seller/bookings/${id}/submit`),
+  submit:  (id: number, body: { attachments?: BookingAttachment[]; notes?: string; delivery_days?: number | null } = {}) =>
+    req('PATCH', `/api/v1/seller/bookings/${id}/submit`, body),
   cancel:  (id: number, cancel_reason?: string) => req('PATCH', `/api/v1/seller/bookings/${id}/cancel`, { cancel_reason }),
+  uploadAttachment: (file: File) => {
+    const fd = new FormData();
+    fd.append('file', file);
+    return sendForm('POST', `/api/v1/seller/bookings/upload`, fd);
+  },
+  createMilestones: (id: number, milestones: { title: string; amount: number; duration_days?: number | null }[]) =>
+    req('POST', `/api/v1/seller/bookings/${id}/milestones`, { milestones }),
+  submitMilestone: (id: number, milestoneId: number, body: { attachments?: BookingAttachment[]; notes?: string; duration_days?: number | null } = {}) =>
+    req('PATCH', `/api/v1/seller/bookings/${id}/milestones/${milestoneId}/submit`, body),
 };
 
 // -- Admin Bookings ----------------------------------------------------

@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
@@ -18,6 +19,7 @@ interface Offer {
   amount: number;
   delivery_days: number | null;
   status: string;
+  booking_id: number | null;
   created_at?: string;
   createdAt?: string;
   seller: { id: number; name: string } | null;
@@ -28,6 +30,7 @@ const sentOn = (o: Offer) => o.created_at || o.createdAt || '';
 type Tab = 'pending' | 'accepted' | 'declined';
 
 export default function BuyerOffersPage() {
+  const router = useRouter();
   const [activeTab, setActiveTab]   = useState<Tab>('pending');
   const [offers, setOffers]         = useState<Offer[]>([]);
   const [loading, setLoading]       = useState(true);
@@ -62,9 +65,11 @@ export default function BuyerOffersPage() {
   const handleAccept = async (id: number) => {
     setActionId(id);
     try {
-      await buyerOfferApi.accept(id);
-      toast.success('Offer accepted');
-      await load();
+      const res = await buyerOfferApi.accept(id);
+      toast.success('Offer accepted — booking created!');
+      const bookingId = res.data?.booking?.id;
+      if (bookingId) router.push(`/buyer/bookings/${bookingId}`);
+      else await load();
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Failed to accept offer');
     } finally {
@@ -172,11 +177,16 @@ export default function BuyerOffersPage() {
               )}
 
               {activeTab === 'accepted' && (
-                <div className="flex items-center gap-3 mt-4 pt-4 border-t border-gray-100">
+                <div className="flex items-center justify-between gap-3 mt-4 pt-4 border-t border-gray-100">
                   <div className="flex items-center gap-2 text-green-600">
                     <i className="fa fa-check-circle text-sm" />
                     <span className="text-sm font-medium">Accepted</span>
                   </div>
+                  {o.booking_id && (
+                    <Button size="sm" onClick={() => router.push(`/buyer/bookings/${o.booking_id}`)}>
+                      View Booking
+                    </Button>
+                  )}
                 </div>
               )}
 

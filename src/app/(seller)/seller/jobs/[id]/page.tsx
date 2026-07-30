@@ -135,7 +135,7 @@ export default function SellerJobDetailPage() {
       ) : job ? (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
           {/* Left — details */}
-          <div className="lg:col-span-2 space-y-4">
+          <div className="lg:col-span-2 space-y-4 min-w-0">
             <Card padding="md">
               <div className="flex items-start justify-between gap-4">
                 <div>

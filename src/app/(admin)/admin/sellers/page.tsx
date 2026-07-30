@@ -7,6 +7,7 @@ import Avatar from '@/components/ui/Avatar';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import CustomSelect from '@/components/ui/CustomSelect';
+import { RichTextView } from '@/components/ui/RichTextEditor';
 import { getProfileStatusColor, formatDate, formatCurrency } from '@/lib/utils';
 import { sellerApi, categoryApi } from '@/lib/adminApi';
 import { TableSkeleton, Spinner } from '@/components/ui/Loader';
@@ -600,7 +601,7 @@ export default function SellersPage() {
             {viewSeller.bio && (
               <div>
                 <p className="text-xs text-gray-400 mb-1">Bio</p>
-                <p className="text-sm text-gray-600 bg-gray-50 rounded-xl p-3">{viewSeller.bio}</p>
+                <RichTextView html={viewSeller.bio} className="text-sm text-gray-600 bg-gray-50 rounded-xl p-3" />
               </div>
             )}
           </div>

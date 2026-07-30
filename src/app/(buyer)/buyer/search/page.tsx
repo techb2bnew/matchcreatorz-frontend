@@ -5,6 +5,7 @@ import DashboardLayout from '@/components/layout/DashboardLayout';
 import Card from '@/components/ui/Card';
 import Avatar from '@/components/ui/Avatar';
 import CustomSelect from '@/components/ui/CustomSelect';
+import { RichTextView } from '@/components/ui/RichTextEditor';
 import { formatCurrency } from '@/lib/utils';
 import { buyerSearchApi, publicCategoryApi, buyerBookingApi, buyerFavouriteApi } from '@/lib/adminApi';
 import toast from 'react-hot-toast';
@@ -295,7 +296,7 @@ function ServiceDetailModal({
           {service.description && (
             <div>
               <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">About this service</h3>
-              <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-line break-words">{service.description}</p>
+              <RichTextView html={service.description} className="text-sm text-gray-700 break-words" />
             </div>
           )}
         </div>

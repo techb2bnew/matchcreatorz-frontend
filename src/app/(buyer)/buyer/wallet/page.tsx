@@ -15,9 +15,10 @@ const TX_LABEL: Record<string, string> = {
   topup: 'Wallet top-up', booking_payment: 'Booking payment', booking_refund: 'Booking refund',
   earning: 'Earning', platform_fee: 'Platform fee', withdrawal: 'Withdrawal',
   withdrawal_reversal: 'Withdrawal reversed', adjustment: 'Adjustment',
+  milestone_release: 'Milestone released to seller',
 };
 
-interface Summary { balance: number; total_in: number; total_out: number; currency: string }
+interface Summary { balance: number; total_in: number; total_out: number; currency: string; pending_payment?: number }
 interface Txn { id: number; amount: string | number; type: string; note?: string; created_at?: string; createdAt?: string; balance_after: string | number }
 
 function BuyerWalletInner() {
@@ -67,8 +68,9 @@ function BuyerWalletInner() {
 
   return (
     <DashboardLayout role="BUYER" title="My Wallet">
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <StatCard title="Wallet Balance" value={loading ? '…' : formatCurrency(summary?.balance || 0)} icon="fa-dollar"    color="red"   change="Available for bookings" />
+        <StatCard title="Pending Payment" value={loading ? '…' : formatCurrency(summary?.pending_payment || 0)} icon="fa-clock-o" color="purple" change="Charged when you accept" />
         <StatCard title="Total Spent"    value={loading ? '…' : formatCurrency(summary?.total_out || 0)} icon="fa-arrow-up"  color="blue"  change="All time" />
         <StatCard title="Total Added"    value={loading ? '…' : formatCurrency(summary?.total_in || 0)} icon="fa-arrow-down" color="green" change="All time" />
       </div>
@@ -77,7 +79,7 @@ function BuyerWalletInner() {
         <div className="flex flex-wrap items-center gap-4">
           <div className="flex-1 min-w-[200px]">
             <h3 className="font-semibold text-gray-900">Add Money to Wallet</h3>
-            <p className="text-sm text-gray-400 mt-0.5">Funds added via Stripe. Used to pay for bookings (held in escrow until you accept the work).</p>
+            <p className="text-sm text-gray-400 mt-0.5">Funds added via Stripe. Charged from your balance the moment you accept a delivered booking or milestone.</p>
           </div>
           <div className="text-right">
             <p className="text-2xl font-black text-[#e84545]">{formatCurrency(summary?.balance || 0)}</p>
@@ -96,19 +98,23 @@ function BuyerWalletInner() {
         ) : (
           <div className="divide-y divide-gray-50">
             {txns.map((t) => {
-              const amt = Number(t.amount); const credit = amt >= 0;
+              const amt = Number(t.amount);
+              const isInfo = amt === 0;
+              const credit = amt > 0;
               return (
                 <div key={t.id} className="flex items-center gap-4 px-5 py-4">
-                  <div className={`p-2.5 rounded-xl ${credit ? 'bg-green-50' : 'bg-red-50'}`}>
-                    <i className={`fa ${credit ? 'fa-arrow-down text-green-600' : 'fa-arrow-up text-red-500'} text-base`} />
+                  <div className={`p-2.5 rounded-xl ${isInfo ? 'bg-blue-50' : credit ? 'bg-green-50' : 'bg-red-50'}`}>
+                    <i className={`fa ${isInfo ? 'fa-info-circle text-blue-500' : credit ? 'fa-arrow-down text-green-600' : 'fa-arrow-up text-red-500'} text-base`} />
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-gray-900 truncate">{t.note || TX_LABEL[t.type] || t.type}</p>
                     <p className="text-xs text-gray-400">{formatDate(t.created_at || t.createdAt || '')}</p>
                   </div>
-                  <p className={`font-bold text-base ${credit ? 'text-green-600' : 'text-red-500'}`}>
-                    {credit ? '+' : '-'}{formatCurrency(Math.abs(amt))}
-                  </p>
+                  {!isInfo && (
+                    <p className={`font-bold text-base ${credit ? 'text-green-600' : 'text-red-500'}`}>
+                      {credit ? '+' : '-'}{formatCurrency(Math.abs(amt))}
+                    </p>
+                  )}
                 </div>
               );
             })}

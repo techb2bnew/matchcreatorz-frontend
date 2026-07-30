@@ -5,6 +5,7 @@ import Card            from '@/components/ui/Card';
 import Button          from '@/components/ui/Button';
 import Modal           from '@/components/ui/Modal';
 import { Spinner, TableSkeleton } from '@/components/ui/Loader';
+import { RichTextView } from '@/components/ui/RichTextEditor';
 import { formatDate, formatCurrency } from '@/lib/utils';
 import { adminJobApi } from '@/lib/adminApi';
 
@@ -84,7 +85,7 @@ function JobDetailModal({
           {job.description && (
             <div className="bg-gray-50 rounded-2xl p-4">
               <p className="text-xs text-gray-400 uppercase tracking-wide mb-2">Description</p>
-              <p className="text-sm text-gray-600 leading-relaxed">{job.description}</p>
+              <RichTextView html={job.description} className="text-sm text-gray-600" />
             </div>
           )}
 

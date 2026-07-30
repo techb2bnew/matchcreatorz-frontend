@@ -7,6 +7,7 @@ import Avatar from '@/components/ui/Avatar';
 import Modal from '@/components/ui/Modal';
 import Button from '@/components/ui/Button';
 import MessageButton from '@/components/chat/MessageButton';
+import { RichTextView } from '@/components/ui/RichTextEditor';
 import { formatCurrency } from '@/lib/utils';
 import { buyerJobApi } from '@/lib/adminApi';
 
@@ -169,7 +170,9 @@ export default function JobDetailPage() {
                   <h2 className="text-lg font-bold text-gray-900">{job.title}</h2>
                   <p className="text-sm text-gray-500 mt-1">{job.category}</p>
                   {job.description && (
-                    <p className="text-sm text-gray-600 mt-2 leading-relaxed line-clamp-3">{job.description}</p>
+                    <div className="line-clamp-3">
+                      <RichTextView html={job.description} className="text-sm text-gray-600 mt-2" />
+                    </div>
                   )}
                 </div>
                 <div className="flex-shrink-0 text-right">
