@@ -254,7 +254,7 @@ export default function JobDetailPage() {
                         {bid.proposal && (
                           <div className="mt-3 bg-white rounded-xl p-3 border border-gray-100">
                             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Proposal</p>
-                            <div className="text-sm text-gray-700 leading-relaxed" dangerouslySetInnerHTML={{ __html: bid.proposal }} />
+                            <RichTextView html={bid.proposal} className="text-sm leading-relaxed" />
                           </div>
                         )}
 
