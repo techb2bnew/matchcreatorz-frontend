@@ -5,6 +5,7 @@ import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import { cn } from '@/lib/utils';
 import { adminNotificationApi } from '@/lib/adminApi';
+import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 interface ApiNotification {
@@ -72,22 +73,31 @@ export default function AdminNotificationsPage() {
   const [total, setTotal]                 = useState(0);
   const LIMIT = 20;
 
-  const fetchNotifications = useCallback(async (pg = 1) => {
+  const fetchNotifications = useCallback(async (pg = 1, silent = false) => {
+    if (!silent) setLoading(true);
     try {
-      setLoading(true);
-      const res  = await adminNotificationApi.list({ page: pg, limit: LIMIT });
+      // On a silent background refresh, re-fetch everything already loaded
+      // (page 1 through the current page) in one call so we can safely
+      // replace the list without truncating rows the user scrolled to via "Load more".
+      const params = silent ? { page: 1, limit: pg * LIMIT } : { page: pg, limit: LIMIT };
+      const res  = await adminNotificationApi.list(params);
       const rows: ApiNotification[] = res?.data?.data ?? [];
-      setNotifications((prev) => pg === 1 ? rows : [...prev, ...rows]);
+      if (silent) {
+        setNotifications(rows);
+      } else {
+        setNotifications((prev) => pg === 1 ? rows : [...prev, ...rows]);
+        setPage(pg);
+      }
       setTotal(res?.data?.total ?? 0);
-      setPage(pg);
     } catch (err) {
-      console.error('Failed to fetch notifications', err);
+      console.error(silent ? 'Silent notifications refresh failed' : 'Failed to fetch notifications', err);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, []);
 
   useEffect(() => { fetchNotifications(1); }, [fetchNotifications]);
+  useAutoRefresh(() => fetchNotifications(page, true), 20000);
 
   const handleMarkRead = async (id: number) => {
     try {

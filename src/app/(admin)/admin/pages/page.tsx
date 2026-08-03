@@ -9,6 +9,7 @@ import { formatDate } from '@/lib/utils';
 import { adminPageApi, AdminPage } from '@/lib/adminApi';
 import { PageLoader } from '@/components/ui/Loader';
 import toast from 'react-hot-toast';
+import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 
 export default function PagesPage() {
   const [pages, setPages]     = useState<AdminPage[]>([]);
@@ -20,19 +21,22 @@ export default function PagesPage() {
   const [editContent, setEditContent]   = useState('');
   const [saving, setSaving]             = useState(false);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const res = await adminPageApi.list();
       setPages(res.data || []);
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : 'Failed to load pages');
+      if (!silent) toast.error(e instanceof Error ? e.message : 'Failed to load pages');
+      else console.error('Failed to silently refresh pages', e);
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  useAutoRefresh(() => load(true), 20000, !editModal);
 
   const openEdit = (page: AdminPage) => {
     setSelectedPage(page);

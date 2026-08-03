@@ -12,6 +12,7 @@ import { formatDate, formatCurrency } from '@/lib/utils';
 import { sellerOfferApi, sellerBuyerApi } from '@/lib/adminApi';
 import { PageLoader } from '@/components/ui/Loader';
 import toast from 'react-hot-toast';
+import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 
 interface BuyerOption { id: number; name: string; email: string; avatar?: string | null }
 
@@ -102,20 +103,27 @@ export default function SellerOffersPage() {
     setBuyerOpen(true);
   };
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const res = await sellerOfferApi.list({ limit: 100 });
       setOffers(res.data || []);
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : 'Failed to load offers');
-      setOffers([]);
+      if (!silent) {
+        toast.error(e instanceof Error ? e.message : 'Failed to load offers');
+        setOffers([]);
+      } else {
+        console.error('Silent offers refresh failed:', e);
+      }
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  // Pause while the send-offer modal is open.
+  useAutoRefresh(() => load(true), 20000, !showSend);
 
   const handleSend = async () => {
     if (!form.buyer_id.trim())              return setErr('Please select a buyer');

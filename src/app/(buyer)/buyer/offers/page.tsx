@@ -11,6 +11,7 @@ import { cn, formatDate, formatCurrency } from '@/lib/utils';
 import { buyerOfferApi } from '@/lib/adminApi';
 import { PageLoader } from '@/components/ui/Loader';
 import toast from 'react-hot-toast';
+import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 
 interface Offer {
   id: number;
@@ -37,20 +38,25 @@ export default function BuyerOffersPage() {
   const [actionId, setActionId]     = useState<number | null>(null);
   const [viewOffer, setViewOffer]   = useState<Offer | null>(null);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const res = await buyerOfferApi.list({ limit: 100 });
       setOffers(res.data || []);
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : 'Failed to load offers');
-      setOffers([]);
+      if (!silent) {
+        toast.error(err instanceof Error ? err.message : 'Failed to load offers');
+        setOffers([]);
+      } else {
+        console.error('Silent offers refresh failed', err);
+      }
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, []);
 
   useEffect(() => { load(); }, [load]);
+  useAutoRefresh(() => load(true), 20000, !viewOffer);
 
   const byStatus = (s: Tab) => offers.filter((o) => (o.status || '').toLowerCase() === s);
 

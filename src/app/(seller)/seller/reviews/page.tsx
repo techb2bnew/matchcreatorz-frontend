@@ -5,6 +5,7 @@ import Card from '@/components/ui/Card';
 import Avatar from '@/components/ui/Avatar';
 import { formatTimeAgo } from '@/lib/utils';
 import { sellerReviewApi } from '@/lib/adminApi';
+import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 
 interface ReviewUser { id: number; name: string; email: string; }
 interface Review {
@@ -33,8 +34,8 @@ export default function SellerReviewsPage() {
   const [error,    setError]    = useState('');
   const [avgRating, setAvgRating] = useState(0);
 
-  const fetchReviews = useCallback(async () => {
-    setLoading(true); setError('');
+  const fetchReviews = useCallback(async (silent = false) => {
+    if (!silent) { setLoading(true); setError(''); }
     try {
       const res = await sellerReviewApi.list({ limit: 50 });
       const data: Review[] = res.data || [];
@@ -44,11 +45,14 @@ export default function SellerReviewsPage() {
         setAvgRating(Math.round(avg * 10) / 10);
       }
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Failed to load');
+      if (!silent) setError(e instanceof Error ? e.message : 'Failed to load');
+      else console.error('Silent reviews refresh failed:', e);
     } finally { setLoading(false); }
   }, []);
 
   useEffect(() => { fetchReviews(); }, [fetchReviews]);
+
+  useAutoRefresh(() => fetchReviews(true), 20000);
 
   return (
     <DashboardLayout role="SELLER" title="My Reviews">

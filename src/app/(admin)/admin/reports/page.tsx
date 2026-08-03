@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import {
   AreaChart,
@@ -18,6 +18,7 @@ import Table from '@/components/ui/Table';
 import StatCard from '@/components/ui/StatCard';
 import { adminReportApi, ReportType, ReportResult } from '@/lib/adminApi';
 import { formatCurrency, formatDate } from '@/lib/utils';
+import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 
 type ReportRow = Record<string, unknown> & { id: number | string };
 
@@ -99,31 +100,28 @@ export default function AdminReportsPage() {
   }, []);
 
   // Load report data whenever type or date range changes
-  useEffect(() => {
+  const loadReportData = useCallback(async (silent = false) => {
     if (!activeType) return;
-    let cancelled = false;
-
-    (async () => {
-      setLoading(true);
-      try {
-        const res = await adminReportApi.get(activeType, {
-          from: from || undefined,
-          to: to || undefined,
-        });
-        if (!cancelled) setReportData(res.data);
-      } catch (e) {
-        if (!cancelled) {
-          toast.error(e instanceof Error ? e.message : 'Failed to load report');
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
+    if (!silent) setLoading(true);
+    try {
+      const res = await adminReportApi.get(activeType, {
+        from: from || undefined,
+        to: to || undefined,
+      });
+      setReportData(res.data);
+    } catch (e) {
+      if (!silent) toast.error(e instanceof Error ? e.message : 'Failed to load report');
+      else console.error('Failed to silently refresh report', e);
+    } finally {
+      setLoading(false);
+    }
   }, [activeType, from, to]);
+
+  useEffect(() => { loadReportData(); }, [loadReportData]);
+
+  // Keep the report data current in the background, but never while a CSV
+  // export is in progress (an in-flight download shouldn't be disturbed).
+  useAutoRefresh(() => loadReportData(true), 20000, !exporting);
 
   const handleExport = async () => {
     if (!activeType) return;

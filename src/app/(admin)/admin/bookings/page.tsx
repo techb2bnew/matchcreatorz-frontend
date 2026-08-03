@@ -8,6 +8,7 @@ import Button from '@/components/ui/Button';
 import CustomSelect from '@/components/ui/CustomSelect';
 import { formatCurrency, formatTimeAgo, formatBookingAmount } from '@/lib/utils';
 import { adminBookingApi } from '@/lib/adminApi';
+import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 
 interface BookingUser { id: number; name: string; email: string; }
 interface Booking {
@@ -70,16 +71,17 @@ export default function AdminBookingsPage() {
   const [resolveMsg, setResolveMsg] = useState('');
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const fetchBookings = useCallback(async (pg = 1) => {
-    setLoading(true); setError('');
+  const fetchBookings = useCallback(async (pg = 1, silent = false) => {
+    if (!silent) { setLoading(true); setError(''); }
     try {
       const res = await adminBookingApi.list({ status: status || undefined, search: search || undefined, page: pg, limit: 20 });
       setBookings(res.data || []);
       setPagination(res.pagination || null);
       setSummary(res.summary || {});
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Failed to load');
-    } finally { setLoading(false); }
+      if (!silent) setError(e instanceof Error ? e.message : 'Failed to load');
+      else console.error(e);
+    } finally { if (!silent) setLoading(false); }
   }, [search, status]);
 
   useEffect(() => {
@@ -87,6 +89,8 @@ export default function AdminBookingsPage() {
     debounceRef.current = setTimeout(() => { setPage(1); fetchBookings(1); }, 300);
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
   }, [fetchBookings]);
+
+  useAutoRefresh(() => fetchBookings(page, true), 20000, !selected);
 
   const handleResolve = async (resolution: 'completed' | 'cancelled') => {
     if (!selected) return;

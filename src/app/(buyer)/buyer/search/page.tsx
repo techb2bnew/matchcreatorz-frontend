@@ -9,6 +9,7 @@ import { RichTextView } from '@/components/ui/RichTextEditor';
 import { formatCurrency } from '@/lib/utils';
 import { buyerSearchApi, publicCategoryApi, buyerBookingApi, buyerFavouriteApi } from '@/lib/adminApi';
 import toast from 'react-hot-toast';
+import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 
 interface Service {
   id: number;
@@ -379,9 +380,8 @@ function BuyerSearchInner() {
       .catch(() => toast.error('Failed to load service'));
   }, [searchParams]);
 
-  const fetchServices = useCallback(async (pg = 1) => {
-    setLoading(true);
-    setError('');
+  const fetchServices = useCallback(async (pg = 1, silent = false) => {
+    if (!silent) { setLoading(true); setError(''); }
     try {
       const params: Record<string, string | number> = { sort, page: pg, limit: 12 };
       if (searchQuery.trim())          params.search        = searchQuery.trim();
@@ -395,10 +395,14 @@ function BuyerSearchInner() {
       setServices(res.data || []);
       setPagination(res.pagination || null);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to load services';
-      setError(msg);
+      if (!silent) {
+        const msg = err instanceof Error ? err.message : 'Failed to load services';
+        setError(msg);
+      } else {
+        console.error('Silent search refresh failed', err);
+      }
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [searchQuery, activeChip, priceMin, priceMax, rating, delivery, sort]);
 
@@ -410,6 +414,10 @@ function BuyerSearchInner() {
     }, 300);
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
   }, [fetchServices]);
+
+  // Silent background refresh of the current results page — pause while the
+  // service detail modal or booking-confirm modal is open
+  useAutoRefresh(() => fetchServices(page, true), 20000, !selected && !bookingService);
 
   const handlePageChange = (pg: number) => {
     setPage(pg);
@@ -492,6 +500,10 @@ function BuyerSearchInner() {
           />
         </div>
       </div>
+
+      <p className="text-xs text-gray-400 -mt-2 mb-5">
+        Showing published services only — a creator who hasn&apos;t listed a service yet won&apos;t appear here.
+      </p>
 
       {/* Category chips */}
       <div className="flex flex-wrap gap-2 mb-5">

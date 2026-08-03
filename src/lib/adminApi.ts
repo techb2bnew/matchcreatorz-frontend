@@ -14,10 +14,25 @@ const headers = () => ({
   Authorization: `Bearer ${Cookies.get('mc_token') || ''}`,
 });
 
+// The backend re-checks the account is still live (not deleted/banned/inactive)
+// on every request, so a 401 here means the session itself is no longer valid
+// — not just "this one call failed". Clear it client-side and bounce to login
+// so a deleted/blocked user can't keep sitting on a stale page.
+const handleUnauthorized = () => {
+  Cookies.remove('mc_token');
+  Cookies.remove('mc_user_type');
+  if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+    window.location.href = '/login';
+  }
+};
+
 const req = async (method: string, path: string, body?: unknown) => {
   const res  = await fetch(`${API}${path}`, { method, headers: headers(), body: body ? JSON.stringify(body) : undefined });
   const json = await res.json();
-  if (!res.ok) throw new Error(json.message || 'Request failed');
+  if (!res.ok) {
+    if (res.status === 401) handleUnauthorized();
+    throw new Error(json.message || 'Request failed');
+  }
   return json;
 };
 
@@ -29,7 +44,10 @@ const sendForm = async (method: string, path: string, formData: FormData) => {
     body: formData,
   });
   const json = await res.json();
-  if (!res.ok) throw new Error(json.message || 'Request failed');
+  if (!res.ok) {
+    if (res.status === 401) handleUnauthorized();
+    throw new Error(json.message || 'Request failed');
+  }
   return json;
 };
 
@@ -202,6 +220,7 @@ export const buyerJobApi = {
     return sendForm('POST', `/api/v1/buyer/jobs/upload`, fd);
   },
   close:     (id: number)                  => req('PATCH',  `/api/v1/buyer/jobs/${id}/close`),
+  complete:  (id: number)                  => req('PATCH',  `/api/v1/buyer/jobs/${id}/complete`),
   delete:    (id: number)                  => req('DELETE', `/api/v1/buyer/jobs/${id}`),
   getBids:   (id: number)                   => req('GET',   `/api/v1/buyer/jobs/${id}/bids`),
   acceptBid: (jobId: number, bidId: number) => req('PATCH', `/api/v1/buyer/jobs/${jobId}/bids/${bidId}/accept`),
@@ -637,7 +656,10 @@ export const adminReportApi = {
     const res = await fetch(`${API}/api/v1/admin/reports/${type}/export${q ? `?${q}` : ''}`, {
       headers: { Authorization: `Bearer ${Cookies.get('mc_token') || ''}` },
     });
-    if (!res.ok) throw new Error('Export failed');
+    if (!res.ok) {
+      if (res.status === 401) handleUnauthorized();
+      throw new Error('Export failed');
+    }
     const blob = await res.blob();
     const url  = URL.createObjectURL(blob);
     const a    = document.createElement('a');

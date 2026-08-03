@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import StatCard from '@/components/ui/StatCard';
 import Card, { CardHeader, CardTitle } from '@/components/ui/Card';
@@ -8,6 +8,7 @@ import Avatar from '@/components/ui/Avatar';
 import { formatCurrency, formatDate, getBookingStatusColor, getBookingStatusLabel } from '@/lib/utils';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { sellerStatsApi } from '@/lib/adminApi';
+import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 
 interface BookingRow {
   id: number;
@@ -39,15 +40,27 @@ export default function SellerDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState<string | null>(null);
 
-  useEffect(() => {
-    sellerStatsApi.get()
-      .then(r => setData(r.data))
-      .catch(err => {
+  const loadStats = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
+    try {
+      const r = await sellerStatsApi.get();
+      setData(r.data);
+      if (!silent) setError(null);
+    } catch (err: unknown) {
+      if (!silent) {
         console.error('Seller stats error:', err);
-        setError(err?.message || 'Failed to load dashboard data');
-      })
-      .finally(() => setLoading(false));
+        setError(err instanceof Error ? err.message : 'Failed to load dashboard data');
+      } else {
+        console.error('Silent dashboard refresh failed:', err);
+      }
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => { loadStats(); }, [loadStats]);
+
+  useAutoRefresh(() => loadStats(true), 20000);
 
   const s = data?.stats;
 

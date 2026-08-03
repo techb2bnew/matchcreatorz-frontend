@@ -9,6 +9,8 @@ import { useRouter } from 'next/navigation';
 import CustomSelect from '@/components/ui/CustomSelect';
 import RichTextEditor from '@/components/ui/RichTextEditor';
 import { compressImages } from '@/lib/imageCompress';
+import { useAutoRefresh } from '@/hooks/useAutoRefresh';
+import toast from 'react-hot-toast';
 
 type Tab = 'posted' | 'post' | 'edit';
 const tabs: { key: Tab; label: string; icon: string }[] = [
@@ -115,6 +117,9 @@ export default function BuyerJobsPage() {
   const [closeTarget, setCloseTarget]   = useState<Job | null>(null);
   const [closing, setClosing]           = useState(false);
 
+  const [completeTarget, setCompleteTarget] = useState<Job | null>(null);
+  const [completing, setCompleting]         = useState(false);
+
   const loadJobs = useCallback(async (silent = false) => {
     if (silent) setRefreshing(true);
     else        setLoading(true);
@@ -152,6 +157,9 @@ export default function BuyerJobsPage() {
     }, firstLoad.current ? 0 : 300);
     return () => clearTimeout(t);
   }, [loadJobs]);
+
+  // Silent background refresh — pause while editing, closing, completing, or deleting a job
+  useAutoRefresh(() => loadJobs(true), 20000, !closeTarget && !completeTarget && !deleteTarget && !editJob);
 
   // Stats — aggregate across ALL of the buyer's jobs (from /jobs/stats), not just the current page
   const stats = [
@@ -260,6 +268,21 @@ export default function BuyerJobsPage() {
       await loadJobs(true);
     } catch { /* ignore */ }
     finally { setClosing(false); }
+  };
+
+  // Manually mark an in-progress job as completed (record-keeping only —
+  // doesn't touch the booking/payment; see backend completeJob for why).
+  const handleComplete = async () => {
+    if (!completeTarget) return;
+    setCompleting(true);
+    try {
+      await buyerJobApi.complete(completeTarget.id);
+      toast.success('Job marked as completed');
+      setCompleteTarget(null);
+      await loadJobs(true);
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Failed to mark job completed');
+    } finally { setCompleting(false); }
   };
 
   // Delete job
@@ -611,6 +634,12 @@ export default function BuyerJobsPage() {
                             </button>
                           </>
                         )}
+                        {job.status === 'IN_PROGRESS' && (
+                          <button onClick={() => setCompleteTarget(job)}
+                            className="text-xs px-3 py-1.5 rounded-lg bg-green-500 text-white hover:bg-green-600 transition font-medium">
+                            <i className="fa fa-check mr-1" />Mark Completed
+                          </button>
+                        )}
                         <button onClick={() => setDeleteTarget(job)}
                           className="w-7 h-7 rounded-lg border border-gray-200 flex items-center justify-center text-gray-400 hover:text-red-500 hover:border-red-200 transition">
                           <i className="fa fa-trash text-xs" />
@@ -792,6 +821,27 @@ export default function BuyerJobsPage() {
         <div className="flex gap-3 mt-5">
           <Button variant="outline" fullWidth onClick={() => setCloseTarget(null)} disabled={closing}>Cancel</Button>
           <Button variant="danger" fullWidth onClick={handleClose} loading={closing}>Yes, Close</Button>
+        </div>
+      </Modal>
+
+      {/* Mark Completed Confirm */}
+      <Modal isOpen={!!completeTarget} onClose={() => setCompleteTarget(null)} title="Mark Job Completed" size="sm">
+        <div className="flex flex-col items-center text-center gap-3 pb-2">
+          <div className="w-14 h-14 rounded-full bg-green-50 flex items-center justify-center">
+            <i className="fa fa-check-circle text-2xl text-green-600" />
+          </div>
+          <div>
+            <p className="text-base font-semibold text-gray-900 mb-1">Mark this job as completed?</p>
+            <p className="text-sm text-gray-500">
+              <strong>&quot;{completeTarget?.title}&quot;</strong> will be marked Completed. This only updates the job
+              listing — it does <strong>not</strong> release payment. If you haven&apos;t already accepted the
+              seller&apos;s delivered work, do that from <strong>Bookings</strong> first so they get paid.
+            </p>
+          </div>
+        </div>
+        <div className="flex gap-3 mt-5">
+          <Button variant="outline" fullWidth onClick={() => setCompleteTarget(null)} disabled={completing}>Cancel</Button>
+          <Button variant="success" fullWidth onClick={handleComplete} loading={completing}>Yes, Mark Completed</Button>
         </div>
       </Modal>
 

@@ -10,6 +10,7 @@ import { formatCurrency, formatDate } from '@/lib/utils';
 import { sellerConnectApi } from '@/lib/adminApi';
 import { Spinner } from '@/components/ui/Loader';
 import toast from 'react-hot-toast';
+import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 
 interface Plan {
   id: string;
@@ -51,8 +52,8 @@ function ConnectsPageInner() {
   const [loading, setLoading]   = useState(true);
   const [buyingPlan, setBuyingPlan] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const [bal, hist] = await Promise.all([
         sellerConnectApi.balance(),
@@ -62,14 +63,21 @@ function ConnectsPageInner() {
       setBalance(typeof b === 'number' ? b : Number(b) || 0);
       setHistory(hist.data || []);
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : 'Failed to load connects');
-      setHistory([]);
+      if (!silent) {
+        toast.error(e instanceof Error ? e.message : 'Failed to load connects');
+        setHistory([]);
+      } else {
+        console.error('Silent connects refresh failed:', e);
+      }
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  // Pause while a plan purchase / Stripe redirect is in flight.
+  useAutoRefresh(() => load(true), 20000, !buyingPlan);
 
   // Plans are server-defined (price/connects are never trusted from the client)
   useEffect(() => {

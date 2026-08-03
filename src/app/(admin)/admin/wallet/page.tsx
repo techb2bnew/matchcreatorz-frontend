@@ -7,6 +7,7 @@ import Button from '@/components/ui/Button';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { walletApi } from '@/lib/adminApi';
 import toast from 'react-hot-toast';
+import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 
 interface Overview {
   platform_revenue: number; total_topups: number;
@@ -27,15 +28,20 @@ export default function AdminWalletPage() {
   const [filter, setFilter] = useState('pending');
   const [busyId, setBusyId] = useState<number | null>(null);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const [o, w] = await Promise.all([walletApi.adminOverview(), walletApi.adminWithdrawals({ status: filter, limit: 50 })]);
       setOv(o.data); setWds(w.data || []);
-    } catch (e) { toast.error((e as Error).message); } finally { setLoading(false); }
+    } catch (e) {
+      if (!silent) toast.error((e as Error).message);
+      else console.error('Failed to silently refresh wallet data', e);
+    } finally { setLoading(false); }
   }, [filter]);
 
   useEffect(() => { load(); }, [load]);
+
+  useAutoRefresh(() => load(true), 20000);
 
   const approve = async (id: number) => {
     setBusyId(id);

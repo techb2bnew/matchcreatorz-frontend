@@ -8,6 +8,7 @@ import { Spinner, TableSkeleton } from '@/components/ui/Loader';
 import { RichTextView }           from '@/components/ui/RichTextEditor';
 import { formatCurrency }          from '@/lib/utils';
 import { adminServiceApi, categoryApi } from '@/lib/adminApi';
+import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 
 type ServiceStatus = 'active' | 'paused' | 'rejected';
 
@@ -278,8 +279,8 @@ export default function AdminServicesPage() {
   const [actionLoading, setAction]      = useState('');
   const [deleteTarget, setDeleteTarget] = useState<Service | null>(null);
 
-  const fetchServices = useCallback(async () => {
-    setLoading(true);
+  const fetchServices = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const params: Record<string, string | number> = { page, limit: LIMIT };
       if (search)         params.search      = search;
@@ -288,7 +289,10 @@ export default function AdminServicesPage() {
       const res = await adminServiceApi.list(params);
       setServices(res.data || []);
       setTotal(res.pagination?.total || 0);
-    } catch { setServices([]); }
+    } catch (err) {
+      if (!silent) setServices([]);
+      else console.error('Failed to silently refresh services', err);
+    }
     finally { setLoading(false); }
   }, [page, search, statusFilter, categoryFilter]);
 
@@ -300,6 +304,9 @@ export default function AdminServicesPage() {
     const t = setTimeout(fetchServices, 350);
     return () => clearTimeout(t);
   }, [fetchServices]);
+
+  // Pause while the detail/delete-confirm modal is open.
+  useAutoRefresh(() => fetchServices(true), 20000, !viewService && !deleteTarget);
 
   const doAction = async (id: number, action: 'reject' | 'restore' | 'feature' | 'delete') => {
     if (action === 'delete') {

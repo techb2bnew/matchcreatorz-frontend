@@ -9,6 +9,7 @@ import Modal from '@/components/ui/Modal';
 import Button from '@/components/ui/Button';
 import { formatCurrency, formatTimeAgo, formatBookingAmount } from '@/lib/utils';
 import { sellerBookingApi, BookingAttachment } from '@/lib/adminApi';
+import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 
 interface BookingUser { id: number; name: string; }
 interface Milestone {
@@ -72,17 +73,21 @@ export default function SellerBookingsPage() {
   const [showCancel, setShowCancel] = useState(false);
   const [reason,    setReason]    = useState('');
 
-  const fetchBookings = useCallback(async (t: string) => {
-    setLoading(true); setError('');
+  const fetchBookings = useCallback(async (t: string, silent = false) => {
+    if (!silent) { setLoading(true); setError(''); }
     try {
       const res = await sellerBookingApi.list({ tab: t });
       setBookings(res.data || []);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Failed to load bookings');
+      if (!silent) setError(e instanceof Error ? e.message : 'Failed to load bookings');
+      else console.error('Silent bookings refresh failed:', e);
     } finally { setLoading(false); }
   }, []);
 
   useEffect(() => { fetchBookings(tab); }, [tab, fetchBookings]);
+
+  // Pause while the decline/cancel confirmation modal is open.
+  useAutoRefresh(() => fetchBookings(tab, true), 20000, !showCancel);
 
   const doAction = async (action: () => Promise<unknown>, msg: string) => {
     setActing(true); setActionMsg('');

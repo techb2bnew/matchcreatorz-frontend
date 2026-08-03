@@ -11,6 +11,7 @@ import { formatDate } from '@/lib/utils';
 import { sellerApi, adminConnectApi } from '@/lib/adminApi';
 import { Spinner } from '@/components/ui/Loader';
 import toast from 'react-hot-toast';
+import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 
 interface Seller { id: number; name: string; email: string }
 interface Ledger {
@@ -54,22 +55,28 @@ export default function AdminConnectsPage() {
   }, []);
 
   // -- Load history for selected seller ---------------------------------
-  const loadHistory = useCallback(async (sellerId: number) => {
-    setHL(true);
+  const loadHistory = useCallback(async (sellerId: number, silent = false) => {
+    if (!silent) setHL(true);
     try {
       const res = await adminConnectApi.history(sellerId, { limit: 50 });
       setHistory(res.data || []);
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : 'Failed to load history');
-      setHistory([]);
+      if (!silent) {
+        toast.error(e instanceof Error ? e.message : 'Failed to load history');
+        setHistory([]);
+      } else {
+        console.error(e);
+      }
     } finally {
-      setHL(false);
+      if (!silent) setHL(false);
     }
   }, []);
 
   useEffect(() => {
     if (selectedId != null) loadHistory(selectedId);
   }, [selectedId, loadHistory]);
+
+  useAutoRefresh(() => { if (selectedId != null) loadHistory(selectedId, true); }, 20000, !addModal);
 
   const selectedSeller = sellers.find((s) => s.id === selectedId) || null;
 

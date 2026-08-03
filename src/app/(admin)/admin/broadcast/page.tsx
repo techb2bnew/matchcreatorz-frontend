@@ -8,6 +8,7 @@ import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import { adminBroadcastApi, AdminBroadcast } from '@/lib/adminApi';
 import { formatTimeAgo, truncate } from '@/lib/utils';
+import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 
 type Audience = 'ALL' | 'SELLER' | 'BUYER';
 
@@ -36,18 +37,28 @@ export default function AdminBroadcastPage() {
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
 
-  const loadHistory = useCallback(async (pg: number) => {
-    setHistoryLoading(true);
+  const loadHistory = useCallback(async (pg: number, silent = false) => {
+    if (!silent) setHistoryLoading(true);
     try {
-      const res = await adminBroadcastApi.list({ page: pg, limit: HISTORY_LIMIT });
+      // On a silent refresh, re-fetch everything currently loaded (pages 1..pg) in a single
+      // request instead of just page 1, so a background tick can't discard rows the user
+      // already expanded to via "Load more".
+      const limit = silent ? pg * HISTORY_LIMIT : HISTORY_LIMIT;
+      const fetchPage = silent ? 1 : pg;
+      const res = await adminBroadcastApi.list({ page: fetchPage, limit });
       const nextTotal = res.meta?.total ?? res.pagination?.total ?? 0;
-      setHistory((prev) => (pg === 1 ? res.data : [...prev, ...res.data]));
+      if (silent) {
+        setHistory(res.data);
+      } else {
+        setHistory((prev) => (pg === 1 ? res.data : [...prev, ...res.data]));
+      }
       setTotal(nextTotal);
       setPage(pg);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Failed to load broadcast history');
+      if (!silent) toast.error(e instanceof Error ? e.message : 'Failed to load broadcast history');
+      else console.error(e);
     } finally {
-      setHistoryLoading(false);
+      if (!silent) setHistoryLoading(false);
     }
   }, []);
 
@@ -55,6 +66,8 @@ export default function AdminBroadcastPage() {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- standard fetch-on-mount; loadHistory awaits the API call before touching state, so nothing sets synchronously during this effect's render
     loadHistory(1);
   }, [loadHistory]);
+
+  useAutoRefresh(() => loadHistory(page, true), 20000);
 
   const handleSend = async () => {
     if (!title.trim() || !body.trim()) {

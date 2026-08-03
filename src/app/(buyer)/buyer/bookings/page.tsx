@@ -7,9 +7,11 @@ import Card from '@/components/ui/Card';
 import Avatar from '@/components/ui/Avatar';
 import Modal from '@/components/ui/Modal';
 import Button from '@/components/ui/Button';
+import StarPicker from '@/components/ui/StarPicker';
 import { formatCurrency, formatTimeAgo, formatBookingAmount } from '@/lib/utils';
 import { buyerBookingApi, buyerReviewApi, BookingAttachment } from '@/lib/adminApi';
 import toast from 'react-hot-toast';
+import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 
 interface BookingUser { id: number; name: string; }
 interface Milestone {
@@ -35,6 +37,7 @@ interface Booking {
   seller: BookingUser | null;
   buyer: BookingUser | null;
   milestones: Milestone[];
+  review?: { id: number; rating: number } | null;
 }
 
 const STATUS_CFG: Record<string, { label: string; color: string; dot: string }> = {
@@ -47,29 +50,6 @@ const STATUS_CFG: Record<string, { label: string; color: string; dot: string }> 
 };
 
 const TABS = ['active', 'completed', 'cancelled'];
-
-function StarPicker({ value, onChange }: { value: number; onChange: (v: number) => void }) {
-  const [hovered, setHovered] = useState(0);
-  return (
-    <div className="flex items-center gap-1">
-      {[1,2,3,4,5].map(i => (
-        <button
-          key={i}
-          type="button"
-          onMouseEnter={() => setHovered(i)}
-          onMouseLeave={() => setHovered(0)}
-          onClick={() => onChange(i)}
-          className="text-2xl transition-transform hover:scale-110"
-        >
-          <i className={`${(hovered || value) >= i ? 'fa fa-star text-yellow-400' : 'fa fa-star-o text-gray-300'}`} />
-        </button>
-      ))}
-      <span className="ml-2 text-sm text-gray-500">
-        {value > 0 ? ['','Poor','Fair','Good','Very Good','Excellent'][value] : 'Select rating'}
-      </span>
-    </div>
-  );
-}
 
 function SkeletonRow() {
   return (
@@ -107,19 +87,22 @@ export default function BuyerBookingsPage() {
   const [reviewComment, setReviewComment] = useState('');
   const [reviewLoading, setReviewLoading] = useState(false);
   const [reviewMsg,     setReviewMsg]     = useState('');
-  const [reviewedIds,   setReviewedIds]   = useState<Set<number>>(new Set());
 
-  const fetchBookings = useCallback(async (t: string) => {
-    setLoading(true); setError('');
+  const fetchBookings = useCallback(async (t: string, silent = false) => {
+    if (!silent) { setLoading(true); setError(''); }
     try {
       const res = await buyerBookingApi.list({ tab: t });
       setBookings(res.data || []);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Failed to load bookings');
-    } finally { setLoading(false); }
+      if (!silent) setError(e instanceof Error ? e.message : 'Failed to load bookings');
+      else console.error('Silent bookings refresh failed', e);
+    } finally { if (!silent) setLoading(false); }
   }, []);
 
   useEffect(() => { fetchBookings(tab); }, [tab, fetchBookings]);
+
+  // Silent background refresh — pause while a booking/review modal is open
+  useAutoRefresh(() => fetchBookings(tab, true), 20000, !selected && !reviewTarget);
 
   const doAction = async (action: () => Promise<unknown>, msg: string) => {
     setActing(true); setActionMsg('');
@@ -141,6 +124,13 @@ export default function BuyerBookingsPage() {
     try {
       await buyerBookingApi.accept(bookingId);
       toast.success('Work accepted — payment released to the seller!');
+      // Prompt for a rating immediately instead of leaving the buyer to notice
+      // a "Leave Review" button after the booking moves to the Completed tab.
+      const justAccepted = bookings.find((b) => b.id === bookingId);
+      if (justAccepted) {
+        setReviewTarget({ ...justAccepted, status: 'completed' });
+        setReviewRating(0); setReviewComment(''); setReviewMsg('');
+      }
       fetchBookings(tab);
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : 'Failed to accept — please add funds to your wallet and try again');
@@ -151,13 +141,15 @@ export default function BuyerBookingsPage() {
     if (!reviewTarget || reviewRating === 0) { setReviewMsg('Please select a rating'); return; }
     setReviewLoading(true); setReviewMsg('');
     try {
-      await buyerReviewApi.create({
+      const res = await buyerReviewApi.create({
         booking_id: reviewTarget.id,
         rating:     reviewRating,
         comment:    reviewComment.trim() || undefined,
       });
       setReviewMsg('Review submitted!');
-      setReviewedIds(prev => new Set([...prev, reviewTarget.id]));
+      setBookings((prev) => prev.map((b) =>
+        b.id === reviewTarget.id ? { ...b, review: { id: res.data?.id, rating: reviewRating } } : b
+      ));
       setTimeout(() => {
         setReviewTarget(null); setReviewRating(0);
         setReviewComment(''); setReviewMsg('');
@@ -201,7 +193,7 @@ export default function BuyerBookingsPage() {
               )
               : bookings.map(b => {
                   const cfg = STATUS_CFG[b.status] || STATUS_CFG.pending;
-                  const alreadyReviewed = reviewedIds.has(b.id);
+                  const alreadyReviewed = !!b.review;
                   const milestoned = hasMilestones(b);
                   const submittedMilestones = milestoned ? b.milestones.filter(m => m.status === 'submitted').length : 0;
                   const approvedMilestones  = milestoned ? b.milestones.filter(m => m.status === 'approved').length : 0;

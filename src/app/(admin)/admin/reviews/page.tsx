@@ -6,6 +6,7 @@ import Avatar from '@/components/ui/Avatar';
 import CustomSelect from '@/components/ui/CustomSelect';
 import { formatTimeAgo } from '@/lib/utils';
 import { adminReviewApi } from '@/lib/adminApi';
+import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 
 interface ReviewUser { id: number; name: string; email: string; }
 interface Review {
@@ -54,14 +55,15 @@ export default function AdminReviewsPage() {
   const [status,     setStatus]     = useState('');
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const fetch = useCallback(async () => {
-    setLoading(true); setError('');
+  const fetch = useCallback(async (silent = false) => {
+    if (!silent) { setLoading(true); setError(''); }
     try {
       const res = await adminReviewApi.list({ search: search || undefined, status: status || undefined, limit: 50 });
       setReviews(res.data || []);
       setSummary(res.summary || { total: 0, published: 0, hidden: 0 });
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Failed to load');
+      if (!silent) setError(e instanceof Error ? e.message : 'Failed to load');
+      else console.error('Failed to silently refresh reviews', e);
     } finally { setLoading(false); }
   }, [search, status]);
 
@@ -70,6 +72,8 @@ export default function AdminReviewsPage() {
     debounceRef.current = setTimeout(fetch, 300);
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
   }, [fetch]);
+
+  useAutoRefresh(() => fetch(true), 20000);
 
   const toggleStatus = async (r: Review) => {
     try {

@@ -9,6 +9,7 @@ import Button from '@/components/ui/Button';
 import { formatCurrency, formatTimeAgo, stripHtml } from '@/lib/utils';
 import { RichTextView } from '@/components/ui/RichTextEditor';
 import { sellerBidApi, sellerJobApi } from '@/lib/adminApi';
+import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 
 interface BidJob {
   id: number;
@@ -83,9 +84,11 @@ export default function SellerBidsPage() {
   const [withdrawing, setWithdrawing] = useState(false);
   const [withdrawMsg, setWithdrawMsg] = useState('');
 
-  const fetchBids = useCallback(async (tab: string) => {
-    setLoading(true);
-    setError('');
+  const fetchBids = useCallback(async (tab: string, silent = false) => {
+    if (!silent) {
+      setLoading(true);
+      setError('');
+    }
     try {
       const params: Record<string, string> = {};
       if (tab !== 'All') params.status = tab.toLowerCase();
@@ -93,13 +96,17 @@ export default function SellerBidsPage() {
       setBids(res.data || []);
       if (res.stats) setStats(res.stats);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to load bids');
+      if (!silent) setError(err instanceof Error ? err.message : 'Failed to load bids');
+      else console.error('Silent bids refresh failed:', err);
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => { fetchBids(activeTab); }, [activeTab, fetchBids]);
+
+  // Pause the background refresh while the bid detail/withdraw modal is open.
+  useAutoRefresh(() => fetchBids(activeTab, true), 20000, !selected);
 
   const handleWithdraw = async () => {
     if (!selected) return;

@@ -7,8 +7,9 @@ import Card from '@/components/ui/Card';
 import Avatar from '@/components/ui/Avatar';
 import Modal from '@/components/ui/Modal';
 import Button from '@/components/ui/Button';
+import StarPicker from '@/components/ui/StarPicker';
 import { formatCurrency, formatBookingAmount } from '@/lib/utils';
-import { buyerBookingApi, BookingAttachment } from '@/lib/adminApi';
+import { buyerBookingApi, buyerReviewApi, BookingAttachment } from '@/lib/adminApi';
 import toast from 'react-hot-toast';
 
 interface BookingUser { id: number; name: string; }
@@ -40,6 +41,7 @@ interface Booking {
   seller: BookingUser | null;
   buyer: BookingUser | null;
   milestones: Milestone[];
+  review?: { id: number; rating: number } | null;
 }
 
 const STATUS_CFG: Record<string, { label: string; color: string; dot: string }> = {
@@ -87,6 +89,16 @@ export default function BuyerBookingDetailPage() {
   const [milestoneReason, setMilestoneReason] = useState('');
   const [milestoneActing, setMilestoneActing] = useState(false);
 
+  // Accept & Pay (whole booking, non-milestone)
+  const [accepting, setAccepting] = useState(false);
+
+  // Review
+  const [reviewOpen,    setReviewOpen]    = useState(false);
+  const [reviewRating,  setReviewRating]  = useState(0);
+  const [reviewComment, setReviewComment] = useState('');
+  const [reviewLoading, setReviewLoading] = useState(false);
+  const [reviewMsg,     setReviewMsg]     = useState('');
+
   const fetchBooking = useCallback(async () => {
     setLoading(true); setError('');
     try {
@@ -112,6 +124,41 @@ export default function BuyerBookingDetailPage() {
     } catch (e: unknown) {
       setActionMsg(e instanceof Error ? e.message : 'Action failed');
     } finally { setActing(false); }
+  };
+
+  const acceptWork = async () => {
+    if (!booking) return;
+    setAccepting(true);
+    try {
+      await buyerBookingApi.accept(booking.id);
+      toast.success('Work accepted — payment released to the seller!');
+      // Prompt for a rating right away instead of leaving the buyer to notice
+      // a review option after the booking status changes.
+      setReviewRating(0); setReviewComment(''); setReviewMsg(''); setReviewOpen(true);
+      await fetchBooking();
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Failed to accept — please add funds to your wallet and try again');
+    } finally { setAccepting(false); }
+  };
+
+  const submitReview = async () => {
+    if (!booking || reviewRating === 0) { setReviewMsg('Please select a rating'); return; }
+    setReviewLoading(true); setReviewMsg('');
+    try {
+      await buyerReviewApi.create({
+        booking_id: booking.id,
+        rating:     reviewRating,
+        comment:    reviewComment.trim() || undefined,
+      });
+      setReviewMsg('Review submitted!');
+      await fetchBooking();
+      setTimeout(() => {
+        setReviewOpen(false); setReviewRating(0);
+        setReviewComment(''); setReviewMsg('');
+      }, 1400);
+    } catch (e: unknown) {
+      setReviewMsg(e instanceof Error ? e.message : 'Failed to submit review');
+    } finally { setReviewLoading(false); }
   };
 
   const acceptMilestone = async (milestoneId: number) => {
@@ -304,9 +351,9 @@ export default function BuyerBookingDetailPage() {
 
                 {booking.status === 'amidst_completion' && !hasMilestones(booking) && (
                   <>
-                    <Button variant="primary" fullWidth disabled={acting}
-                      onClick={() => doAction(() => buyerBookingApi.accept(booking.id), 'Work accepted — payment released!')}>
-                      {acting ? 'Processing...' : 'Accept & Pay'}
+                    <Button variant="primary" fullWidth disabled={accepting}
+                      onClick={acceptWork}>
+                      {accepting ? 'Processing...' : 'Accept & Pay'}
                     </Button>
                     <Button variant="outline" fullWidth disabled={acting}
                       className="text-red-600 border-red-200"
@@ -323,7 +370,22 @@ export default function BuyerBookingDetailPage() {
                   </Button>
                 )}
 
-                {!['amidst_completion', 'pending', 'ongoing'].includes(booking.status) && (
+                {booking.status === 'completed' && !booking.review && (
+                  <Button
+                    fullWidth
+                    className="bg-yellow-50 border border-yellow-200 !text-yellow-700 hover:bg-yellow-100"
+                    onClick={() => { setReviewRating(0); setReviewComment(''); setReviewMsg(''); setReviewOpen(true); }}
+                  >
+                    <i className="fa fa-star mr-1.5" />Leave Review
+                  </Button>
+                )}
+                {booking.status === 'completed' && booking.review && (
+                  <p className="text-xs text-green-600 font-medium text-center flex items-center justify-center gap-1.5">
+                    <i className="fa fa-check-circle" />You rated this {booking.review.rating}/5
+                  </p>
+                )}
+
+                {!['amidst_completion', 'pending', 'ongoing', 'completed'].includes(booking.status) && (
                   <p className="text-xs text-gray-400 text-center">No actions available for this booking.</p>
                 )}
               </div>
@@ -385,6 +447,59 @@ export default function BuyerBookingDetailPage() {
               <Button variant="primary" fullWidth disabled={milestoneActing} onClick={rejectMilestone}>
                 {milestoneActing ? 'Processing...' : 'Send Back'}
               </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Leave Review */}
+      {reviewOpen && booking && (
+        <Modal isOpen onClose={() => setReviewOpen(false)} title="Leave a Review" size="sm">
+          <div className="space-y-4">
+            <div className="flex items-center gap-3 bg-gray-50 rounded-xl p-3">
+              <Avatar name={booking.seller?.name || 'S'} size="sm" />
+              <div>
+                <p className="font-semibold text-gray-900 text-sm">{booking.seller?.name}</p>
+                <p className="text-xs text-gray-400 truncate">{booking.title}</p>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Rating</label>
+              <StarPicker value={reviewRating} onChange={setReviewRating} />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                Comment <span className="font-normal normal-case text-gray-400">(optional)</span>
+              </label>
+              <textarea
+                rows={3}
+                value={reviewComment}
+                onChange={(e) => setReviewComment(e.target.value)}
+                placeholder="Share your experience with this seller..."
+                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:border-[#e84545] resize-none"
+              />
+            </div>
+
+            {reviewMsg && (
+              <p className={`text-sm text-center font-medium ${reviewMsg.includes('submitted') ? 'text-green-600' : 'text-red-600'}`}>
+                {reviewMsg.includes('submitted') ? <><i className="fa fa-check-circle mr-1" />{reviewMsg}</> : reviewMsg}
+              </p>
+            )}
+
+            <div className="flex flex-col gap-2">
+              <button
+                disabled={reviewLoading || reviewRating === 0}
+                onClick={submitReview}
+                className="w-full py-2.5 rounded-xl bg-[#e84545] text-white text-sm font-semibold hover:bg-[#c73a3a] transition-colors disabled:opacity-60"
+              >
+                {reviewLoading ? <><i className="fa fa-spinner fa-spin mr-1" />Submitting...</> : 'Submit Review'}
+              </button>
+              <button onClick={() => setReviewOpen(false)}
+                className="w-full py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors">
+                Maybe Later
+              </button>
             </div>
           </div>
         </Modal>

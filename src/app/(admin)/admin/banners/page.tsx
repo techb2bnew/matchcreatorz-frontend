@@ -8,6 +8,7 @@ import Modal from '@/components/ui/Modal';
 import { adminBannerApi, AdminBanner } from '@/lib/adminApi';
 import { PageLoader } from '@/components/ui/Loader';
 import toast from 'react-hot-toast';
+import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 
 const POSITIONS = ['Home Top', 'Sidebar', 'Services Page', 'Footer'];
 
@@ -27,19 +28,22 @@ export default function BannersPage() {
   const [err, setErr]             = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const res = await adminBannerApi.list();
       setBanners(res.data || []);
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : 'Failed to load banners');
+      if (!silent) toast.error(e instanceof Error ? e.message : 'Failed to load banners');
+      else console.error(e);
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  useAutoRefresh(() => load(true), 20000, !modalOpen);
 
   const openAdd = () => {
     setEditing(null);

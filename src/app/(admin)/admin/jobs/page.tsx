@@ -8,6 +8,7 @@ import { Spinner, TableSkeleton } from '@/components/ui/Loader';
 import { RichTextView } from '@/components/ui/RichTextEditor';
 import { formatDate, formatCurrency } from '@/lib/utils';
 import { adminJobApi } from '@/lib/adminApi';
+import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 
 interface BidRow {
   id: number;
@@ -212,8 +213,8 @@ export default function AdminJobsPage() {
   const [actionLoading, setActionLoading] = useState('');
   const [deleteTarget,  setDeleteTarget]  = useState<Job | null>(null);
 
-  const fetchJobs = useCallback(async () => {
-    setLoading(true);
+  const fetchJobs = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const params: Record<string, string | number> = { page, limit: LIMIT };
       if (search) params.search = search;
@@ -221,14 +222,19 @@ export default function AdminJobsPage() {
       const res = await adminJobApi.list(params);
       setJobs(res.data || []);
       setTotal(res.pagination?.total || 0);
-    } catch { setJobs([]); }
-    finally { setLoading(false); }
+    } catch (e) {
+      if (!silent) setJobs([]);
+      else console.error(e);
+    }
+    finally { if (!silent) setLoading(false); }
   }, [page, search, status]);
 
   useEffect(() => {
     const t = setTimeout(fetchJobs, 350);
     return () => clearTimeout(t);
   }, [fetchJobs]);
+
+  useAutoRefresh(() => fetchJobs(true), 20000, !viewJob && !deleteTarget);
 
   const openDetail = async (job: Job) => {
     try {

@@ -8,6 +8,7 @@ import Modal from '@/components/ui/Modal';
 import { categoryApi } from '@/lib/adminApi';
 import { CardSkeleton, TableSkeleton } from '@/components/ui/Loader';
 import toast from 'react-hot-toast';
+import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 
 type Category = {
   id: number;
@@ -193,8 +194,8 @@ export default function CategoriesPage() {
   const [deleteLoading, setDeleteLoading] = useState(false);
 
   // -- Fetch -------------------------------------------------
-  const fetchCategories = useCallback(async () => {
-    setLoading(true);
+  const fetchCategories = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const params: Record<string, string | number> = { page: 1, limit: 100 };
       if (debouncedSearch) params.search = debouncedSearch;
@@ -202,13 +203,16 @@ export default function CategoriesPage() {
       setCategories(json.data || []);
       setTotal(json.meta?.total || 0);
     } catch (err: any) {
-      toast.error(err.message || 'Failed to fetch categories');
+      if (!silent) toast.error(err.message || 'Failed to fetch categories');
+      else console.error(err);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [debouncedSearch]);
 
   useEffect(() => { fetchCategories(); }, [fetchCategories]);
+
+  useAutoRefresh(() => fetchCategories(true), 20000, !showAdd && !editCat && !deleteCat);
 
   // -- Add ---------------------------------------------------
   const handleAdd = async () => {

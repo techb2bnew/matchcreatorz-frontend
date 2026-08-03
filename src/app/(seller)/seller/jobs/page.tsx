@@ -9,6 +9,7 @@ import { sellerJobApi, publicCategoryApi, sellerConnectApi, profileApi, BookingA
 import { compressImages } from '@/lib/imageCompress';
 import { OverlayLoader } from '@/components/ui/Loader';
 import RichTextEditor from '@/components/ui/RichTextEditor';
+import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 
 // rich-text descriptions are HTML — clean plain-text preview for cards
 const plainText = (html: string): string =>
@@ -117,7 +118,10 @@ export default function SellerJobsPage() {
       const res = await sellerJobApi.list(params);
       setJobs(res.data || []);
       setTotalPages(res.meta?.totalPages || res.pagination?.pages || 1);
-    } catch { setJobs([]); }
+    } catch (err) {
+      if (!silent) setJobs([]);
+      else console.error('Silent jobs refresh failed:', err);
+    }
     finally { setLoading(false); setRefreshing(false); }
   }, [page, search, activeCategory]);
 
@@ -329,6 +333,11 @@ export default function SellerJobsPage() {
     } catch { /* ignore */ }
     finally { setAcceptingJob(null); }
   };
+
+  // Pause background refresh while any bid/counter modal is open so we don't
+  // pull the list out from under an in-progress form.
+  const jobsModalOpen = !!bidJob || !!editJob || !!withdrawJob || !!counterJob;
+  useAutoRefresh(() => loadJobs(true), 20000, !jobsModalOpen);
 
   const allCategories = ['All', ...categories];
   const myBidsCount   = jobs.filter(j => j.has_bid).length;

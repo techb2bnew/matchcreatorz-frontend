@@ -9,6 +9,7 @@ import { CardSkeleton } from '@/components/ui/Loader';
 import RichTextEditor from '@/components/ui/RichTextEditor';
 import { formatCurrency } from '@/lib/utils';
 import { sellerServiceApi, publicCategoryApi } from '@/lib/adminApi';
+import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 
 // -- Types -------------------------------------------------------------
 type ServiceStatus = 'active' | 'paused' | 'rejected';
@@ -424,8 +425,8 @@ export default function SellerServicesPage() {
   const [deleteTarget, setDelete] = useState<Service | null>(null);
   const [deleting, setDeleting]   = useState(false);
 
-  const fetchServices = useCallback(async () => {
-    setLoading(true);
+  const fetchServices = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const params: Record<string, string | number> = { page, limit: LIMIT };
       if (search)       params.search = search;
@@ -433,8 +434,9 @@ export default function SellerServicesPage() {
       const res = await sellerServiceApi.list(params);
       setServices(res.data || []);
       setTotalPages(res.meta?.totalPages || res.pagination?.pages || 1);
-    } catch {
-      setServices([]);
+    } catch (err) {
+      if (!silent) setServices([]);
+      else console.error('Silent services refresh failed:', err);
     } finally {
       setLoading(false);
     }
@@ -451,6 +453,9 @@ export default function SellerServicesPage() {
     const t = setTimeout(fetchServices, 350);
     return () => clearTimeout(t);
   }, [fetchServices]);
+
+  // Pause while the add/edit form or delete confirmation is open.
+  useAutoRefresh(() => fetchServices(true), 20000, !(addModal || !!editService || !!deleteTarget));
 
   const setActionFor = (id: number, act: string) => setAction((p) => ({ ...p, [id]: act }));
   const clearAction  = (id: number) => setAction((p) => { const n = { ...p }; delete n[id]; return n; });

@@ -10,6 +10,7 @@ import Modal from '@/components/ui/Modal';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { walletApi } from '@/lib/adminApi';
 import toast from 'react-hot-toast';
+import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 
 const TX_LABEL: Record<string, string> = {
   topup: 'Top-up', booking_payment: 'Booking payment', booking_refund: 'Refund',
@@ -37,14 +38,17 @@ function SellerWalletInner() {
   const [busy, setBusy] = useState(false);
   const [cfg, setCfg] = useState<{ min_withdraw: number }>({ min_withdraw: 50 });
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const [s, t, w, c] = await Promise.all([
         walletApi.connectStatus(), walletApi.transactions({ limit: 50 }), walletApi.myWithdrawals({ limit: 20 }), walletApi.config(),
       ]);
       setSummary(s.data); setTxns(t.data || []); setWds(w.data || []); setCfg(c.data);
-    } catch (e) { toast.error((e as Error).message); } finally { setLoading(false); }
+    } catch (e) {
+      if (!silent) toast.error((e as Error).message);
+      else console.error('Silent wallet refresh failed:', e);
+    } finally { setLoading(false); }
   }, []);
 
   useEffect(() => { load(); }, [load]);
@@ -52,6 +56,9 @@ function SellerWalletInner() {
   useEffect(() => {
     if (params.get('connect')) { toast.success('Payout account updated'); load(); router.replace('/seller/wallet'); }
   }, [params, router, load]);
+
+  // Pause while the withdrawal request modal is open.
+  useAutoRefresh(() => load(true), 20000, !wModal);
 
   const connect = async () => {
     setBusy(true);

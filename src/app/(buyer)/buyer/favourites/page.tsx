@@ -9,6 +9,7 @@ import { CardSkeleton } from '@/components/ui/Loader';
 import { formatCurrency } from '@/lib/utils';
 import { buyerFavouriteApi } from '@/lib/adminApi';
 import toast from 'react-hot-toast';
+import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 
 interface FavService {
   id: number;
@@ -32,20 +33,25 @@ export default function FavouritesPage() {
   const [loading, setLoading]       = useState(true);
   const [removing, setRemoving]     = useState<number | null>(null);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const res = await buyerFavouriteApi.list();
       setFavourites((res.data || []).filter((r: FavRow) => r.service));
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : 'Failed to load favourites');
-      setFavourites([]);
+      if (!silent) {
+        toast.error(err instanceof Error ? err.message : 'Failed to load favourites');
+        setFavourites([]);
+      } else {
+        console.error('Silent favourites refresh failed', err);
+      }
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, []);
 
   useEffect(() => { load(); }, [load]);
+  useAutoRefresh(() => load(true), 20000);
 
   const remove = async (serviceId: number) => {
     setRemoving(serviceId);

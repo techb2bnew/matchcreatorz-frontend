@@ -12,6 +12,7 @@ import { getProfileStatusColor, formatDate, formatCurrency } from '@/lib/utils';
 import { sellerApi, categoryApi } from '@/lib/adminApi';
 import { TableSkeleton, Spinner } from '@/components/ui/Loader';
 import toast from 'react-hot-toast';
+import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 
 const COUNTRIES  = ['India', 'USA', 'UK', 'Canada', 'Australia', 'UAE', 'Singapore', 'Germany'];
 const STATES     = ['Delhi', 'Maharashtra', 'Karnataka', 'Tamil Nadu', 'Gujarat', 'Rajasthan', 'Uttar Pradesh'];
@@ -103,8 +104,8 @@ export default function SellersPage() {
   }, [search]);
 
   // -- Fetch sellers -----------------------------------------
-  const fetchSellers = useCallback(async () => {
-    setLoading(true);
+  const fetchSellers = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const params: Record<string, string | number> = { page, limit: LIMIT };
       if (debouncedSearch) params.search = debouncedSearch;
@@ -117,7 +118,8 @@ export default function SellersPage() {
       setTotal(json.meta?.total || 0);
       setTotalPages(json.meta?.totalPages || 1);
     } catch (err: any) {
-      toast.error(err.message || 'Failed to fetch sellers');
+      if (!silent) toast.error(err.message || 'Failed to fetch sellers');
+      else console.error('Failed to silently refresh sellers', err);
     } finally {
       setLoading(false);
     }
@@ -125,6 +127,10 @@ export default function SellersPage() {
 
   useEffect(() => { fetchSellers(); }, [fetchSellers]);
   useEffect(() => { setPage(1); }, [activeFilter]);
+
+  // Pause while any add/view/edit seller modal is open so a background
+  // refresh can't yank data out from under an in-progress form.
+  useAutoRefresh(() => fetchSellers(true), 20000, !showAdd && !viewSeller && !editSeller);
 
   // -- Actions -----------------------------------------------
   const handleAction = async (id: number, action: 'approve' | 'reject' | 'block' | 'unblock', label: string) => {

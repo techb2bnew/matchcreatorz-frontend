@@ -10,6 +10,7 @@ import Modal from '@/components/ui/Modal';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { walletApi } from '@/lib/adminApi';
 import toast from 'react-hot-toast';
+import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 
 const TX_LABEL: Record<string, string> = {
   topup: 'Wallet top-up', booking_payment: 'Booking payment', booking_refund: 'Booking refund',
@@ -32,12 +33,17 @@ function BuyerWalletInner() {
   const [paying, setPaying] = useState(false);
   const quickAmounts = [100, 250, 500, 1000];
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const [s, t] = await Promise.all([walletApi.summary(), walletApi.transactions({ limit: 50 })]);
       setSummary(s.data); setTxns(t.data || []);
-    } catch (e) { toast.error((e as Error).message); } finally { setLoading(false); }
+    } catch (e) {
+      if (!silent) toast.error((e as Error).message);
+      else console.error('Silent wallet refresh failed', e);
+    } finally {
+      if (!silent) setLoading(false);
+    }
   }, []);
 
   useEffect(() => { load(); }, [load]);
@@ -55,6 +61,9 @@ function BuyerWalletInner() {
       toast('Top-up cancelled'); router.replace('/buyer/wallet');
     }
   }, [params, router, load]);
+
+  // Silent background refresh — pause while the Add Money modal is open
+  useAutoRefresh(() => load(true), 20000, !addModal);
 
   const startTopup = async () => {
     const amt = Number(amount);

@@ -1,7 +1,8 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { useAppSelector } from '@/store/hooks';
+import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import Link from 'next/link';
 import { buyerStatsApi, publicStatsApi, PublicPlatformStats } from '@/lib/adminApi';
@@ -50,16 +51,30 @@ export default function BuyerHomePage() {
   const [error,   setError]   = useState<string | null>(null);
   const [platformStats, setPlatformStats] = useState<PublicPlatformStats | null>(null);
 
-  useEffect(() => {
-    buyerStatsApi.get()
-      .then(r => setData(r.data))
-      .catch(err => {
+  const loadDashboard = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
+    try {
+      const r = await buyerStatsApi.get();
+      setData(r.data);
+      if (!silent) setError(null);
+    } catch (err: unknown) {
+      if (!silent) {
         console.error('Buyer stats error:', err);
-        setError(err?.message || 'Failed to load dashboard data');
-      })
-      .finally(() => setLoading(false));
-    publicStatsApi.get().then(r => setPlatformStats(r.data)).catch(() => {});
+        setError((err as { message?: string })?.message || 'Failed to load dashboard data');
+      } else {
+        console.error('Silent dashboard refresh failed:', err);
+      }
+    } finally {
+      if (!silent) setLoading(false);
+    }
+    try {
+      const r2 = await publicStatsApi.get();
+      setPlatformStats(r2.data);
+    } catch { /* ignore */ }
   }, []);
+
+  useEffect(() => { loadDashboard(); }, [loadDashboard]);
+  useAutoRefresh(() => loadDashboard(true), 20000);
 
   const s = data?.stats;
 

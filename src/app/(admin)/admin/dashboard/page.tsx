@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import StatCard from '@/components/ui/StatCard';
 import Card, { CardHeader, CardTitle } from '@/components/ui/Card';
@@ -8,6 +8,7 @@ import Avatar from '@/components/ui/Avatar';
 import { formatCurrency, formatDate, getBookingStatusColor, getBookingStatusLabel } from '@/lib/utils';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { adminStatsApi } from '@/lib/adminApi';
+import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 
 interface BookingRow {
   id: number;
@@ -52,15 +53,27 @@ export default function AdminDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState<string | null>(null);
 
-  useEffect(() => {
-    adminStatsApi.get()
-      .then(r => setData(r.data))
-      .catch(err => {
+  const loadStats = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
+    try {
+      const r = await adminStatsApi.get();
+      setData(r.data);
+      setError(null);
+    } catch (err: any) {
+      if (!silent) {
         console.error('Admin stats error:', err);
         setError(err?.message || 'Failed to load dashboard data');
-      })
-      .finally(() => setLoading(false));
+      } else {
+        console.error(err);
+      }
+    } finally {
+      if (!silent) setLoading(false);
+    }
   }, []);
+
+  useEffect(() => { loadStats(); }, [loadStats]);
+
+  useAutoRefresh(() => loadStats(true), 20000);
 
   const s = data?.stats;
 

@@ -11,6 +11,7 @@ import { formatDate, formatCurrency, getProfileStatusColor } from '@/lib/utils';
 import { buyerApi } from '@/lib/adminApi';
 import { TableSkeleton, Spinner } from '@/components/ui/Loader';
 import toast from 'react-hot-toast';
+import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 
 const COUNTRIES = ['India', 'USA', 'UK', 'Canada', 'Australia', 'UAE', 'Singapore', 'Germany'];
 const STATES    = ['Delhi', 'Maharashtra', 'Karnataka', 'Tamil Nadu', 'Gujarat', 'Rajasthan', 'Uttar Pradesh'];
@@ -68,8 +69,8 @@ export default function BuyersPage() {
   }, [search]);
 
   // -- Fetch buyers ---------------------------------------
-  const fetchBuyers = useCallback(async () => {
-    setLoading(true);
+  const fetchBuyers = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const params: Record<string, string | number> = { page, limit: LIMIT };
       if (debouncedSearch) params.search = debouncedSearch;
@@ -82,14 +83,17 @@ export default function BuyersPage() {
       setTotal(json.meta?.total || 0);
       setTotalPages(json.meta?.totalPages || 1);
     } catch (err: any) {
-      toast.error(err.message || 'Failed to fetch buyers');
+      if (!silent) toast.error(err.message || 'Failed to fetch buyers');
+      else console.error(err);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [page, debouncedSearch, activeFilter]);
 
   useEffect(() => { fetchBuyers(); }, [fetchBuyers]);
   useEffect(() => { setPage(1); }, [activeFilter]);
+
+  useAutoRefresh(() => fetchBuyers(true), 20000, !showAdd && !viewBuyer && !editBuyer);
 
   // -- Approve / Reject / Block / Unblock ------------------------------------
   const handleAction = async (id: number, action: 'approve' | 'reject' | 'block' | 'unblock', label: string) => {
