@@ -5,11 +5,21 @@ import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Modal from '@/components/ui/Modal';
-import { formatDate } from '@/lib/utils';
+import RichTextEditor from '@/components/ui/RichTextEditor';
+import { formatDate, plainTextToHtml } from '@/lib/utils';
 import { adminPageApi, AdminPage } from '@/lib/adminApi';
 import { PageLoader } from '@/components/ui/Loader';
 import toast from 'react-hot-toast';
 import { useAutoRefresh } from '@/hooks/useAutoRefresh';
+
+const PAGE_ICON: Record<string, string> = {
+  about:   'fa-info-circle',
+  privacy: 'fa-shield',
+  terms:   'fa-gavel',
+  faq:     'fa-question-circle',
+  contact: 'fa-envelope',
+};
+const iconFor = (slug: string) => PAGE_ICON[slug] || 'fa-file-text-o';
 
 export default function PagesPage() {
   const [pages, setPages]     = useState<AdminPage[]>([]);
@@ -41,7 +51,10 @@ export default function PagesPage() {
   const openEdit = (page: AdminPage) => {
     setSelectedPage(page);
     setEditTitle(page.title);
-    setEditContent(page.content);
+    // Older pages were authored as plain text via a bare textarea — convert
+    // to real HTML the first time they're opened in the rich editor so line
+    // breaks/paragraphs don't collapse.
+    setEditContent(plainTextToHtml(page.content));
     setEditModal(true);
   };
 
@@ -63,69 +76,81 @@ export default function PagesPage() {
 
   return (
     <DashboardLayout role="ADMIN" title="Pages">
+      <div className="mb-5">
+        <h2 className="text-lg font-semibold text-gray-900">Static Pages</h2>
+        <p className="text-sm text-gray-500 mt-0.5">
+          Content shown on the public, no-login legal &amp; info pages (Terms, Privacy, FAQ, etc.)
+        </p>
+      </div>
+
       {loading ? (
         <PageLoader text="Loading pages..." />
       ) : (
-        <Card padding="none">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-gray-50 border-b border-gray-100">
-                  {['Page Name', 'Slug', 'Last Updated', 'Actions'].map((h) => (
-                    <th key={h} className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wider px-4 py-3">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50">
-                {pages.map((p) => (
-                  <tr key={p.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-4 py-3 font-medium text-gray-900">{p.title}</td>
-                    <td className="px-4 py-3 text-gray-400 font-mono text-xs">/{p.slug}</td>
-                    <td className="px-4 py-3 text-gray-400 text-xs">{p.updatedAt ? formatDate(p.updatedAt) : '-'}</td>
-                    <td className="px-4 py-3">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        leftIcon={<i className="fa fa-pencil text-xs" />}
-                        onClick={() => openEdit(p)}
-                      >
-                        Edit
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Card>
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+          {pages.map((p) => (
+            <Card key={p.id} padding="md" hover className="flex flex-col gap-3" >
+              <div className="flex items-start gap-3">
+                <div className="h-11 w-11 rounded-xl bg-[#fff0f0] text-[#e84545] flex items-center justify-center flex-shrink-0">
+                  <i className={`fa ${iconFor(p.slug)} text-lg`} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="font-semibold text-gray-900 truncate">{p.title}</p>
+                  <p className="text-xs text-gray-400 font-mono mt-0.5">/{p.slug}</p>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between pt-2 border-t border-gray-50">
+                <p className="text-xs text-gray-400">
+                  {p.updatedAt ? `Updated ${formatDate(p.updatedAt)}` : 'Never updated'}
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  leftIcon={<i className="fa fa-pencil text-xs" />}
+                  onClick={() => openEdit(p)}
+                >
+                  Edit
+                </Button>
+              </div>
+            </Card>
+          ))}
+        </div>
       )}
 
       {/* Edit Modal */}
-      <Modal isOpen={editModal} onClose={() => !saving && setEditModal(false)} title={`Edit: ${selectedPage?.title || ''}`} size="lg">
+      <Modal
+        isOpen={editModal}
+        onClose={() => !saving && setEditModal(false)}
+        title={selectedPage ? `Edit: ${selectedPage.title}` : 'Edit Page'}
+        size="xl"
+      >
         <div className="space-y-4">
+          <div className="flex items-center gap-3 bg-gray-50 rounded-xl p-3">
+            <div className="h-10 w-10 rounded-lg bg-[#fff0f0] text-[#e84545] flex items-center justify-center flex-shrink-0">
+              <i className={`fa ${selectedPage ? iconFor(selectedPage.slug) : 'fa-file-text-o'}`} />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-gray-900">Public URL</p>
+              <p className="text-xs text-gray-500 font-mono truncate">
+                matchcreatorz.com/{selectedPage?.slug === 'terms' ? 'terms-conditions' : selectedPage?.slug === 'privacy' ? 'privacy-policy' : selectedPage?.slug}
+              </p>
+            </div>
+          </div>
+
           <Input
             label="Page Title"
             value={editTitle}
             onChange={(e) => setEditTitle(e.target.value)}
           />
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Slug</label>
-            <input
-              type="text"
-              value={selectedPage ? `/${selectedPage.slug}` : ''}
-              readOnly
-              className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm bg-gray-50 text-gray-400 font-mono cursor-not-allowed focus:outline-none"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">Content</label>
-            <textarea
-              rows={8}
-              value={editContent}
-              onChange={(e) => setEditContent(e.target.value)}
-              className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#e84545] resize-none"
-            />
-          </div>
+
+          <RichTextEditor
+            label="Content"
+            variant="full"
+            value={editContent}
+            onChange={setEditContent}
+            placeholder="Write the page content…"
+          />
+
           <div className="flex gap-3 pt-2">
             <Button variant="outline" fullWidth onClick={() => setEditModal(false)} disabled={saving}>Cancel</Button>
             <Button fullWidth onClick={handleSave} loading={saving}>Save Changes</Button>

@@ -94,6 +94,13 @@ export const publicStatsApi = {
     fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/public/stats`).then(r => r.json()),
 };
 
+// -- Public static pages (Terms, Privacy, etc.) — no auth ----------------
+export interface PublicPage { slug: string; title: string; content: string; updatedAt?: string }
+export const publicPageApi = {
+  get: (slug: string): Promise<{ data: PublicPage }> =>
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/pages/${slug}`).then(r => r.json()),
+};
+
 // -- Seller Services ---------------------------------------------------
 export const sellerServiceApi = {
   list: (params: Record<string, string | number>) => {

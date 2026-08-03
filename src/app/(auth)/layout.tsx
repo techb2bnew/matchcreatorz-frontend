@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import Logo from '@/components/ui/Logo';
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
@@ -47,6 +48,13 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           {/* White card */}
           <div className="bg-white rounded-2xl shadow-lg border border-[#e0e0e0] px-6 py-5">
             {children}
+          </div>
+
+          {/* Legal links — visible without logging in */}
+          <div className="flex items-center justify-center gap-4 mt-4 text-xs text-gray-400">
+            <Link href="/terms-conditions" className="hover:text-[#e84545] transition-colors">Terms &amp; Conditions</Link>
+            <span className="text-gray-300">&middot;</span>
+            <Link href="/privacy-policy" className="hover:text-[#e84545] transition-colors">Privacy Policy</Link>
           </div>
         </div>
       </div>

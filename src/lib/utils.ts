@@ -89,6 +89,24 @@ export function stripHtml(html: string | null | undefined) {
     .trim();
 }
 
+/**
+ * Some content (e.g. static Pages) was authored as plain text via a bare
+ * <textarea> before a rich-text editor was wired up for it. The first time
+ * that content is opened in the editor / rendered as rich HTML, this converts
+ * it: blank lines become paragraph breaks, single newlines become <br>.
+ * Content that already contains a tag is assumed to already be real HTML
+ * (e.g. saved by the rich editor) and is returned unchanged.
+ */
+export function plainTextToHtml(text: string | null | undefined): string {
+  if (!text) return '';
+  if (/<[a-z][\s\S]*>/i.test(text)) return text;
+  const escape = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return text
+    .split(/\n{2,}/)
+    .map((para) => `<p>${escape(para).replace(/\n/g, '<br>')}</p>`)
+    .join('');
+}
+
 export function getBookingStatusColor(status: string) {
   const map: Record<string, string> = {
     pending:            'bg-yellow-100 text-yellow-800',

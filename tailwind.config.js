@@ -60,7 +60,21 @@ module.exports = {
         fadeIn:  'fadeIn 0.3s ease-out',
         shimmer: 'shimmer 1.5s infinite',
       },
+      typography: {
+        DEFAULT: {
+          css: {
+            '--tw-prose-headings': '#1a1a1a',
+            '--tw-prose-body':     '#444444',
+            '--tw-prose-bold':     '#1a1a1a',
+            '--tw-prose-links':    '#e84545',
+            '--tw-prose-bullets':  '#e84545',
+            a:  { fontWeight: '600', textDecoration: 'none' },
+            'a:hover': { textDecoration: 'underline' },
+          },
+        },
+      },
     },
   },
-  plugins: [],
+  // eslint-disable-next-line @typescript-eslint/no-require-imports -- standard CJS pattern for Tailwind v3 plugin config
+  plugins: [require('@tailwindcss/typography')],
 };
