@@ -25,20 +25,23 @@ const typeToCategory = (type: string | null): string => {
   if (type.startsWith('booking') || type === 'work_submitted' || type === 'work_accepted') return 'Bookings';
   if (type.startsWith('bid')) return 'Jobs';
   if (type === 'review_received') return 'Reviews';
+  if (type === 'broadcast') return 'Announcements';
   return 'System';
 };
 
 const categoryIcon = (cat: string): string => {
-  if (cat === 'Bookings') return 'fa-calendar';
-  if (cat === 'Jobs')     return 'fa-briefcase';
-  if (cat === 'Reviews')  return 'fa-star';
+  if (cat === 'Bookings')      return 'fa-calendar';
+  if (cat === 'Jobs')          return 'fa-briefcase';
+  if (cat === 'Reviews')       return 'fa-star';
+  if (cat === 'Announcements') return 'fa-bullhorn';
   return 'fa-bell';
 };
 
 const categoryColor = (cat: string): string => {
-  if (cat === 'Bookings') return 'bg-blue-50 text-blue-600';
-  if (cat === 'Jobs')     return 'bg-purple-50 text-purple-600';
-  if (cat === 'Reviews')  return 'bg-yellow-50 text-yellow-600';
+  if (cat === 'Bookings')      return 'bg-blue-50 text-blue-600';
+  if (cat === 'Jobs')          return 'bg-purple-50 text-purple-600';
+  if (cat === 'Reviews')       return 'bg-yellow-50 text-yellow-600';
+  if (cat === 'Announcements') return 'bg-amber-50 text-amber-600';
   return 'bg-[#fff0f0] text-[#e84545]';
 };
 
@@ -57,7 +60,7 @@ const relativeTime = (iso: string | undefined): string => {
   return d.toLocaleDateString();
 };
 
-const FILTERS = ['All', 'Bookings', 'Jobs', 'Reviews', 'System'] as const;
+const FILTERS = ['All', 'Bookings', 'Jobs', 'Reviews', 'Announcements', 'System'] as const;
 type Filter = typeof FILTERS[number];
 
 // ── Page ───────────────────────────────────────────────────────────────────────

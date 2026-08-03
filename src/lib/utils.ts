@@ -13,6 +13,24 @@ export function formatCurrency(amount: number, currency = 'USD') {
   }).format(amount);
 }
 
+/**
+ * Booking.amount holds the agreed $/hr rate for hourly jobs until the seller
+ * submits hours, at which point it's overwritten with the computed total —
+ * this renders whichever is currently true, with a breakdown once hours are known.
+ */
+export function formatBookingAmount(b: { amount: number | string; job_type?: string; hours_worked?: number | string | null }): { primary: string; subtitle: string | null } {
+  const amount = Number(b.amount);
+  if (b.job_type === 'hourly') {
+    if (b.hours_worked == null) {
+      return { primary: `${formatCurrency(amount)}/hr`, subtitle: 'Rate — total pending submission' };
+    }
+    const hours = Number(b.hours_worked);
+    const rate  = hours > 0 ? amount / hours : 0;
+    return { primary: formatCurrency(amount), subtitle: `${hours} hrs × ${formatCurrency(rate)}/hr` };
+  }
+  return { primary: formatCurrency(amount), subtitle: null };
+}
+
 export function formatDate(date: string | Date | null | undefined, format = 'short') {
   if (!date) return '-';
   const d = new Date(date);

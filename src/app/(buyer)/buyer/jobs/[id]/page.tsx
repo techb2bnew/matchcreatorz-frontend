@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import Card from '@/components/ui/Card';
@@ -23,6 +23,7 @@ interface Bid {
   counter_delivery_days: number | null;
   counter_by: 'buyer' | 'seller' | null;
   counter_note: string | null;
+  attachments?: { url: string; name: string; type?: string; size?: number }[];
   createdAt: string;
   seller: Seller | null;
 }
@@ -53,6 +54,9 @@ export default function JobDetailPage() {
   const [bids,     setBids]     = useState<Bid[]>([]);
   const [loading,  setLoading]  = useState(true);
   const [error,    setError]    = useState('');
+  const [descExpanded, setDescExpanded] = useState(false);
+  const [descTruncated, setDescTruncated] = useState(false);
+  const descRef = useRef<HTMLDivElement>(null);
 
   // Accept modal
   const [acceptTarget,   setAcceptTarget]   = useState<Bid | null>(null);
@@ -88,6 +92,13 @@ export default function JobDetailPage() {
     if (id) fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  // Only show the Read More toggle when the clamped description actually overflows
+  useEffect(() => {
+    if (descRef.current) {
+      setDescTruncated(descRef.current.scrollHeight > descRef.current.clientHeight);
+    }
+  }, [job?.description]);
 
   const openCounter = (bid: Bid) => {
     setCounterTarget(bid);
@@ -170,9 +181,17 @@ export default function JobDetailPage() {
                   <h2 className="text-lg font-bold text-gray-900">{job.title}</h2>
                   <p className="text-sm text-gray-500 mt-1">{job.category}</p>
                   {job.description && (
-                    <div className="line-clamp-3">
-                      <RichTextView html={job.description} className="text-sm text-gray-600 mt-2" />
-                    </div>
+                    <>
+                      <div ref={descRef} className={descExpanded ? '' : 'line-clamp-3'}>
+                        <RichTextView html={job.description} className="text-sm text-gray-600 mt-2" />
+                      </div>
+                      {(descTruncated || descExpanded) && (
+                        <button onClick={() => setDescExpanded(v => !v)}
+                          className="text-xs font-semibold text-[#e84545] hover:underline mt-1">
+                          {descExpanded ? 'Read less' : 'Read more'}
+                        </button>
+                      )}
+                    </>
                   )}
                 </div>
                 <div className="flex-shrink-0 text-right">
@@ -250,6 +269,24 @@ export default function JobDetailPage() {
                             <p className="font-semibold text-gray-700 text-sm">{bid.delivery_days} days</p>
                           </div>
                         </div>
+
+                        {bid.attachments && bid.attachments.length > 0 && (
+                          <div className="mt-3 bg-white rounded-xl p-3 border border-gray-100">
+                            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+                              <i className="fa fa-paperclip mr-1" />Portfolio / Work Samples
+                            </p>
+                            <div className="flex flex-wrap gap-2">
+                              {bid.attachments.map((doc, i) => (
+                                <a key={`${doc.url}-${i}`} href={doc.url} target="_blank" rel="noreferrer"
+                                  className="inline-flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5 text-xs text-gray-700 hover:border-[#e84545] hover:text-[#e84545] transition">
+                                  <i className="fa fa-file-o text-[#e84545]" />
+                                  <span className="max-w-[180px] truncate">{doc.name}</span>
+                                  <i className="fa fa-external-link text-[10px] text-gray-400" />
+                                </a>
+                              ))}
+                            </div>
+                          </div>
+                        )}
 
                         {bid.proposal && (
                           <div className="mt-3 bg-white rounded-xl p-3 border border-gray-100">

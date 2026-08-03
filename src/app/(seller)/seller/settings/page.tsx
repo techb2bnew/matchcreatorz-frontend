@@ -1,12 +1,13 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import Cookies from 'js-cookie';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import Modal from '@/components/ui/Modal';
 import Button from '@/components/ui/Button';
 import { cn } from '@/lib/utils';
 import { preferencesApi, supportApi, feedbackApi, walletApi, profileApi } from '@/lib/adminApi';
+import { useAppDispatch } from '@/store/hooks';
+import { logoutUser } from '@/store/slices/authSlice';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import toast from 'react-hot-toast';
 
@@ -36,6 +37,7 @@ function Toggle({ on, onChange }: { on: boolean; onChange: () => void }) {
 
 export default function SellerSettingsPage() {
   const router = useRouter();
+  const dispatch = useAppDispatch();
   const [activeTab, setActiveTab] = useState<Tab>('notifications');
 
   // Email Support form
@@ -122,7 +124,7 @@ export default function SellerSettingsPage() {
     setDeletingAccount(true);
     try {
       await profileApi.deleteAccount('seller', deleteReason.trim() || undefined);
-      Cookies.remove('mc_token'); Cookies.remove('mc_user_type');
+      await dispatch(logoutUser());
       toast.success('Account deleted');
       router.push('/login');
     } catch (e: unknown) {

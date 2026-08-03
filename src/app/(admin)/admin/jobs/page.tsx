@@ -38,6 +38,7 @@ interface Job {
 const statusBadge = (s: string) => {
   if (s === 'OPEN')        return 'bg-green-100 text-green-700';
   if (s === 'IN_PROGRESS') return 'bg-blue-100 text-blue-700';
+  if (s === 'COMPLETED')   return 'bg-purple-100 text-purple-700';
   if (s === 'CLOSED')      return 'bg-gray-100 text-gray-500';
   if (s === 'CANCELLED')   return 'bg-red-100 text-red-600';
   return 'bg-gray-100 text-gray-500';
@@ -46,6 +47,7 @@ const statusBadge = (s: string) => {
 const statusLabel = (s: string) => {
   if (s === 'OPEN')        return 'Open';
   if (s === 'IN_PROGRESS') return 'In Progress';
+  if (s === 'COMPLETED')   return 'Completed';
   if (s === 'CLOSED')      return 'Closed';
   if (s === 'CANCELLED')   return 'Cancelled';
   return s;

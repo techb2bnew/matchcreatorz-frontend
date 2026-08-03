@@ -7,7 +7,7 @@ import Card from '@/components/ui/Card';
 import Avatar from '@/components/ui/Avatar';
 import Modal from '@/components/ui/Modal';
 import Button from '@/components/ui/Button';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, formatBookingAmount } from '@/lib/utils';
 import { buyerBookingApi, BookingAttachment } from '@/lib/adminApi';
 import toast from 'react-hot-toast';
 
@@ -27,6 +27,8 @@ interface Booking {
   title: string;
   amount: string;
   platform_fee: string;
+  job_type: string;
+  hours_worked: string | null;
   status: string;
   notes: string | null;
   cancel_reason: string | null;
@@ -176,13 +178,15 @@ export default function BuyerBookingDetailPage() {
 
                 <div className="grid grid-cols-3 gap-3">
                   {[
-                    { label: 'Amount',       value: formatCurrency(Number(booking.amount)),      highlight: true },
+                    { label: booking.job_type === 'hourly' ? (booking.hours_worked != null ? 'Total' : 'Rate') : 'Amount',
+                      value: formatBookingAmount(booking).primary, sub: formatBookingAmount(booking).subtitle, highlight: true },
                     { label: 'Platform Fee', value: formatCurrency(Number(booking.platform_fee))               },
                     { label: 'Delivery',     value: booking.delivery_days ? `${booking.delivery_days} days` : '-' },
                   ].map(i => (
                     <div key={i.label} className="bg-gray-50 rounded-xl p-3 text-center">
                       <p className="text-xs text-gray-400">{i.label}</p>
                       <p className={`font-semibold text-sm mt-0.5 ${i.highlight ? 'text-[#e84545]' : 'text-gray-800'}`}>{i.value}</p>
+                      {i.sub && <p className="text-[10px] text-gray-400 mt-0.5">{i.sub}</p>}
                     </div>
                   ))}
                 </div>

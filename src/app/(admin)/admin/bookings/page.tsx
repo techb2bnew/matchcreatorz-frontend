@@ -6,7 +6,7 @@ import Avatar from '@/components/ui/Avatar';
 import Modal from '@/components/ui/Modal';
 import Button from '@/components/ui/Button';
 import CustomSelect from '@/components/ui/CustomSelect';
-import { formatCurrency, formatTimeAgo } from '@/lib/utils';
+import { formatCurrency, formatTimeAgo, formatBookingAmount } from '@/lib/utils';
 import { adminBookingApi } from '@/lib/adminApi';
 
 interface BookingUser { id: number; name: string; email: string; }
@@ -15,6 +15,8 @@ interface Booking {
   title: string;
   amount: string;
   platform_fee: string;
+  job_type: string;
+  hours_worked: string | null;
   status: string;
   notes: string | null;
   cancel_reason: string | null;
@@ -201,7 +203,7 @@ export default function AdminBookingsPage() {
                               <span className="text-gray-600 text-xs">{b.seller?.name || '-'}</span>
                             </div>
                           </td>
-                          <td className="px-4 py-3 font-semibold text-gray-900">{formatCurrency(Number(b.amount))}</td>
+                          <td className="px-4 py-3 font-semibold text-gray-900">{formatBookingAmount(b).primary}</td>
                           <td className="px-4 py-3">
                             <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${cfg.color}`}>{cfg.label}</span>
                           </td>
@@ -281,13 +283,15 @@ export default function AdminBookingsPage() {
             </div>
             <div className="grid grid-cols-3 gap-3">
               {[
-                { label: 'Amount',   value: formatCurrency(Number(selected.amount)),       highlight: true },
+                { label: selected.job_type === 'hourly' ? (selected.hours_worked != null ? 'Total' : 'Rate') : 'Amount',
+                  value: formatBookingAmount(selected).primary, sub: formatBookingAmount(selected).subtitle, highlight: true },
                 { label: 'Fee',      value: formatCurrency(Number(selected.platform_fee))               },
                 { label: 'Delivery', value: selected.delivery_days ? `${selected.delivery_days}d` : '-' },
               ].map(i => (
                 <div key={i.label} className="bg-gray-50 rounded-xl p-3 text-center">
                   <p className="text-xs text-gray-400">{i.label}</p>
                   <p className={`font-semibold text-sm mt-0.5 ${i.highlight ? 'text-[#e84545]' : 'text-gray-800'}`}>{i.value}</p>
+                  {i.sub && <p className="text-[10px] text-gray-400 mt-0.5">{i.sub}</p>}
                 </div>
               ))}
             </div>

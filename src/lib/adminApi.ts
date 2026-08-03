@@ -57,6 +57,8 @@ export const buyerApi = {
   get:     (id: number)          => req('GET',   `/api/v1/admin/buyers/${id}`),
   add:     (body: unknown)       => req('POST',  `/api/v1/admin/buyers`, body),
   edit:    (id: number, b: unknown) => req('PUT', `/api/v1/admin/buyers/${id}`, b),
+  approve: (id: number)          => req('PATCH', `/api/v1/admin/buyers/${id}/approve`),
+  reject:  (id: number)          => req('PATCH', `/api/v1/admin/buyers/${id}/reject`),
   block:   (id: number)          => req('PATCH', `/api/v1/admin/buyers/${id}/block`),
   unblock: (id: number)          => req('PATCH', `/api/v1/admin/buyers/${id}/unblock`),
 };
@@ -234,7 +236,7 @@ export const sellerBookingApi = {
   },
   get:     (id: number) => req('GET',   `/api/v1/seller/bookings/${id}`),
   accept:  (id: number) => req('PATCH', `/api/v1/seller/bookings/${id}/accept`),
-  submit:  (id: number, body: { attachments?: BookingAttachment[]; notes?: string; delivery_days?: number | null } = {}) =>
+  submit:  (id: number, body: { attachments?: BookingAttachment[]; notes?: string; delivery_days?: number | null; hours_worked?: number } = {}) =>
     req('PATCH', `/api/v1/seller/bookings/${id}/submit`, body),
   cancel:  (id: number, cancel_reason?: string) => req('PATCH', `/api/v1/seller/bookings/${id}/cancel`, { cancel_reason }),
   uploadAttachment: (file: File) => {
@@ -334,10 +336,16 @@ export const sellerJobApi = {
     return req('GET', `/api/v1/seller/jobs${q ? `?${q}` : ''}`);
   },
   get:         (id: number) => req('GET',    `/api/v1/seller/jobs/${id}`),
-  bid:         (id: number, body: { amount: number; delivery_days: number; proposal?: string }) =>
+  bid:         (id: number, body: { amount: number; delivery_days: number; proposal?: string; attachments?: BookingAttachment[] }) =>
     req('POST',   `/api/v1/seller/jobs/${id}/bid`, body),
-  updateBid:   (id: number, body: { amount: number; delivery_days: number; proposal?: string }) =>
+  updateBid:   (id: number, body: { amount: number; delivery_days: number; proposal?: string; attachments?: BookingAttachment[] }) =>
     req('PATCH',  `/api/v1/seller/jobs/${id}/bid`, body),
+  /** POST /api/v1/seller/bids/upload — upload one portfolio/work-sample file, returns { url, name, type, size } */
+  uploadBidFile: (file: File) => {
+    const fd = new FormData();
+    fd.append('file', file);
+    return sendForm('POST', `/api/v1/seller/bids/upload`, fd);
+  },
   withdrawBid: (id: number) =>
     req('DELETE', `/api/v1/seller/jobs/${id}/bid`),
   counterBid:  (id: number, body: { amount: number; delivery_days?: number; note?: string }) =>
@@ -598,5 +606,68 @@ export const adminConnectApi = {
       Object.entries(params).filter(([, v]) => v !== undefined && v !== null && String(v) !== '').map(([k, v]) => [k, String(v)])
     ).toString();
     return req('GET', `/api/v1/admin/connects/${sellerId}/history${q ? `?${q}` : ''}`);
+  },
+};
+
+// -- Admin Reports --------------------------------------------------------
+export interface ReportType { key: string; label: string; description: string }
+export interface ReportChartPoint { date: string; value: number; type?: string }
+export interface ReportResult {
+  summary: Record<string, unknown>;
+  chart: ReportChartPoint[];
+  columns: { key: string; label: string }[];
+  rows: Record<string, unknown>[];
+  truncated: boolean;
+}
+export const adminReportApi = {
+  types: (): Promise<{ data: ReportType[] }> => req('GET', `/api/v1/admin/reports/types`),
+
+  get: (type: string, params: { from?: string; to?: string } = {}): Promise<{ data: ReportResult }> => {
+    const q = new URLSearchParams(
+      Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== '').map(([k, v]) => [k, String(v)])
+    ).toString();
+    return req('GET', `/api/v1/admin/reports/${type}${q ? `?${q}` : ''}`);
+  },
+
+  /** Downloads the CSV client-side (auth header can't travel on a plain <a href>) */
+  export: async (type: string, params: { from?: string; to?: string } = {}) => {
+    const q = new URLSearchParams(
+      Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== '').map(([k, v]) => [k, String(v)])
+    ).toString();
+    const res = await fetch(`${API}/api/v1/admin/reports/${type}/export${q ? `?${q}` : ''}`, {
+      headers: { Authorization: `Bearer ${Cookies.get('mc_token') || ''}` },
+    });
+    if (!res.ok) throw new Error('Export failed');
+    const blob = await res.blob();
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url;
+    a.download = `${type}-report.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  },
+};
+
+// -- Admin Broadcast ------------------------------------------------------
+export interface AdminBroadcast {
+  id: number;
+  title: string;
+  body: string;
+  audience: 'ALL' | 'SELLER' | 'BUYER';
+  recipient_count: number;
+  created_at?: string;
+  createdAt?: string;
+  admin?: { id: number; name: string };
+}
+export const adminBroadcastApi = {
+  send: (body: { title: string; body: string; audience: 'ALL' | 'SELLER' | 'BUYER' }) =>
+    req('POST', `/api/v1/admin/broadcasts`, body),
+  list: (params: { page?: number; limit?: number } = {}) => {
+    const q = new URLSearchParams(
+      Object.entries(params).filter(([, v]) => v !== undefined && v !== null && String(v) !== '').map(([k, v]) => [k, String(v)])
+    ).toString();
+    return req('GET', `/api/v1/admin/broadcasts${q ? `?${q}` : ''}`);
   },
 };

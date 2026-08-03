@@ -16,6 +16,8 @@ export const adminNav: NavItem[] = [
   { label: 'Connects',       href: '/admin/connects',      icon: 'fa-link'           },
   { label: 'Wallet',         href: '/admin/wallet',        icon: 'fa-credit-card'    },
   { label: 'Reviews',        href: '/admin/reviews',       icon: 'fa-star'           },
+  { label: 'Reports',        href: '/admin/reports',       icon: 'fa-bar-chart'      },
+  { label: 'Broadcast',      href: '/admin/broadcast',     icon: 'fa-bullhorn'       },
   { label: 'Support',        href: '/admin/support',       icon: 'fa-life-ring'      },
   { label: 'Notifications',  href: '/admin/notifications', icon: 'fa-bell'           },
   { label: 'Banners',        href: '/admin/banners',       icon: 'fa-picture-o'      },

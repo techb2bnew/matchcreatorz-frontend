@@ -7,7 +7,7 @@ import Card from '@/components/ui/Card';
 import Avatar from '@/components/ui/Avatar';
 import Modal from '@/components/ui/Modal';
 import Button from '@/components/ui/Button';
-import { formatCurrency, formatTimeAgo } from '@/lib/utils';
+import { formatCurrency, formatTimeAgo, formatBookingAmount } from '@/lib/utils';
 import { buyerBookingApi, buyerReviewApi, BookingAttachment } from '@/lib/adminApi';
 import toast from 'react-hot-toast';
 
@@ -22,6 +22,8 @@ interface Booking {
   title: string;
   amount: string;
   platform_fee: string;
+  job_type: string;
+  hours_worked: string | null;
   status: string;
   notes: string | null;
   cancel_reason: string | null;
@@ -224,8 +226,10 @@ export default function BuyerBookingsPage() {
                           )}
                         </div>
                         <div className="text-right flex-shrink-0">
-                          <p className="font-bold text-gray-900 text-sm">{formatCurrency(Number(b.amount))}</p>
-                          <p className="text-xs text-gray-400">incl. {formatCurrency(Number(b.platform_fee))} fee</p>
+                          <p className="font-bold text-gray-900 text-sm">{formatBookingAmount(b).primary}</p>
+                          <p className="text-xs text-gray-400">
+                            {b.job_type === 'hourly' ? formatBookingAmount(b).subtitle : `incl. ${formatCurrency(Number(b.platform_fee))} fee`}
+                          </p>
                         </div>
                         <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium flex-shrink-0 ${cfg.color}`}>
                           <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />

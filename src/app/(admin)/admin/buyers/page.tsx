@@ -7,7 +7,7 @@ import Avatar from '@/components/ui/Avatar';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import CustomSelect from '@/components/ui/CustomSelect';
-import { formatDate, formatCurrency } from '@/lib/utils';
+import { formatDate, formatCurrency, getProfileStatusColor } from '@/lib/utils';
 import { buyerApi } from '@/lib/adminApi';
 import { TableSkeleton, Spinner } from '@/components/ui/Loader';
 import toast from 'react-hot-toast';
@@ -27,7 +27,8 @@ const mapBuyer = (b: any) => ({
   phone:     b.phone || '--',
   bookings:  b.bookings_count || 0,
   spent:     Number(b.total_spent || 0),
-  status:    b.status || 'active',
+  status:    (b.profile?.approval_status || 'pending').toUpperCase(),
+  userStatus: b.status || 'active',
   joined:    b.joined || b.createdAt,
   city:      b.profile?.city || '--',
   country:   b.profile?.country || '--',
@@ -73,7 +74,7 @@ export default function BuyersPage() {
       const params: Record<string, string | number> = { page, limit: LIMIT };
       if (debouncedSearch) params.search = debouncedSearch;
       if (activeFilter !== 'All') {
-        params.status = activeFilter.toLowerCase();
+        params.approval_status = activeFilter.toLowerCase();
       }
 
       const json = await buyerApi.list(params);
@@ -90,18 +91,12 @@ export default function BuyersPage() {
   useEffect(() => { fetchBuyers(); }, [fetchBuyers]);
   useEffect(() => { setPage(1); }, [activeFilter]);
 
-  // -- Block / Unblock ------------------------------------
-  const handleToggleBlock = async (b: any) => {
-    setActionLoading(b.id);
-    const isBlocked = b.status === 'banned';
+  // -- Approve / Reject / Block / Unblock ------------------------------------
+  const handleAction = async (id: number, action: 'approve' | 'reject' | 'block' | 'unblock', label: string) => {
+    setActionLoading(id);
     try {
-      if (isBlocked) {
-        await buyerApi.unblock(b.id);
-        toast.success('Buyer unblocked');
-      } else {
-        await buyerApi.block(b.id);
-        toast.success('Buyer blocked');
-      }
+      await buyerApi[action](id);
+      toast.success(`Buyer ${label} successfully`);
       fetchBuyers();
     } catch (err: any) {
       toast.error(err.message || 'Action failed');
@@ -207,7 +202,7 @@ export default function BuyersPage() {
               value={search} onChange={(e) => setSearch(e.target.value)} />
           </div>
           <div className="flex gap-2">
-            {['All', 'Active', 'Banned'].map(f => (
+            {['All', 'Approved', 'Pending', 'Rejected'].map(f => (
               <button key={f} onClick={() => setActiveFilter(f)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                   activeFilter === f ? 'bg-[#e84545] text-white' : 'text-gray-500 hover:bg-gray-100'
@@ -227,7 +222,7 @@ export default function BuyersPage() {
         {/* Table */}
         <div className="overflow-x-auto">
           {loading ? (
-            <TableSkeleton rows={7} cols={5} />
+            <TableSkeleton rows={7} cols={6} />
           ) : buyers.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-gray-400">
               <i className="fa fa-users text-3xl mb-2" />
@@ -237,7 +232,7 @@ export default function BuyersPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-100">
-                  {['Buyer', 'Email', 'Phone', 'Bookings', 'Spent', 'Status', 'Joined', 'Actions'].map(h => (
+                  {['Buyer', 'Email', 'Phone', 'Bookings', 'Spent', 'Status', 'User Status', 'Joined', 'Actions'].map(h => (
                     <th key={h} className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wider px-4 py-3">{h}</th>
                   ))}
                 </tr>
@@ -256,8 +251,11 @@ export default function BuyersPage() {
                     <td className="px-4 py-3 text-gray-700">{b.bookings}</td>
                     <td className="px-4 py-3 font-semibold text-gray-900">{formatCurrency(b.spent)}</td>
                     <td className="px-4 py-3">
-                      <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${statusClass(b.status)}`}>
-                        {b.status === 'banned' ? 'BLOCKED' : 'ACTIVE'}
+                      <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${getProfileStatusColor(b.status)}`}>{b.status}</span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${statusClass(b.userStatus)}`}>
+                        {b.userStatus === 'banned' ? 'BLOCKED' : 'ACTIVE'}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-gray-400 text-xs">{formatDate(b.joined)}</td>
@@ -271,14 +269,33 @@ export default function BuyersPage() {
                           className="p-1.5 rounded-lg text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 transition" title="Edit">
                           <i className="fa fa-pencil text-sm" />
                         </button>
-                        <button onClick={() => handleToggleBlock(b)}
-                          disabled={actionLoading === b.id}
-                          className={`p-1.5 rounded-lg transition ${b.status === 'banned' ? 'text-gray-400 hover:text-green-600 hover:bg-green-50' : 'text-gray-400 hover:text-red-600 hover:bg-red-50'}`}
-                          title={b.status === 'banned' ? 'Unblock' : 'Block'}>
-                          {actionLoading === b.id
-                            ? <Spinner size="xs" color="gray" />
-                            : <i className={`fa ${b.status === 'banned' ? 'fa-unlock' : 'fa-ban'} text-sm`} />}
-                        </button>
+                        {b.status !== 'APPROVED' && (
+                          <button onClick={() => handleAction(b.id, 'approve', 'approved')}
+                            disabled={actionLoading === b.id}
+                            className="p-1.5 rounded-lg text-gray-400 hover:text-green-600 hover:bg-green-50 transition" title="Approve">
+                            {actionLoading === b.id ? <Spinner size="xs" color="gray" /> : <i className="fa fa-check-circle text-sm" />}
+                          </button>
+                        )}
+                        {b.status !== 'REJECTED' && (
+                          <button onClick={() => handleAction(b.id, 'reject', 'rejected')}
+                            disabled={actionLoading === b.id}
+                            className="p-1.5 rounded-lg text-gray-400 hover:text-orange-500 hover:bg-orange-50 transition" title="Reject">
+                            <i className="fa fa-times-circle text-sm" />
+                          </button>
+                        )}
+                        {b.userStatus === 'banned' ? (
+                          <button onClick={() => handleAction(b.id, 'unblock', 'unblocked')}
+                            disabled={actionLoading === b.id}
+                            className="p-1.5 rounded-lg text-gray-400 hover:text-green-600 hover:bg-green-50 transition" title="Unblock">
+                            {actionLoading === b.id ? <Spinner size="xs" color="gray" /> : <i className="fa fa-unlock text-sm" />}
+                          </button>
+                        ) : (
+                          <button onClick={() => handleAction(b.id, 'block', 'blocked')}
+                            disabled={actionLoading === b.id}
+                            className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition" title="Block">
+                            {actionLoading === b.id ? <Spinner size="xs" color="gray" /> : <i className="fa fa-ban text-sm" />}
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -373,8 +390,9 @@ export default function BuyersPage() {
               <div>
                 <p className="font-bold text-gray-900 text-lg">{viewBuyer.name}</p>
                 <p className="text-sm text-gray-400">{viewBuyer.email}</p>
-                <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium mt-1 ${statusClass(viewBuyer.status)}`}>
-                  {viewBuyer.status === 'banned' ? 'BLOCKED' : 'ACTIVE'}
+                <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium mt-1 mr-1 ${getProfileStatusColor(viewBuyer.status)}`}>{viewBuyer.status}</span>
+                <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium mt-1 ${statusClass(viewBuyer.userStatus)}`}>
+                  {viewBuyer.userStatus === 'banned' ? 'BLOCKED' : 'ACTIVE'}
                 </span>
               </div>
             </div>

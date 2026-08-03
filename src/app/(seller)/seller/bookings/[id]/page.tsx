@@ -7,7 +7,7 @@ import Card from '@/components/ui/Card';
 import Avatar from '@/components/ui/Avatar';
 import Modal from '@/components/ui/Modal';
 import Button from '@/components/ui/Button';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, formatBookingAmount } from '@/lib/utils';
 import { sellerBookingApi, BookingAttachment } from '@/lib/adminApi';
 import toast from 'react-hot-toast';
 
@@ -28,6 +28,8 @@ interface Booking {
   title: string;
   amount: string;
   platform_fee: string;
+  job_type: string;
+  hours_worked: string | null;
   status: string;
   notes: string | null;
   cancel_reason: string | null;
@@ -40,6 +42,18 @@ interface Booking {
   seller: BookingUser | null;
   milestones: Milestone[];
 }
+
+const MAX_DELIVERY_DAYS = 365;
+const MAX_HOURS = 1000;
+// Real-time clamp — `max` on <input type="number"> doesn't stop typing extra digits, only submit-time validation does.
+// Keeps partial decimal typing (e.g. "0.") intact; only snaps once the parsed value actually exceeds max.
+const clampNumber = (raw: string, max: number) => {
+  if (raw === '') return '';
+  const cleaned = raw.replace(/[^\d.]/g, '');
+  const num = parseFloat(cleaned);
+  if (isNaN(num)) return cleaned;
+  return num > max ? String(max) : cleaned;
+};
 
 const STATUS_CFG: Record<string, { label: string; color: string; dot: string }> = {
   pending:           { label: 'Pending',       color: 'bg-yellow-100 text-yellow-700', dot: 'bg-yellow-400' },
@@ -85,6 +99,7 @@ export default function SellerBookingDetailPage() {
   const [submitFiles,  setSubmitFiles]  = useState<File[]>([]);
   const [submitNotes,  setSubmitNotes]  = useState('');
   const [submitDuration, setSubmitDuration] = useState('');
+  const [submitHours,  setSubmitHours]  = useState('');
   const [submitting,   setSubmitting]   = useState(false);
 
   // Milestone setup form
@@ -125,6 +140,7 @@ export default function SellerBookingDetailPage() {
     setSubmitFiles([]);
     setSubmitNotes('');
     setSubmitDuration('');
+    setSubmitHours('');
   };
 
   const uploadAll = async (): Promise<BookingAttachment[]> => {
@@ -136,14 +152,26 @@ export default function SellerBookingDetailPage() {
     return out;
   };
 
+  const isHourlyWholeBooking = (b: Booking, milestoneId: number | null) => milestoneId == null && b.job_type === 'hourly';
+
+  // `amount` holds the $/hr rate until first submission, then the computed total —
+  // recover the original rate on resubmission the same way the backend does.
+  const currentHourlyRate = (b: Booking) =>
+    b.hours_worked != null ? Number(b.amount) / Number(b.hours_worked) : Number(b.amount);
+
   const handleSubmit = async () => {
     if (!booking || !submitTarget) return;
+    if (isHourlyWholeBooking(booking, submitTarget.milestoneId) && (!submitHours || Number(submitHours) <= 0)) {
+      toast.error('Enter the hours worked');
+      return;
+    }
     setSubmitting(true);
     try {
       const attachments = await uploadAll();
       const duration = submitDuration ? Number(submitDuration) : undefined;
       if (submitTarget.milestoneId == null) {
-        await sellerBookingApi.submit(booking.id, { attachments, notes: submitNotes || undefined, delivery_days: duration });
+        const hours = isHourlyWholeBooking(booking, submitTarget.milestoneId) ? Number(submitHours) : undefined;
+        await sellerBookingApi.submit(booking.id, { attachments, notes: submitNotes || undefined, delivery_days: duration, hours_worked: hours });
         toast.success('Work submitted for review!');
       } else {
         await sellerBookingApi.submitMilestone(booking.id, submitTarget.milestoneId, { attachments, notes: submitNotes || undefined, duration_days: duration });
@@ -223,13 +251,15 @@ export default function SellerBookingDetailPage() {
 
                 <div className="grid grid-cols-3 gap-3">
                   {[
-                    { label: 'Amount',       value: formatCurrency(Number(booking.amount)),      highlight: true },
+                    { label: booking.job_type === 'hourly' ? (booking.hours_worked != null ? 'Total' : 'Rate') : 'Amount',
+                      value: formatBookingAmount(booking).primary, sub: formatBookingAmount(booking).subtitle, highlight: true },
                     { label: 'Platform Fee', value: formatCurrency(Number(booking.platform_fee))               },
                     { label: 'Delivery',     value: booking.delivery_days ? `${booking.delivery_days} days` : '-' },
                   ].map(i => (
                     <div key={i.label} className="bg-gray-50 rounded-xl p-3 text-center">
                       <p className="text-xs text-gray-400">{i.label}</p>
                       <p className={`font-semibold text-sm mt-0.5 ${i.highlight ? 'text-[#e84545]' : 'text-gray-800'}`}>{i.value}</p>
+                      {i.sub && <p className="text-[10px] text-gray-400 mt-0.5">{i.sub}</p>}
                     </div>
                   ))}
                 </div>
@@ -350,9 +380,15 @@ export default function SellerBookingDetailPage() {
                     <Button variant="primary" fullWidth disabled={acting} onClick={() => openSubmitForm(null)}>
                       Submit Work for Review
                     </Button>
-                    <button onClick={() => setShowMilestoneSetup(true)}
-                      className="w-full text-xs text-gray-500 hover:text-[#e84545] hover:underline text-center">
-                      <i className="fa fa-flag-checkered mr-1" />Split into milestones instead
+                    {booking.job_type !== 'hourly' && (
+                      <button onClick={() => setShowMilestoneSetup(true)}
+                        className="w-full text-xs text-gray-500 hover:text-[#e84545] hover:underline text-center">
+                        <i className="fa fa-flag-checkered mr-1" />Split into milestones instead
+                      </button>
+                    )}
+                    <button onClick={() => setShowCancel(true)}
+                      className="w-full text-xs text-red-500 hover:underline text-center pt-1">
+                      Cancel this booking
                     </button>
                   </>
                 )}
@@ -380,18 +416,28 @@ export default function SellerBookingDetailPage() {
 
       {/* Decline/cancel confirm */}
       {showCancel && booking && (
-        <Modal isOpen onClose={() => { setShowCancel(false); setReason(''); }} title="Decline Order" size="sm">
+        <Modal isOpen onClose={() => { setShowCancel(false); setReason(''); }}
+          title={booking.status === 'pending' ? 'Decline Order' : 'Cancel Booking'} size="sm">
           <div className="space-y-4">
-            <p className="text-sm text-gray-600">Decline booking: <strong>{booking.title}</strong>?</p>
+            <p className="text-sm text-gray-600">
+              {booking.status === 'pending' ? 'Decline' : 'Cancel'} booking: <strong>{booking.title}</strong>?
+            </p>
+            {booking.status === 'ongoing' && (
+              <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-xl p-3">
+                <i className="fa fa-exclamation-triangle mr-1" />
+                You already agreed to these terms — cancelling now notifies the buyer and ends the booking.
+              </p>
+            )}
             <textarea value={reason} onChange={e => setReason(e.target.value)} rows={3}
-              placeholder="Reason for declining (optional)"
+              placeholder={booking.status === 'pending' ? 'Reason for declining (optional)' : 'Reason for cancelling (optional)'}
               className="w-full border border-gray-200 rounded-xl p-3 text-sm focus:outline-none focus:border-[#e84545]" />
             {actionMsg && <p className="text-sm text-center font-medium text-red-600">{actionMsg}</p>}
             <div className="flex gap-2">
               <Button variant="outline" fullWidth onClick={() => { setShowCancel(false); setReason(''); }}>Back</Button>
               <Button variant="primary" fullWidth disabled={acting}
-                onClick={() => doAction(() => sellerBookingApi.cancel(booking.id, reason || undefined), 'Order declined', true)}>
-                {acting ? 'Processing...' : 'Confirm Decline'}
+                onClick={() => doAction(() => sellerBookingApi.cancel(booking.id, reason || undefined),
+                  booking.status === 'pending' ? 'Order declined' : 'Booking cancelled', true)}>
+                {acting ? 'Processing...' : booking.status === 'pending' ? 'Confirm Decline' : 'Confirm Cancel'}
               </Button>
             </div>
           </div>
@@ -409,10 +455,28 @@ export default function SellerBookingDetailPage() {
                 placeholder="Describe what you delivered..."
                 className="w-full border border-gray-200 rounded-xl p-3 text-sm focus:outline-none focus:border-[#e84545] resize-none" />
             </div>
+            {booking && isHourlyWholeBooking(booking, submitTarget.milestoneId) && (
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 mb-1.5">
+                  Hours Worked <span className="font-normal text-gray-400 normal-case">(at {formatCurrency(currentHourlyRate(booking))}/hr)</span>
+                </label>
+                <div className="relative">
+                  <input type="number" min={0.25} max={MAX_HOURS} step={0.25} value={submitHours} onChange={(e) => setSubmitHours(clampNumber(e.target.value, MAX_HOURS))}
+                    placeholder="e.g. 20"
+                    className="w-full border border-gray-200 rounded-xl pl-3 pr-14 h-10 text-sm focus:outline-none focus:border-[#e84545]" />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">hrs</span>
+                </div>
+                {submitHours && Number(submitHours) > 0 && (
+                  <p className="text-xs text-gray-500 mt-1.5">
+                    {submitHours} hrs &times; {formatCurrency(currentHourlyRate(booking))}/hr = <strong className="text-gray-800">{formatCurrency(Number(submitHours) * currentHourlyRate(booking))}</strong> total
+                  </p>
+                )}
+              </div>
+            )}
             <div>
               <label className="block text-xs font-semibold text-gray-500 mb-1.5">Duration (optional)</label>
               <div className="relative">
-                <input type="number" min={1} value={submitDuration} onChange={(e) => setSubmitDuration(e.target.value)}
+                <input type="number" min={1} max={MAX_DELIVERY_DAYS} value={submitDuration} onChange={(e) => setSubmitDuration(clampNumber(e.target.value, MAX_DELIVERY_DAYS))}
                   placeholder="Days taken to deliver"
                   className="w-full border border-gray-200 rounded-xl pl-3 pr-14 h-10 text-sm focus:outline-none focus:border-[#e84545]" />
                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">days</span>

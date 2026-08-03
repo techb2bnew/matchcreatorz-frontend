@@ -7,13 +7,24 @@ import Button from '@/components/ui/Button';
 import Avatar from '@/components/ui/Avatar';
 import RichTextEditor, { RichTextView } from '@/components/ui/RichTextEditor';
 import { formatCurrency } from '@/lib/utils';
-import { sellerJobApi } from '@/lib/adminApi';
+import { sellerJobApi, profileApi, BookingAttachment } from '@/lib/adminApi';
+import { compressImages } from '@/lib/imageCompress';
 import toast from 'react-hot-toast';
+
+const MAX_DELIVERY_DAYS = 365;
+const MAX_BID_FILES = 5;
+// Real-time clamp — `max` on <input type="number"> doesn't stop typing extra digits, only submit-time validation does
+const clampDays = (raw: string) => {
+  if (raw === '') return '';
+  const digits = raw.replace(/[^\d]/g, '').slice(0, 3); // 365 is at most 3 digits
+  return String(Math.min(Number(digits) || 0, MAX_DELIVERY_DAYS));
+};
 
 interface MyBid {
   id: number; amount: number; delivery_days: number; proposal: string | null; status: string;
   counter_amount?: number | null; counter_delivery_days?: number | null;
   counter_by?: 'buyer' | 'seller' | null; counter_note?: string | null;
+  attachments?: BookingAttachment[];
 }
 interface JobDetail {
   id: number; title: string; description: string | null; category: string;
@@ -37,8 +48,11 @@ export default function SellerJobDetailPage() {
   const [amount, setAmount]     = useState('');
   const [days, setDays]         = useState('');
   const [proposal, setProposal] = useState('');
+  const [bidFiles, setBidFiles] = useState<BookingAttachment[]>([]);
+  const [uploading, setUploading] = useState(false);
   const [saving, setSaving]     = useState(false);
   const [editing, setEditing]   = useState(false);
+  const [myHourlyRate, setMyHourlyRate] = useState<number | null>(null);
 
   // counter form
   const [showCounter, setShowCounter] = useState(false);
@@ -57,6 +71,7 @@ export default function SellerJobDetailPage() {
         setAmount(String(j.my_bid.amount));
         setDays(String(j.my_bid.delivery_days));
         setProposal(j.my_bid.proposal || '');
+        setBidFiles(Array.isArray(j.my_bid.attachments) ? j.my_bid.attachments : []);
       }
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Failed to load job');
@@ -65,16 +80,51 @@ export default function SellerJobDetailPage() {
 
   useEffect(() => { if (id) load(); }, [id, load]);
 
+  useEffect(() => {
+    profileApi.get('seller')
+      .then(r => { const rate = r.data?.seller_profile?.hourly_rate; if (rate != null) setMyHourlyRate(Number(rate)); })
+      .catch(() => {});
+  }, []);
+
+  // Prefill the rate for a fresh hourly bid once both the job and the seller's own rate are known
+  useEffect(() => {
+    if (job && !job.my_bid && job.job_type === 'hourly' && myHourlyRate != null && !amount) {
+      setAmount(String(myHourlyRate));
+    }
+  }, [job, myHourlyRate, amount]);
+
+  const handlePickFiles = async (picked: File[]) => {
+    const room = MAX_BID_FILES - bidFiles.length;
+    const files = picked.slice(0, room);
+    if (picked.length > files.length) {
+      toast.error(`Only ${MAX_BID_FILES} files allowed — ${picked.length - files.length} skipped.`);
+    }
+    if (!files.length) return;
+    setUploading(true);
+    try {
+      const compressed = await compressImages(files);
+      const uploaded: BookingAttachment[] = [];
+      for (const f of compressed) {
+        const res = await sellerJobApi.uploadBidFile(f);
+        if (res?.data) uploaded.push(res.data);
+      }
+      setBidFiles(prev => [...prev, ...uploaded]);
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Upload failed');
+    } finally { setUploading(false); }
+  };
+
   const submitBid = async () => {
     if (!amount || Number(amount) <= 0) return toast.error('Enter a valid amount');
     if (!days || Number(days) <= 0)     return toast.error('Enter delivery days');
+    if (Number(days) > MAX_DELIVERY_DAYS) return toast.error(`Delivery days can't exceed ${MAX_DELIVERY_DAYS}`);
     setSaving(true);
     try {
       if (job?.has_bid) {
-        await sellerJobApi.updateBid(Number(id), { amount: Number(amount), delivery_days: Number(days), proposal });
+        await sellerJobApi.updateBid(Number(id), { amount: Number(amount), delivery_days: Number(days), proposal, attachments: bidFiles });
         toast.success('Bid updated');
       } else {
-        await sellerJobApi.bid(Number(id), { amount: Number(amount), delivery_days: Number(days), proposal });
+        await sellerJobApi.bid(Number(id), { amount: Number(amount), delivery_days: Number(days), proposal, attachments: bidFiles });
         toast.success('Bid placed');
       }
       setEditing(false);
@@ -107,6 +157,7 @@ export default function SellerJobDetailPage() {
 
   const sendCounter = async () => {
     if (!cAmount || Number(cAmount) <= 0) return toast.error('Enter a valid amount');
+    if (cDays && Number(cDays) > MAX_DELIVERY_DAYS) return toast.error(`Delivery days can't exceed ${MAX_DELIVERY_DAYS}`);
     setBusy(true);
     try {
       await sellerJobApi.counterBid(Number(id), { amount: Number(cAmount), delivery_days: cDays ? Number(cDays) : undefined, note: cNote || undefined });
@@ -231,8 +282,8 @@ export default function SellerJobDetailPage() {
                           <i className="fa fa-check mr-1" /> Accept {formatCurrency(Number(b.counter_amount))}
                         </Button>
                       )}
-                      {!sellerCountered && (
-                        <Button variant="outline" fullWidth onClick={openCounter}><i className="fa fa-exchange mr-1" /> Counter</Button>
+                      {buyerCountered && (
+                        <Button variant="outline" fullWidth onClick={openCounter}><i className="fa fa-exchange mr-1" /> Recounter</Button>
                       )}
                       {sellerCountered && <p className="text-xs text-center text-blue-600"><i className="fa fa-clock-o mr-1" />Counter sent — awaiting buyer</p>}
                       {!buyerCountered && !sellerCountered && (
@@ -249,13 +300,44 @@ export default function SellerJobDetailPage() {
                 <>
                   <p className="text-sm font-bold text-gray-900 mb-3">{job.has_bid ? 'Edit Your Bid' : 'Place a Bid'}</p>
                   <div className="grid grid-cols-2 gap-3 mb-3">
-                    <div><label className="block text-xs font-semibold text-gray-500 mb-1">Amount ($)</label>
+                    <div><label className="block text-xs font-semibold text-gray-500 mb-1">{job.job_type === 'hourly' ? 'Hourly Rate ($/hr)' : 'Amount ($)'}</label>
                       <input type="number" value={amount} onChange={e => setAmount(e.target.value)} className="w-full border border-gray-200 rounded-xl px-3 h-10 text-sm focus:outline-none focus:border-[#e84545]" /></div>
                     <div><label className="block text-xs font-semibold text-gray-500 mb-1">Delivery (days)</label>
-                      <input type="number" value={days} onChange={e => setDays(e.target.value)} className="w-full border border-gray-200 rounded-xl px-3 h-10 text-sm focus:outline-none focus:border-[#e84545]" /></div>
+                      <input type="number" min={1} max={MAX_DELIVERY_DAYS} value={days} onChange={e => setDays(clampDays(e.target.value))} className="w-full border border-gray-200 rounded-xl px-3 h-10 text-sm focus:outline-none focus:border-[#e84545]" /></div>
                   </div>
                   <div className="mb-3">
                     <RichTextEditor label="Proposal" variant="compact" value={proposal} onChange={setProposal} placeholder="Why are you the best fit?" />
+                  </div>
+                  <div className="mb-3">
+                    <label className="block text-xs font-semibold text-gray-500 mb-1">
+                      Portfolio / Work Samples <span className="font-normal text-gray-400">(optional — up to {MAX_BID_FILES})</span>
+                    </label>
+                    <label className={`flex items-center justify-center gap-2 border-2 border-dashed border-gray-200 rounded-xl py-3 cursor-pointer hover:border-[#e84545] hover:bg-red-50 transition ${(uploading || bidFiles.length >= MAX_BID_FILES) ? 'opacity-60 pointer-events-none' : ''}`}>
+                      <i className={`fa ${uploading ? 'fa-spinner fa-spin' : 'fa-cloud-upload'} text-[#e84545]`} />
+                      <span className="text-sm text-gray-500">
+                        {uploading ? 'Uploading…' : bidFiles.length >= MAX_BID_FILES ? `Limit of ${MAX_BID_FILES} files reached` : 'Attach portfolio samples'}
+                      </span>
+                      <input type="file" multiple hidden
+                        accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.zip,image/*"
+                        onChange={async (e) => {
+                          const picked = Array.from(e.target.files || []);
+                          e.target.value = '';
+                          if (picked.length) await handlePickFiles(picked);
+                        }}
+                      />
+                    </label>
+                    {bidFiles.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {bidFiles.map((doc, i) => (
+                          <span key={`${doc.url}-${i}`} className="inline-flex items-center gap-2 bg-gray-100 rounded-lg px-3 py-1.5 text-xs text-gray-700">
+                            <i className="fa fa-file-o text-[#e84545]" />
+                            <a href={doc.url} target="_blank" rel="noreferrer" className="max-w-[140px] truncate hover:underline">{doc.name}</a>
+                            <button type="button" onClick={() => setBidFiles(bidFiles.filter((_, idx) => idx !== i))}
+                              className="text-gray-400 hover:text-red-500"><i className="fa fa-times" /></button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   <div className="flex gap-2">
                     {editing && <Button variant="outline" fullWidth onClick={() => setEditing(false)}>Cancel</Button>}
@@ -279,7 +361,7 @@ export default function SellerJobDetailPage() {
                   <div><label className="block text-xs font-semibold text-gray-500 mb-1">Amount ($)</label>
                     <input type="number" value={cAmount} onChange={e => setCAmount(e.target.value)} className="w-full border border-gray-200 rounded-xl px-3 h-10 text-sm focus:outline-none focus:border-[#e84545]" /></div>
                   <div><label className="block text-xs font-semibold text-gray-500 mb-1">Delivery (days)</label>
-                    <input type="number" value={cDays} onChange={e => setCDays(e.target.value)} className="w-full border border-gray-200 rounded-xl px-3 h-10 text-sm focus:outline-none focus:border-[#e84545]" /></div>
+                    <input type="number" min={1} max={MAX_DELIVERY_DAYS} value={cDays} onChange={e => setCDays(clampDays(e.target.value))} className="w-full border border-gray-200 rounded-xl px-3 h-10 text-sm focus:outline-none focus:border-[#e84545]" /></div>
                 </div>
                 <textarea rows={2} value={cNote} onChange={e => setCNote(e.target.value)} placeholder="Note (optional)"
                   className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm resize-none mb-3 focus:outline-none focus:border-[#e84545]" />

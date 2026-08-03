@@ -37,6 +37,12 @@ body {
 /* Sidebar transition */
 .sidebar-transition { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
 
+/* Rich-text display (RichTextView): the editor stores blank lines as empty <p></p>,
+   which collapse to 0 height by default — keep them visible so paragraph spacing survives. */
+.mc-rte-view p:empty {
+  min-height: 1em;
+}
+
 /* Page fade in */
 .page-fade-in { animation: fadeIn 0.3s ease-out; }
 

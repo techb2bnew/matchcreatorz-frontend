@@ -8,8 +8,9 @@ import { buyerJobApi, publicCategoryApi, publicStatsApi, PublicPlatformStats } f
 import { useRouter } from 'next/navigation';
 import CustomSelect from '@/components/ui/CustomSelect';
 import RichTextEditor from '@/components/ui/RichTextEditor';
+import { compressImages } from '@/lib/imageCompress';
 
-type Tab = 'posted' | 'post';
+type Tab = 'posted' | 'post' | 'edit';
 const tabs: { key: Tab; label: string; icon: string }[] = [
   { key: 'posted', label: 'My Posted Jobs', icon: 'fa-briefcase' },
   { key: 'post',   label: 'Post New Job',   icon: 'fa-plus'      },
@@ -17,10 +18,13 @@ const tabs: { key: Tab; label: string; icon: string }[] = [
 
 const inputCls = 'w-full border border-[#e8e8e8] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#e84545] focus:ring-1 focus:ring-[#e84545] bg-white transition';
 const labelCls = 'block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide';
+const todayStr = () => new Date().toISOString().slice(0, 10);
+const MAX_ATTACHMENTS = 5;
 
 const STATUS_MAP: Record<string, { label: string; bg: string; color: string }> = {
   OPEN:        { label: 'Open',        bg: '#d1fae5', color: '#059669' },
   IN_PROGRESS: { label: 'In Progress', bg: '#dbeafe', color: '#2563eb' },
+  COMPLETED:   { label: 'Completed',   bg: '#ede9fe', color: '#7c3aed' },
   CLOSED:      { label: 'Closed',      bg: '#f3f4f6', color: '#6b7280' },
   CANCELLED:   { label: 'Cancelled',   bg: '#fef2f2', color: '#e84545' },
 };
@@ -84,6 +88,7 @@ export default function BuyerJobsPage() {
   const [catSearch, setCatSearch] = useState('');
   const [uploadingDocs, setUploadingDocs] = useState(false);
   const [categories, setCategories] = useState<string[]>([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(true);
   const [platformStats, setPlatformStats] = useState<PublicPlatformStats | null>(null);
 
   useEffect(() => {
@@ -132,7 +137,8 @@ export default function BuyerJobsPage() {
   useEffect(() => {
     publicCategoryApi.list()
       .then(r => { if (r.data?.length) setCategories(r.data.map((c: { name: string }) => c.name)); })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setCategoriesLoading(false));
   }, []);
 
   // Reset to first page whenever the search/filter changes
@@ -161,6 +167,8 @@ export default function BuyerJobsPage() {
     if (!f.title.trim()) errs.title = 'Job title is required';
     if (f.budget_min && f.budget_max && Number(f.budget_min) > Number(f.budget_max))
       errs.budget_max = 'Max must be greater than min';
+    if (f.deadline && f.deadline < todayStr())
+      errs.deadline = 'Deadline cannot be in the past';
     return errs;
   };
 
@@ -208,6 +216,7 @@ export default function BuyerJobsPage() {
       attachments:      Array.isArray(job.attachments) ? job.attachments : [],
     });
     setEditMsg(null);
+    setActiveTab('edit');
     try {
       const full = await buyerJobApi.get(job.id);
       const d = full?.data;
@@ -235,7 +244,7 @@ export default function BuyerJobsPage() {
       });
       setEditMsg({ ok: true, text: 'Job updated!' });
       await loadJobs(true);
-      setTimeout(() => setEditJob(null), 1000);
+      setTimeout(() => { setEditJob(null); setActiveTab('posted'); }, 1000);
     } catch (e: unknown) {
       setEditMsg({ ok: false, text: (e as Error).message || 'Failed to update' });
     } finally { setEditSaving(false); }
@@ -313,8 +322,10 @@ export default function BuyerJobsPage() {
                   </button>
                 );
               })}
-              {categories.length === 0 ? (
+              {categoriesLoading ? (
                 <span className="text-xs text-gray-400 py-1">Loading categories…</span>
+              ) : categories.length === 0 ? (
+                <span className="text-xs text-gray-400 py-1">No categories available</span>
               ) : categories.filter(c => c.toLowerCase().includes(catSearch.toLowerCase())).length === 0 && (
                 <span className="text-xs text-gray-400 py-1">No categories match &quot;{catSearch}&quot;</span>
               )}
@@ -358,7 +369,9 @@ export default function BuyerJobsPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label className={labelCls}><i className="fa fa-calendar mr-1 text-[#4f9ef8]" /> Deadline</label>
-          <input className={inputCls} type="date" value={f.deadline} onChange={e => setF(p => ({ ...p, deadline: e.target.value }))} />
+          <input className={inputCls + (errs.deadline ? ' border-red-400' : '')} type="date" min={todayStr()} value={f.deadline}
+            onChange={e => setF(p => ({ ...p, deadline: e.target.value }))} />
+          {errs.deadline && <p className="mt-1 text-xs text-red-500"><i className="fa fa-times-circle mr-1" />{errs.deadline}</p>}
         </div>
         <div>
           <label className={labelCls}><i className="fa fa-graduation-cap mr-1 text-[#f59e0b]" /> Experience Level</label>
@@ -380,19 +393,30 @@ export default function BuyerJobsPage() {
 
       {/* Attachments */}
       <div>
-        <label className={labelCls}><i className="fa fa-paperclip mr-1 text-[#4f9ef8]" /> Attachments <span className="text-gray-400 normal-case font-normal">(PDF, DOC, image — optional)</span></label>
-        <label className={cn('flex items-center justify-center gap-2 border-2 border-dashed border-gray-200 rounded-xl py-4 cursor-pointer hover:border-[#e84545] hover:bg-red-50 transition', uploadingDocs && 'opacity-60 pointer-events-none')}>
+        <label className={labelCls}><i className="fa fa-paperclip mr-1 text-[#4f9ef8]" /> Attachments <span className="text-gray-400 normal-case font-normal">(PDF, DOC, image — up to {MAX_ATTACHMENTS}, max 10MB each)</span></label>
+        <label className={cn('flex items-center justify-center gap-2 border-2 border-dashed border-gray-200 rounded-xl py-4 cursor-pointer hover:border-[#e84545] hover:bg-red-50 transition', (uploadingDocs || f.attachments.length >= MAX_ATTACHMENTS) && 'opacity-60 pointer-events-none')}>
           <i className={`fa ${uploadingDocs ? 'fa-spinner fa-spin' : 'fa-cloud-upload'} text-[#e84545]`} />
-          <span className="text-sm text-gray-500">{uploadingDocs ? 'Uploading…' : 'Click to attach documents'}</span>
+          <span className="text-sm text-gray-500">
+            {uploadingDocs ? 'Uploading…' : f.attachments.length >= MAX_ATTACHMENTS ? `Limit of ${MAX_ATTACHMENTS} attachments reached` : 'Click to attach documents'}
+          </span>
           <input type="file" multiple hidden
             accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,image/*"
             onChange={async (e) => {
-              const files = Array.from(e.target.files || []);
+              const picked = Array.from(e.target.files || []);
               e.target.value = '';
+              if (!picked.length) return;
+
+              const remaining = MAX_ATTACHMENTS - f.attachments.length;
+              const files = picked.slice(0, remaining);
+              if (picked.length > files.length) {
+                setPostMsg({ ok: false, text: `Only ${MAX_ATTACHMENTS} attachments allowed — ${picked.length - files.length} file(s) skipped.` });
+              }
               if (!files.length) return;
+
               setUploadingDocs(true);
               try {
-                const res = await buyerJobApi.uploadDocs(files);
+                const compressed = await compressImages(files);
+                const res = await buyerJobApi.uploadDocs(compressed);
                 const uploaded: JobDoc[] = res?.data?.files || [];
                 setF(p => ({ ...p, attachments: [...p.attachments, ...uploaded] }));
               } catch (err) {
@@ -437,16 +461,18 @@ export default function BuyerJobsPage() {
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-1 bg-white border border-[#e8e8e8] shadow-sm p-1 rounded-2xl w-fit">
-          {tabs.map(t => (
-            <button key={t.key} onClick={() => setActiveTab(t.key)}
-              className={cn('flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium transition-all',
-                activeTab === t.key ? 'bg-[#e84545] text-white shadow-sm' : 'text-gray-500 hover:bg-gray-100'
-              )}>
-              <i className={`fa ${t.icon}`} /> {t.label}
-            </button>
-          ))}
-        </div>
+        {activeTab !== 'edit' && (
+          <div className="flex gap-1 bg-white border border-[#e8e8e8] shadow-sm p-1 rounded-2xl w-fit">
+            {tabs.map(t => (
+              <button key={t.key} onClick={() => setActiveTab(t.key)}
+                className={cn('flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium transition-all',
+                  activeTab === t.key ? 'bg-[#e84545] text-white shadow-sm' : 'text-gray-500 hover:bg-gray-100'
+                )}>
+                <i className={`fa ${t.icon}`} /> {t.label}
+              </button>
+            ))}
+          </div>
+        )}
 
 
         {/* Posted Jobs */}
@@ -474,12 +500,12 @@ export default function BuyerJobsPage() {
             </div>
             <div className="w-40">
               <CustomSelect
-                value={statusFilter === '' ? 'All Status' : statusFilter === 'OPEN' ? 'Open' : statusFilter === 'IN_PROGRESS' ? 'In Progress' : statusFilter === 'CLOSED' ? 'Closed' : 'Cancelled'}
+                value={{ '': 'All Status', OPEN: 'Open', IN_PROGRESS: 'In Progress', COMPLETED: 'Completed', CLOSED: 'Closed', CANCELLED: 'Cancelled' }[statusFilter] ?? 'All Status'}
                 onChange={val => {
-                  const map: Record<string, string> = { 'All Status': '', 'Open': 'OPEN', 'In Progress': 'IN_PROGRESS', 'Closed': 'CLOSED', 'Cancelled': 'CANCELLED' };
+                  const map: Record<string, string> = { 'All Status': '', 'Open': 'OPEN', 'In Progress': 'IN_PROGRESS', 'Completed': 'COMPLETED', 'Closed': 'CLOSED', 'Cancelled': 'CANCELLED' };
                   setStatusFilter(map[val] ?? '');
                 }}
-                options={['All Status', 'Open', 'In Progress', 'Closed', 'Cancelled']}
+                options={['All Status', 'Open', 'In Progress', 'Completed', 'Closed', 'Cancelled']}
                 leftIcon="fa-filter"
               />
             </div>
@@ -691,25 +717,64 @@ export default function BuyerJobsPage() {
           </div>
         )}
 
-      </div>
+      {/* Edit Job — full page, not a popup */}
+      {activeTab === 'edit' && editJob && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+          <div className="lg:col-span-2 bg-white rounded-2xl border border-[#e8e8e8] shadow-sm p-6">
+            <div className="flex items-center gap-3 mb-1">
+              <button onClick={() => { setEditJob(null); setActiveTab('posted'); }}
+                className="h-8 w-8 rounded-lg flex items-center justify-center text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition">
+                <i className="fa fa-arrow-left" />
+              </button>
+              <h3 className="text-base font-bold text-gray-800 flex items-center gap-2">
+                <i className="fa fa-pencil text-[#e84545]" /> Edit Job
+              </h3>
+            </div>
+            <p className="text-xs text-gray-400 mb-6 ml-11">Update your job details below</p>
 
-      {/* Edit Job Modal */}
-      <Modal isOpen={!!editJob} onClose={() => setEditJob(null)} title="Edit Job" size="md">
-        {editJob && (
-          <div>
             {renderForm(editForm, setEditForm, {})}
+
             {editMsg && (
               <div className={`mt-4 flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium border ${editMsg.ok ? 'bg-green-50 border-green-200 text-green-700' : 'bg-red-50 border-red-200 text-red-600'}`}>
                 <i className={`fa ${editMsg.ok ? 'fa-check-circle' : 'fa-times-circle'}`} /> {editMsg.text}
               </div>
             )}
-            <div className="flex gap-3 mt-5 pt-4 border-t border-gray-100">
-              <Button variant="outline" fullWidth onClick={() => setEditJob(null)} disabled={editSaving}>Cancel</Button>
-              <Button fullWidth onClick={handleEdit} loading={editSaving}>Save Changes</Button>
+
+            <div className="flex items-center gap-3 pt-4 mt-4 border-t border-gray-100">
+              <Button onClick={handleEdit} loading={editSaving}>
+                <i className="fa fa-save mr-1" /> Save Changes
+              </Button>
+              <button onClick={() => { setEditJob(null); setActiveTab('posted'); }} disabled={editSaving}
+                className="text-sm text-gray-400 hover:text-gray-600 transition disabled:opacity-60">
+                Cancel
+              </button>
             </div>
           </div>
-        )}
-      </Modal>
+
+          {/* Tips Panel */}
+          <div className="space-y-4">
+            <div className="bg-white rounded-2xl border border-[#e8e8e8] shadow-sm p-5">
+              <h4 className="text-sm font-bold text-gray-700 mb-4 flex items-center gap-2"><i className="fa fa-lightbulb-o text-[#f59e0b]" /> Tips for a Great Post</h4>
+              <div className="space-y-3">
+                {['Write a clear, specific title', 'Describe your requirements in detail', 'Set a realistic budget range', 'Add relevant skills to attract experts', 'Include examples or references if possible'].map((tip, i) => (
+                  <div key={i} className="flex items-start gap-2.5">
+                    <i className="fa fa-check-circle text-sm mt-0.5 flex-shrink-0 text-[#10b981]" />
+                    <p className="text-xs text-gray-600">{tip}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="bg-gradient-to-br from-[#e84545] to-[#c02a2a] rounded-2xl p-5 text-white">
+              <i className="fa fa-shield text-2xl mb-2 block" />
+              <h4 className="text-sm font-bold mb-1">Buyer Protection</h4>
+              <p className="text-xs text-red-100">You&apos;re only charged when you approve delivered work — nothing is deducted upfront.</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      </div>
 
       {/* Close Job Confirm */}
       <Modal isOpen={!!closeTarget} onClose={() => setCloseTarget(null)} title="Close Job" size="sm">

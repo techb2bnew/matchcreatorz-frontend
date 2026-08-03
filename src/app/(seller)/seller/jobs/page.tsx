@@ -5,7 +5,8 @@ import DashboardLayout from '@/components/layout/DashboardLayout';
 import Modal           from '@/components/ui/Modal';
 import Button          from '@/components/ui/Button';
 import { cn }          from '@/lib/utils';
-import { sellerJobApi, publicCategoryApi, sellerConnectApi } from '@/lib/adminApi';
+import { sellerJobApi, publicCategoryApi, sellerConnectApi, profileApi, BookingAttachment } from '@/lib/adminApi';
+import { compressImages } from '@/lib/imageCompress';
 import { OverlayLoader } from '@/components/ui/Loader';
 import RichTextEditor from '@/components/ui/RichTextEditor';
 
@@ -16,12 +17,21 @@ const plainText = (html: string): string =>
 
 const inputCls = 'w-full border border-[#e8e8e8] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#e84545] focus:ring-1 focus:ring-[#e84545] bg-white transition';
 const labelCls = 'block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide';
+const MAX_DELIVERY_DAYS = 365;
+const MAX_BID_FILES = 5;
+// Real-time clamp — `max` on <input type="number"> doesn't stop typing extra digits, only submit-time validation does
+const clampDays = (raw: string) => {
+  if (raw === '') return '';
+  const digits = raw.replace(/[^\d]/g, '').slice(0, 3); // 365 is at most 3 digits
+  return String(Math.min(Number(digits) || 0, MAX_DELIVERY_DAYS));
+};
 
 interface Buyer { id: number; name: string; email: string; }
 interface MyBid {
   id: number; amount: number; delivery_days: number; proposal: string | null; status: string;
   counter_amount?: number | null; counter_delivery_days?: number | null;
   counter_by?: 'buyer' | 'seller' | null; counter_note?: string | null;
+  attachments?: BookingAttachment[];
 }
 interface Job {
   id: number; title: string; description: string; category: string;
@@ -69,6 +79,7 @@ export default function SellerJobsPage() {
   const [page, setPage]             = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [connectsBalance, setConnectsBalance] = useState<number | null>(null);
+  const [myHourlyRate, setMyHourlyRate] = useState<number | null>(null);
   const LIMIT = 10;
   const firstLoad = useRef(true);
 
@@ -77,6 +88,8 @@ export default function SellerJobsPage() {
   const [bidAmount, setBidAmount] = useState('');
   const [bidDays, setBidDays]     = useState('');
   const [proposal, setProposal]   = useState('');
+  const [bidFiles, setBidFiles]   = useState<BookingAttachment[]>([]);
+  const [bidUploading, setBidUploading] = useState(false);
   const [bidSaving, setBidSaving] = useState(false);
   const [bidMsg, setBidMsg]       = useState<{ ok: boolean; text: string } | null>(null);
 
@@ -85,6 +98,8 @@ export default function SellerJobsPage() {
   const [editAmount, setEditAmount]   = useState('');
   const [editDays, setEditDays]       = useState('');
   const [editProposal, setEditProposal] = useState('');
+  const [editFiles, setEditFiles]     = useState<BookingAttachment[]>([]);
+  const [editUploading, setEditUploading] = useState(false);
   const [editSaving, setEditSaving]   = useState(false);
   const [editMsg, setEditMsg]         = useState<{ ok: boolean; text: string } | null>(null);
 
@@ -113,6 +128,9 @@ export default function SellerJobsPage() {
     sellerConnectApi.balance()
       .then(r => setConnectsBalance(Number(r.data?.balance ?? 0)))
       .catch(() => {});
+    profileApi.get('seller')
+      .then(r => { const rate = r.data?.seller_profile?.hourly_rate; if (rate != null) setMyHourlyRate(Number(rate)); })
+      .catch(() => {});
   }, []);
 
   // Reset to first page whenever the search/category changes
@@ -126,20 +144,97 @@ export default function SellerJobsPage() {
     return () => clearTimeout(t);
   }, [loadJobs]);
 
+  // -- Portfolio / work-sample uploads (shared by the place + edit bid forms) --
+  const uploadBidFiles = async (
+    picked: File[],
+    current: BookingAttachment[],
+    setFiles: (f: BookingAttachment[]) => void,
+    setUploading: (v: boolean) => void,
+    setMsg: (m: { ok: boolean; text: string } | null) => void,
+  ) => {
+    const room = MAX_BID_FILES - current.length;
+    const files = picked.slice(0, room);
+    if (picked.length > files.length) {
+      setMsg({ ok: false, text: `Only ${MAX_BID_FILES} files allowed — ${picked.length - files.length} skipped.` });
+    }
+    if (!files.length) return;
+    setUploading(true);
+    try {
+      const compressed = await compressImages(files);
+      const uploaded: BookingAttachment[] = [];
+      for (const f of compressed) {
+        const res = await sellerJobApi.uploadBidFile(f);
+        if (res?.data) uploaded.push(res.data);
+      }
+      setFiles([...current, ...uploaded]);
+    } catch (e: unknown) {
+      setMsg({ ok: false, text: (e as Error).message || 'Upload failed' });
+    } finally { setUploading(false); }
+  };
+
+  // Portfolio picker + uploaded-file chips, shared by the place & edit bid modals
+  const renderBidFiles = (
+    files: BookingAttachment[],
+    setFiles: (f: BookingAttachment[]) => void,
+    uploading: boolean,
+    setUploading: (v: boolean) => void,
+    setMsg: (m: { ok: boolean; text: string } | null) => void,
+  ) => (
+    <div>
+      <label className={labelCls}>
+        <i className="fa fa-paperclip mr-1 text-[#4f9ef8]" /> Portfolio / Work Samples
+        <span className="text-gray-400 normal-case font-normal"> (optional — up to {MAX_BID_FILES})</span>
+      </label>
+      <label className={cn(
+        'flex items-center justify-center gap-2 border-2 border-dashed border-gray-200 rounded-xl py-3 cursor-pointer hover:border-[#e84545] hover:bg-red-50 transition',
+        (uploading || files.length >= MAX_BID_FILES) && 'opacity-60 pointer-events-none',
+      )}>
+        <i className={`fa ${uploading ? 'fa-spinner fa-spin' : 'fa-cloud-upload'} text-[#e84545]`} />
+        <span className="text-sm text-gray-500">
+          {uploading ? 'Uploading…' : files.length >= MAX_BID_FILES ? `Limit of ${MAX_BID_FILES} files reached` : 'Attach portfolio samples'}
+        </span>
+        <input type="file" multiple hidden
+          accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.zip,image/*"
+          onChange={async (e) => {
+            const picked = Array.from(e.target.files || []);
+            e.target.value = '';
+            if (picked.length) await uploadBidFiles(picked, files, setFiles, setUploading, setMsg);
+          }}
+        />
+      </label>
+      {files.length > 0 && (
+        <div className="flex flex-wrap gap-2 mt-2">
+          {files.map((doc, i) => (
+            <span key={`${doc.url}-${i}`} className="inline-flex items-center gap-2 bg-gray-100 rounded-lg px-3 py-1.5 text-xs text-gray-700">
+              <i className="fa fa-file-o text-[#e84545]" />
+              <a href={doc.url} target="_blank" rel="noreferrer" className="max-w-[160px] truncate hover:underline">{doc.name}</a>
+              <button type="button" onClick={() => setFiles(files.filter((_, idx) => idx !== i))}
+                className="text-gray-400 hover:text-red-500"><i className="fa fa-times" /></button>
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
   // -- Place bid -----------------------------------------------------------
   const openBid = (job: Job) => {
-    setBidJob(job); setBidAmount(''); setBidDays(''); setProposal(''); setBidMsg(null);
+    setBidJob(job);
+    setBidAmount(job.job_type === 'hourly' && myHourlyRate ? String(myHourlyRate) : '');
+    setBidDays(''); setProposal(''); setBidFiles([]); setBidMsg(null);
   };
 
   const handleBid = async () => {
     if (!bidJob) return;
     if (!bidAmount || !bidDays) { setBidMsg({ ok: false, text: 'Amount and delivery days are required' }); return; }
+    if (Number(bidDays) > MAX_DELIVERY_DAYS) { setBidMsg({ ok: false, text: `Delivery days can't exceed ${MAX_DELIVERY_DAYS}` }); return; }
     setBidSaving(true); setBidMsg(null);
     try {
       await sellerJobApi.bid(bidJob.id, {
         amount:        Number(bidAmount),
         delivery_days: Number(bidDays),
         proposal:      proposal || undefined,
+        attachments:   bidFiles,
       });
       setBidMsg({ ok: true, text: 'Bid placed successfully!' });
       await loadJobs(true);
@@ -157,18 +252,21 @@ export default function SellerJobsPage() {
     setEditAmount(String(job.my_bid.amount));
     setEditDays(String(job.my_bid.delivery_days));
     setEditProposal(job.my_bid.proposal || '');
+    setEditFiles(Array.isArray(job.my_bid.attachments) ? job.my_bid.attachments : []);
     setEditMsg(null);
   };
 
   const handleEditBid = async () => {
     if (!editJob) return;
     if (!editAmount || !editDays) { setEditMsg({ ok: false, text: 'Amount and delivery days are required' }); return; }
+    if (Number(editDays) > MAX_DELIVERY_DAYS) { setEditMsg({ ok: false, text: `Delivery days can't exceed ${MAX_DELIVERY_DAYS}` }); return; }
     setEditSaving(true); setEditMsg(null);
     try {
       await sellerJobApi.updateBid(editJob.id, {
         amount:        Number(editAmount),
         delivery_days: Number(editDays),
         proposal:      editProposal || undefined,
+        attachments:   editFiles,
       });
       setEditMsg({ ok: true, text: 'Bid updated successfully!' });
       await loadJobs(true);
@@ -467,14 +565,14 @@ export default function SellerJobsPage() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className={labelCls}><i className="fa fa-dollar mr-1 text-[#10b981]" /> Bid Amount ($)</label>
-                <input className={inputCls} type="number" min="1" placeholder="e.g. 250"
+                <label className={labelCls}><i className="fa fa-dollar mr-1 text-[#10b981]" /> {bidJob.job_type === 'hourly' ? 'Hourly Rate ($/hr)' : 'Bid Amount ($)'}</label>
+                <input className={inputCls} type="number" min="1" placeholder={bidJob.job_type === 'hourly' ? 'e.g. 25' : 'e.g. 250'}
                   value={bidAmount} onChange={e => setBidAmount(e.target.value)} />
               </div>
               <div>
                 <label className={labelCls}><i className="fa fa-calendar mr-1 text-[#4f9ef8]" /> Delivery Days</label>
-                <input className={inputCls} type="number" min="1" placeholder="e.g. 5"
-                  value={bidDays} onChange={e => setBidDays(e.target.value)} />
+                <input className={inputCls} type="number" min="1" max={MAX_DELIVERY_DAYS} placeholder="e.g. 5"
+                  value={bidDays} onChange={e => setBidDays(clampDays(e.target.value))} />
               </div>
             </div>
             <div>
@@ -486,6 +584,7 @@ export default function SellerJobsPage() {
                 onChange={setProposal}
               />
             </div>
+            {renderBidFiles(bidFiles, setBidFiles, bidUploading, setBidUploading, setBidMsg)}
             <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl p-3">
               <i className="fa fa-bolt text-sm text-amber-500 flex-shrink-0 mt-0.5" />
               <p className="text-xs text-amber-700">This will use <strong>2 connects</strong> from your balance.</p>
@@ -513,20 +612,20 @@ export default function SellerJobsPage() {
               <p className="text-sm font-bold text-gray-900">{editJob.title}</p>
               {editJob.my_bid && (
                 <p className="text-xs text-blue-500 mt-0.5">
-                  Current: ${Number(editJob.my_bid.amount).toLocaleString()} &bull; {editJob.my_bid.delivery_days} days
+                  Current: ${Number(editJob.my_bid.amount).toLocaleString()}{editJob.job_type === 'hourly' ? '/hr' : ''} &bull; {editJob.my_bid.delivery_days} days
                 </p>
               )}
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className={labelCls}><i className="fa fa-dollar mr-1 text-[#10b981]" /> Bid Amount ($)</label>
-                <input className={inputCls} type="number" min="1" placeholder="e.g. 250"
+                <label className={labelCls}><i className="fa fa-dollar mr-1 text-[#10b981]" /> {editJob.job_type === 'hourly' ? 'Hourly Rate ($/hr)' : 'Bid Amount ($)'}</label>
+                <input className={inputCls} type="number" min="1" placeholder={editJob.job_type === 'hourly' ? 'e.g. 25' : 'e.g. 250'}
                   value={editAmount} onChange={e => setEditAmount(e.target.value)} />
               </div>
               <div>
                 <label className={labelCls}><i className="fa fa-calendar mr-1 text-[#4f9ef8]" /> Delivery Days</label>
-                <input className={inputCls} type="number" min="1" placeholder="e.g. 5"
-                  value={editDays} onChange={e => setEditDays(e.target.value)} />
+                <input className={inputCls} type="number" min="1" max={MAX_DELIVERY_DAYS} placeholder="e.g. 5"
+                  value={editDays} onChange={e => setEditDays(clampDays(e.target.value))} />
               </div>
             </div>
             <div>
@@ -538,6 +637,7 @@ export default function SellerJobsPage() {
                 onChange={setEditProposal}
               />
             </div>
+            {renderBidFiles(editFiles, setEditFiles, editUploading, setEditUploading, setEditMsg)}
             {editMsg && (
               <div className={cn('flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium border',
                 editMsg.ok ? 'bg-green-50 border-green-200 text-green-700' : 'bg-red-50 border-red-200 text-red-600')}>
