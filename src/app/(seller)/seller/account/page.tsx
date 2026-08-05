@@ -239,8 +239,8 @@ export default function SellerAccountPage() {
                 </div>
                 <div>
                   <label className={labelCls}>Phone Number</label>
-                  <input className={inputCls} value={form.phone}
-                    onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} />
+                  <input className={inputCls} type="tel" inputMode="numeric" maxLength={15} value={form.phone}
+                    onChange={e => setForm(f => ({ ...f, phone: e.target.value.replace(/\D/g, '').slice(0, 15) }))} />
                 </div>
                 <div className="sm:col-span-2">
                   <label className={labelCls}>Location</label>

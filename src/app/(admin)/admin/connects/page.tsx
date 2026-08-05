@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import Card, { CardTitle } from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
@@ -7,6 +7,7 @@ import Input from '@/components/ui/Input';
 import Modal from '@/components/ui/Modal';
 import Avatar from '@/components/ui/Avatar';
 import CustomSelect from '@/components/ui/CustomSelect';
+import SortableTh from '@/components/ui/SortableTh';
 import { formatDate } from '@/lib/utils';
 import { sellerApi, adminConnectApi } from '@/lib/adminApi';
 import { Spinner } from '@/components/ui/Loader';
@@ -21,17 +22,35 @@ interface Ledger {
   note: string | null;
   balance_after: number | null;
   created_at: string;
+  seller?: { id: number; name: string; email: string } | null;
 }
 
 const optLabel = (s: Seller) => `${s.name} (#${s.id})`;
+const ALL_LABEL = 'All Sellers';
 
 export default function AdminConnectsPage() {
   const [sellers, setSellers]           = useState<Seller[]>([]);
   const [sellersLoading, setSL]         = useState(true);
-  const [selectedId, setSelectedId]     = useState<number | null>(null);
+  const [sellerSearchLoading, setSSL]   = useState(false);
+  const [selectedId, setSelectedId]     = useState<number | 'all' | null>(null);
+  // Kept separately from `sellers` (the dropdown's current, backend-searched
+  // candidate list) so the selected seller's display never breaks just
+  // because a later search no longer includes them in the visible options.
+  const [selectedSellerObj, setSelectedSellerObj] = useState<Seller | null>(null);
+  const [addSellerObj, setAddSellerObj] = useState<Seller | null>(null);
+  // Set once from the initial (unsearched) load — distinct from `sellers`,
+  // which later reflects whatever a search matched (possibly zero results).
+  const [noSellersAtAll, setNoSellersAtAll] = useState(false);
 
   const [history, setHistory]           = useState<Ledger[]>([]);
   const [historyLoading, setHL]         = useState(false);
+  const [sortBy, setSortBy]             = useState('date');
+  const [sortDir, setSortDir]           = useState<'asc' | 'desc'>('desc');
+
+  const handleSort = (key: string) => {
+    if (sortBy === key) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    else { setSortBy(key); setSortDir('asc'); }
+  };
 
   // Add connects modal
   const [addModal, setAddModal]         = useState(false);
@@ -48,17 +67,39 @@ export default function AdminConnectsPage() {
       .then((json) => {
         const rows: Seller[] = (json.data || []).map((s: { id: number; name: string; email: string }) => ({ id: s.id, name: s.name, email: s.email }));
         setSellers(rows);
-        if (rows.length) setSelectedId((id) => id ?? rows[0].id);
+        setNoSellersAtAll(rows.length === 0);
+        if (rows.length) {
+          setSelectedId((id) => id ?? rows[0].id);
+          setSelectedSellerObj((s) => s ?? rows[0]);
+        }
       })
       .catch((e) => toast.error(e?.message || 'Failed to load sellers'))
       .finally(() => setSL(false));
   }, []);
 
-  // -- Load history for selected seller ---------------------------------
-  const loadHistory = useCallback(async (sellerId: number, silent = false) => {
+  // -- Backend seller search for both pickers below (main selector + Add Connects modal) --
+  const searchSellers = useCallback(async (query: string) => {
+    setSSL(true);
+    try {
+      const params: Record<string, string | number> = { page: 1, limit: query ? 30 : 100 };
+      if (query) params.search = query;
+      const json = await sellerApi.list(params);
+      const rows: Seller[] = (json.data || []).map((s: { id: number; name: string; email: string }) => ({ id: s.id, name: s.name, email: s.email }));
+      setSellers(rows);
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Failed to search sellers');
+    } finally {
+      setSSL(false);
+    }
+  }, []);
+
+  // -- Load history for the selected seller, or every seller combined ---
+  const loadHistory = useCallback(async (target: number | 'all', silent = false) => {
     if (!silent) setHL(true);
     try {
-      const res = await adminConnectApi.history(sellerId, { limit: 50 });
+      const res = target === 'all'
+        ? await adminConnectApi.allHistory({ limit: 50 })
+        : await adminConnectApi.history(target, { limit: 50 });
       setHistory(res.data || []);
     } catch (e: unknown) {
       if (!silent) {
@@ -78,10 +119,32 @@ export default function AdminConnectsPage() {
 
   useAutoRefresh(() => { if (selectedId != null) loadHistory(selectedId, true); }, 20000, !addModal);
 
-  const selectedSeller = sellers.find((s) => s.id === selectedId) || null;
+  const selectedSeller = typeof selectedId === 'number' ? selectedSellerObj : null;
+  const viewingAll = selectedId === 'all';
+
+  const sortedHistory = useMemo(() => {
+    const dir = sortDir === 'asc' ? 1 : -1;
+    return history.slice().sort((a, b) => {
+      switch (sortBy) {
+        case 'type':
+          return (a.type || '').localeCompare(b.type || '') * dir;
+        case 'amount':
+          return (Number(a.amount) - Number(b.amount)) * dir;
+        case 'balance':
+          return ((a.balance_after ?? 0) - (b.balance_after ?? 0)) * dir;
+        case 'note':
+          return (a.note || '').localeCompare(b.note || '') * dir;
+        case 'date':
+        default:
+          return (new Date(a.created_at).getTime() - new Date(b.created_at).getTime()) * dir;
+      }
+    });
+  }, [history, sortBy, sortDir]);
 
   const openAdd = () => {
-    setAddSellerId(selectedId ?? (sellers[0]?.id ?? null));
+    const fallback = typeof selectedId === 'number' ? selectedSellerObj : (sellers[0] ?? null);
+    setAddSellerId(fallback?.id ?? null);
+    setAddSellerObj(fallback);
     setAddAmount('');
     setAddNote('');
     setAddErr('');
@@ -99,8 +162,12 @@ export default function AdminConnectsPage() {
       toast.success('Connects added');
       setAddModal(false);
       // If we added to the currently viewed seller, refresh; otherwise switch to that seller
-      if (addSellerId === selectedId) loadHistory(addSellerId);
-      else setSelectedId(addSellerId);
+      if (addSellerId === selectedId) {
+        loadHistory(addSellerId);
+      } else {
+        setSelectedId(addSellerId);
+        setSelectedSellerObj(addSellerObj);
+      }
     } catch (e: unknown) {
       setAddErr(e instanceof Error ? e.message : 'Failed to add connects');
     } finally {
@@ -115,24 +182,29 @@ export default function AdminConnectsPage() {
         <div className="w-72">
           {sellersLoading ? (
             <div className="h-11 rounded-xl bg-gray-100 animate-pulse" />
-          ) : sellers.length === 0 ? (
+          ) : noSellersAtAll ? (
             <p className="text-sm text-gray-400">No sellers found</p>
           ) : (
             <CustomSelect
               label="Select Seller"
               leftIcon="fa-user"
-              value={selectedSeller ? optLabel(selectedSeller) : ''}
+              searchable
+              externalFilter
+              loading={sellerSearchLoading}
+              onSearchChange={searchSellers}
+              value={viewingAll ? ALL_LABEL : selectedSeller ? optLabel(selectedSeller) : ''}
               onChange={(v) => {
+                if (v === ALL_LABEL) { setSelectedId('all'); return; }
                 const found = sellers.find((s) => optLabel(s) === v);
-                if (found) setSelectedId(found.id);
+                if (found) { setSelectedId(found.id); setSelectedSellerObj(found); }
               }}
-              options={sellers.map(optLabel)}
+              options={[ALL_LABEL, ...sellers.map(optLabel)]}
             />
           )}
         </div>
         <button
           onClick={openAdd}
-          disabled={sellers.length === 0}
+          disabled={noSellersAtAll}
           className="inline-flex items-center gap-1.5 h-11 px-4 rounded-xl bg-[#e84545] text-white text-sm font-semibold hover:bg-[#c73333] transition shadow-sm disabled:opacity-50"
         >
           <i className="fa fa-plus text-xs" /> Add Connects
@@ -142,12 +214,12 @@ export default function AdminConnectsPage() {
       {/* History */}
       <Card padding="none">
         <div className="flex items-center justify-between p-4 border-b border-gray-100">
-          <CardTitle>{selectedSeller ? `${selectedSeller.name} — Connect History` : 'Connect History'}</CardTitle>
+          <CardTitle>{viewingAll ? 'All Sellers — Connect History' : selectedSeller ? `${selectedSeller.name} — Connect History` : 'Connect History'}</CardTitle>
         </div>
         <div className="overflow-x-auto">
           {historyLoading ? (
             <div className="flex items-center justify-center py-14"><Spinner size="lg" /></div>
-          ) : !selectedSeller ? (
+          ) : !selectedSeller && !viewingAll ? (
             <div className="flex flex-col items-center justify-center py-14 text-gray-400">
               <i className="fa fa-user text-2xl mb-2" />
               <p className="text-sm">Select a seller to view their connect history</p>
@@ -161,20 +233,24 @@ export default function AdminConnectsPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-100">
-                  {['Seller', 'Type', 'Connects', 'Balance After', 'Note', 'Date'].map((h) => (
-                    <th key={h} className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wider px-4 py-3">{h}</th>
-                  ))}
+                  <th className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wider px-4 py-3">Seller</th>
+                  <SortableTh label="Type" sortKey="type" activeKey={sortBy} direction={sortDir} onSort={handleSort} />
+                  <SortableTh label="Connects" sortKey="amount" activeKey={sortBy} direction={sortDir} onSort={handleSort} />
+                  <SortableTh label="Balance After" sortKey="balance" activeKey={sortBy} direction={sortDir} onSort={handleSort} />
+                  <SortableTh label="Note" sortKey="note" activeKey={sortBy} direction={sortDir} onSort={handleSort} />
+                  <SortableTh label="Date" sortKey="date" activeKey={sortBy} direction={sortDir} onSort={handleSort} />
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {history.map((h) => {
+                {sortedHistory.map((h) => {
                   const credit = Number(h.amount) >= 0;
+                  const rowSellerName = viewingAll ? (h.seller?.name || 'Unknown') : (selectedSeller?.name || '');
                   return (
                     <tr key={h.id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
-                          <Avatar name={selectedSeller.name} size="sm" />
-                          <span className="font-medium text-gray-900">{selectedSeller.name}</span>
+                          <Avatar name={rowSellerName} size="sm" />
+                          <span className="font-medium text-gray-900">{rowSellerName}</span>
                         </div>
                       </td>
                       <td className="px-4 py-3">
@@ -205,10 +281,14 @@ export default function AdminConnectsPage() {
           <CustomSelect
             label="Select Seller"
             leftIcon="fa-user"
-            value={(() => { const s = sellers.find((x) => x.id === addSellerId); return s ? optLabel(s) : ''; })()}
+            searchable
+            externalFilter
+            loading={sellerSearchLoading}
+            onSearchChange={searchSellers}
+            value={addSellerObj ? optLabel(addSellerObj) : ''}
             onChange={(v) => {
               const found = sellers.find((s) => optLabel(s) === v);
-              if (found) setAddSellerId(found.id);
+              if (found) { setAddSellerId(found.id); setAddSellerObj(found); }
             }}
             options={sellers.map(optLabel)}
           />

@@ -10,21 +10,36 @@ interface CustomSelectProps {
   placeholder?: string;
   leftIcon?: string; // FA icon class e.g. 'fa-globe'
   className?: string;
+  /** Show a search box inside the dropdown to filter long option lists. */
+  searchable?: boolean;
+  /** Debounced (~300ms) callback with the search box's query — e.g. to drive
+   *  a backend search instead of/in addition to local option filtering. */
+  onSearchChange?: (query: string) => void;
+  /** Skip local substring filtering — set true when the caller already
+   *  filtered `options` itself (e.g. via a backend search from onSearchChange). */
+  externalFilter?: boolean;
+  /** Shows a small spinner in place of the chevron while options are loading. */
+  loading?: boolean;
 }
 
 export default function CustomSelect({
-  value, onChange, options, label, placeholder, leftIcon, className,
+  value, onChange, options, label, placeholder, leftIcon, className, searchable,
+  onSearchChange, externalFilter, loading,
 }: CustomSelectProps) {
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState({ top: 0, left: 0, width: 0 });
+  const [query, setQuery] = useState('');
   const btnRef = useRef<HTMLButtonElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const openDropdown = () => {
     if (btnRef.current) {
       const r = btnRef.current.getBoundingClientRect();
       setPos({ top: r.bottom + 4, left: r.left, width: r.width });
     }
+    setQuery('');
     setOpen(true);
   };
 
@@ -37,6 +52,24 @@ export default function CustomSelect({
     document.addEventListener('mousedown', close);
     return () => document.removeEventListener('mousedown', close);
   }, [open]);
+
+  useEffect(() => {
+    if (open && searchable) searchRef.current?.focus();
+  }, [open, searchable]);
+
+  useEffect(() => {
+    if (!onSearchChange) return;
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    searchDebounceRef.current = setTimeout(() => onSearchChange(query), 300);
+    return () => { if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- onSearchChange is expected to be stable per caller convention (like onSort elsewhere); including it would re-debounce on every render if the caller passes an inline function
+  }, [query]);
+
+  const filteredOptions = externalFilter
+    ? options
+    : searchable && query.trim()
+      ? options.filter((o) => o.toLowerCase().includes(query.trim().toLowerCase()))
+      : options;
 
   return (
     <div className={cn('w-full', className)}>
@@ -70,8 +103,26 @@ export default function CustomSelect({
           style={{ position: 'fixed', top: pos.top, left: pos.left, width: pos.width, zIndex: 9999 }}
           className="bg-white rounded-xl border border-gray-100 shadow-[0_8px_30px_rgba(0,0,0,0.13)] overflow-hidden"
         >
+          {searchable && (
+            <div className="p-2 border-b border-gray-100">
+              <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg px-2.5 h-9">
+                <i className="fa fa-search text-gray-400 text-xs flex-shrink-0" />
+                <input
+                  ref={searchRef}
+                  type="text"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Search..."
+                  className="flex-1 min-w-0 bg-transparent text-sm focus:outline-none"
+                />
+                {loading && <i className="fa fa-spinner fa-spin text-gray-400 text-xs flex-shrink-0" />}
+              </div>
+            </div>
+          )}
           <div className="max-h-52 overflow-y-auto py-1">
-            {options.map((opt) => {
+            {filteredOptions.length === 0 ? (
+              <p className="px-3.5 py-3 text-sm text-gray-400 text-center">No matches</p>
+            ) : filteredOptions.map((opt) => {
               const selected = value === opt;
               return (
                 <button

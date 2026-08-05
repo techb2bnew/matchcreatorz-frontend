@@ -4,6 +4,7 @@ import DashboardLayout from '@/components/layout/DashboardLayout';
 import Card from '@/components/ui/Card';
 import Avatar from '@/components/ui/Avatar';
 import CustomSelect from '@/components/ui/CustomSelect';
+import SortableTh from '@/components/ui/SortableTh';
 import { formatTimeAgo } from '@/lib/utils';
 import { adminReviewApi } from '@/lib/adminApi';
 import { useAutoRefresh } from '@/hooks/useAutoRefresh';
@@ -53,19 +54,26 @@ export default function AdminReviewsPage() {
   const [error,      setError]      = useState('');
   const [search,     setSearch]     = useState('');
   const [status,     setStatus]     = useState('');
+  const [sortBy,     setSortBy]     = useState('date');
+  const [sortDir,    setSortDir]    = useState<'asc' | 'desc'>('desc');
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleSort = (key: string) => {
+    if (sortBy === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    else { setSortBy(key); setSortDir('asc'); }
+  };
 
   const fetch = useCallback(async (silent = false) => {
     if (!silent) { setLoading(true); setError(''); }
     try {
-      const res = await adminReviewApi.list({ search: search || undefined, status: status || undefined, limit: 50 });
+      const res = await adminReviewApi.list({ search: search || undefined, status: status || undefined, limit: 50, sortBy, sortDir });
       setReviews(res.data || []);
       setSummary(res.summary || { total: 0, published: 0, hidden: 0 });
     } catch (e: unknown) {
       if (!silent) setError(e instanceof Error ? e.message : 'Failed to load');
       else console.error('Failed to silently refresh reviews', e);
     } finally { setLoading(false); }
-  }, [search, status]);
+  }, [search, status, sortBy, sortDir]);
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -142,9 +150,15 @@ export default function AdminReviewsPage() {
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-100">
               <tr>
-                {['#', 'Reviewer', 'Seller', 'Service', 'Rating', 'Comment', 'Status', 'Date', 'Actions'].map(h => (
-                  <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">{h}</th>
-                ))}
+                <SortableTh label="#"        sortKey="id"      activeKey={sortBy} direction={sortDir} onSort={handleSort} />
+                <SortableTh label="Reviewer" sortKey="buyer"   activeKey={sortBy} direction={sortDir} onSort={handleSort} />
+                <SortableTh label="Seller"   sortKey="seller"  activeKey={sortBy} direction={sortDir} onSort={handleSort} />
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Service</th>
+                <SortableTh label="Rating"   sortKey="rating"  activeKey={sortBy} direction={sortDir} onSort={handleSort} />
+                <SortableTh label="Comment"  sortKey="comment" activeKey={sortBy} direction={sortDir} onSort={handleSort} />
+                <SortableTh label="Status"   sortKey="status"  activeKey={sortBy} direction={sortDir} onSort={handleSort} />
+                <SortableTh label="Date"     sortKey="date"    activeKey={sortBy} direction={sortDir} onSort={handleSort} />
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">

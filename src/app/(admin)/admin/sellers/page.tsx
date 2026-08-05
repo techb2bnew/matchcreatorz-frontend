@@ -7,6 +7,7 @@ import Avatar from '@/components/ui/Avatar';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import CustomSelect from '@/components/ui/CustomSelect';
+import SortableTh from '@/components/ui/SortableTh';
 import { RichTextView } from '@/components/ui/RichTextEditor';
 import { getProfileStatusColor, formatDate, formatCurrency } from '@/lib/utils';
 import { sellerApi, categoryApi } from '@/lib/adminApi';
@@ -67,7 +68,14 @@ export default function SellersPage() {
   const [page, setPage]                 = useState(1);
   const [totalPages, setTotalPages]     = useState(1);
   const [total, setTotal]               = useState(0);
+  const [sortBy, setSortBy]             = useState('joined');
+  const [sortDir, setSortDir]           = useState<'asc' | 'desc'>('desc');
   const LIMIT = 10;
+
+  const handleSort = (key: string) => {
+    if (sortBy === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    else { setSortBy(key); setSortDir('asc'); }
+  };
 
   // -- Categories from API (used as tag chips) ---------------
   const [categoryTags, setCategoryTags] = useState<string[]>([]);
@@ -107,7 +115,7 @@ export default function SellersPage() {
   const fetchSellers = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     try {
-      const params: Record<string, string | number> = { page, limit: LIMIT };
+      const params: Record<string, string | number> = { page, limit: LIMIT, sortBy, sortDir };
       if (debouncedSearch) params.search = debouncedSearch;
       if (activeFilter !== 'All') {
         params.approval_status = activeFilter.toLowerCase();
@@ -123,7 +131,7 @@ export default function SellersPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, debouncedSearch, activeFilter]);
+  }, [page, debouncedSearch, activeFilter, sortBy, sortDir]);
 
   useEffect(() => { fetchSellers(); }, [fetchSellers]);
   useEffect(() => { setPage(1); }, [activeFilter]);
@@ -286,9 +294,14 @@ export default function SellersPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-100">
-                  {['Seller', 'Skills', 'Hourly Rate', 'Rating', 'Status', 'User Status', 'Joined', 'Actions'].map(h => (
-                    <th key={h} className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wider px-4 py-3">{h}</th>
-                  ))}
+                  <SortableTh label="Seller"      sortKey="name"       activeKey={sortBy} direction={sortDir} onSort={handleSort} />
+                  <th className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wider px-4 py-3">Skills</th>
+                  <SortableTh label="Hourly Rate" sortKey="hourlyRate" activeKey={sortBy} direction={sortDir} onSort={handleSort} />
+                  <SortableTh label="Rating"      sortKey="rating"     activeKey={sortBy} direction={sortDir} onSort={handleSort} />
+                  <SortableTh label="Status"      sortKey="status"     activeKey={sortBy} direction={sortDir} onSort={handleSort} />
+                  <SortableTh label="User Status" sortKey="userStatus" activeKey={sortBy} direction={sortDir} onSort={handleSort} />
+                  <SortableTh label="Joined"      sortKey="joined"     activeKey={sortBy} direction={sortDir} onSort={handleSort} />
+                  <th className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wider px-4 py-3">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">

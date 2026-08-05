@@ -148,11 +148,12 @@ export default function AdminDashboardPage() {
           </CardHeader>
           <div className="space-y-3">
             {loading ? (
-              Array.from({ length: 4 }).map((_, i) => (
+              Array.from({ length: 5 }).map((_, i) => (
                 <div key={i} className="animate-pulse h-12 bg-gray-100 rounded-xl" />
               ))
             ) : s ? [
-              { label: 'Total Users',    value: s.totalUsers,        icon: 'fa-users',        color: 'text-blue-600 bg-blue-50',    href: '/admin/sellers'  },
+              { label: 'Total Sellers',  value: s.totalSellers,      icon: 'fa-briefcase',    color: 'text-blue-600 bg-blue-50',    href: '/admin/sellers'  },
+              { label: 'Total Buyers',   value: s.totalBuyers,       icon: 'fa-users',        color: 'text-indigo-600 bg-indigo-50', href: '/admin/buyers'   },
               { label: 'Total Services', value: s.totalServices,     icon: 'fa-cubes',        color: 'text-purple-600 bg-purple-50', href: '/admin/services' },
               { label: 'Completed',      value: s.completedBookings, icon: 'fa-check-circle', color: 'text-green-600 bg-green-50',  href: '/admin/bookings' },
               { label: 'Pending',        value: s.pendingBookings,   icon: 'fa-clock-o',      color: 'text-orange-600 bg-orange-50', href: '/admin/bookings' },

@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
@@ -66,9 +66,11 @@ export default function BuyerNotificationsPage() {
   const [notifications, setNotifications] = useState<ApiNotification[]>([]);
   const [loading, setLoading]             = useState(true);
   const [activeFilter, setActiveFilter]   = useState<Filter>('All');
+  const [search, setSearch]               = useState('');
   const [page, setPage]                   = useState(1);
   const [total, setTotal]                 = useState(0);
   const LIMIT = 20;
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fetchNotifications = useCallback(async (pg = 1, silent = false) => {
     if (!silent) setLoading(true);
@@ -76,7 +78,9 @@ export default function BuyerNotificationsPage() {
       // On a silent background refresh, re-fetch everything already loaded
       // (page 1 through the current page) in one call so we can safely
       // replace the list without truncating rows the user scrolled to via "Load more".
-      const params = silent ? { page: 1, limit: pg * LIMIT } : { page: pg, limit: LIMIT };
+      const params = silent
+        ? { page: 1, limit: pg * LIMIT, search: search || undefined }
+        : { page: pg, limit: LIMIT, search: search || undefined };
       const res  = await buyerNotificationApi.list(params);
       const rows: ApiNotification[] = res?.data?.data ?? [];
       if (silent) {
@@ -91,9 +95,14 @@ export default function BuyerNotificationsPage() {
     } finally {
       if (!silent) setLoading(false);
     }
-  }, []);
+  }, [search]);
 
-  useEffect(() => { fetchNotifications(1); }, [fetchNotifications]);
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => fetchNotifications(1), 300);
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  }, [fetchNotifications]);
+
   useAutoRefresh(() => fetchNotifications(page, true), 20000);
 
   const handleMarkRead = async (id: number) => {
@@ -126,6 +135,8 @@ export default function BuyerNotificationsPage() {
     created_at: n.created_at ?? n.createdAt,
   }));
 
+  // Text search is server-side (see fetchNotifications) — category is still a
+  // client-side filter over whatever page of (already search-matched) rows is loaded.
   const filtered = activeFilter === 'All'
     ? normalised
     : normalised.filter((n) => typeToCategory(n.type) === activeFilter);
@@ -135,7 +146,7 @@ export default function BuyerNotificationsPage() {
   return (
     <DashboardLayout role="BUYER" title="Notifications">
       {/* Top row */}
-      <div className="flex items-center justify-between mb-5">
+      <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
         <div className="flex gap-2 flex-wrap">
           {FILTERS.map((f) => (
             <button
@@ -149,9 +160,21 @@ export default function BuyerNotificationsPage() {
             </button>
           ))}
         </div>
-        <Button variant="outline" size="sm" leftIcon={<i className="fa fa-bell-slash text-sm" />} onClick={handleMarkAllRead}>
-          Mark all as read
-        </Button>
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl px-3 h-9 w-56">
+            <i className="fa fa-search text-xs text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search notifications..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="flex-1 text-sm bg-transparent focus:outline-none"
+            />
+          </div>
+          <Button variant="outline" size="sm" leftIcon={<i className="fa fa-bell-slash text-sm" />} onClick={handleMarkAllRead}>
+            Mark all as read
+          </Button>
+        </div>
       </div>
 
       {/* List */}
@@ -163,7 +186,7 @@ export default function BuyerNotificationsPage() {
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-gray-400">
             <i className="fa fa-bell-slash text-3xl mb-3" />
-            <p className="text-sm">No notifications</p>
+            <p className="text-sm">{search.trim() ? 'No notifications match your search' : 'No notifications'}</p>
           </div>
         ) : (
           <div className="divide-y divide-gray-50">

@@ -1,10 +1,13 @@
 import { cn } from '@/lib/utils';
+import SortableTh from './SortableTh';
 
 interface Column<T> {
   key: string;
   label: string;
   render?: (row: T) => React.ReactNode;
   className?: string;
+  /** Set false to keep this column's header plain even when the table is sortable. */
+  sortable?: boolean;
 }
 
 interface TableProps<T extends { id: number | string }> {
@@ -13,6 +16,10 @@ interface TableProps<T extends { id: number | string }> {
   loading?: boolean;
   emptyText?: string;
   onRowClick?: (row: T) => void;
+  /** Pass all three to enable clickable column-header sorting. */
+  sortBy?: string;
+  sortDir?: 'asc' | 'desc';
+  onSort?: (key: string) => void;
 }
 
 function SkeletonRow({ cols }: { cols: number }) {
@@ -33,6 +40,9 @@ export default function Table<T extends { id: number | string }>({
   loading,
   emptyText = 'No data found',
   onRowClick,
+  sortBy,
+  sortDir,
+  onSort,
 }: TableProps<T>) {
   return (
     <div className="overflow-x-auto rounded-2xl border border-gray-100">
@@ -40,12 +50,24 @@ export default function Table<T extends { id: number | string }>({
         <thead>
           <tr className="border-b border-gray-100 bg-gray-50">
             {columns.map((col) => (
-              <th
-                key={col.key}
-                className={cn('px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider', col.className)}
-              >
-                {col.label}
-              </th>
+              onSort && col.sortable !== false ? (
+                <SortableTh
+                  key={col.key}
+                  label={col.label}
+                  sortKey={col.key}
+                  activeKey={sortBy || ''}
+                  direction={sortDir || 'asc'}
+                  onSort={onSort}
+                  className={col.className}
+                />
+              ) : (
+                <th
+                  key={col.key}
+                  className={cn('px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider', col.className)}
+                >
+                  {col.label}
+                </th>
+              )
             ))}
           </tr>
         </thead>

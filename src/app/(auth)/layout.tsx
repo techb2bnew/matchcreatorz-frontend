@@ -1,7 +1,29 @@
+'use client';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Logo from '@/components/ui/Logo';
+import { publicStatsApi, PublicPlatformStats } from '@/lib/adminApi';
+
+/** Compact "50K+" style rounding for big counts; small counts show as-is. */
+function formatCount(n: number): string {
+  if (n >= 1000) return `${Math.round(n / 1000)}K+`;
+  if (n > 0) return `${n}+`;
+  return '0';
+}
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
+  const [stats, setStats] = useState<PublicPlatformStats | null>(null);
+
+  useEffect(() => {
+    publicStatsApi.get().then((res) => setStats(res.data)).catch(() => {/* keep placeholders on failure */});
+  }, []);
+
+  const statCards = [
+    { value: stats ? formatCount(stats.total_creators) : '…', label: 'Creators',     fa: 'fa-users'     },
+    { value: stats ? formatCount(stats.total_projects) : '…', label: 'Projects',     fa: 'fa-briefcase' },
+    { value: stats ? `${stats.satisfaction_pct}%`       : '…', label: 'Satisfaction', fa: 'fa-thumbs-up' },
+  ];
+
   return (
     <div className="min-h-screen flex overflow-x-hidden" style={{ background: '#efefef' }}>
 
@@ -23,11 +45,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
             The premier marketplace connecting talented creators with ambitious buyers worldwide.
           </p>
           <div className="grid grid-cols-3 gap-6 mt-12">
-            {[
-              { value: '50K+',  label: 'Creators',     fa: 'fa-users'       },
-              { value: '120K+', label: 'Projects',     fa: 'fa-briefcase'   },
-              { value: '98%',   label: 'Satisfaction', fa: 'fa-thumbs-up'   },
-            ].map((s) => (
+            {statCards.map((s) => (
               <div key={s.label} className="text-center bg-white/5 rounded-2xl py-4 px-3 border border-white/10">
                 <i className={`fa ${s.fa} text-[#e84545] text-xl mb-2 block`} />
                 <p className="text-2xl font-bold text-white">{s.value}</p>

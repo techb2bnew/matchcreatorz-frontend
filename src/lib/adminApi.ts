@@ -53,7 +53,7 @@ const sendForm = async (method: string, path: string, formData: FormData) => {
 
 // -- Sellers ----------------------------------------------------------
 export const sellerApi = {
-  list:    (params: Record<string, string | number>) => {
+  list:    (params: Record<string, string | number> & { sortBy?: string; sortDir?: 'asc' | 'desc' }) => {
     const q = new URLSearchParams(Object.entries(params).filter(([, v]) => v !== '' && v !== undefined).map(([k, v]) => [k, String(v)])).toString();
     return req('GET', `/api/v1/admin/sellers?${q}`);
   },
@@ -68,7 +68,7 @@ export const sellerApi = {
 
 // -- Buyers -----------------------------------------------------------
 export const buyerApi = {
-  list:    (params: Record<string, string | number>) => {
+  list:    (params: { page?: number; limit?: number; search?: string; status?: string; approval_status?: string; sortBy?: string; sortDir?: 'asc' | 'desc' }) => {
     const q = new URLSearchParams(Object.entries(params).filter(([, v]) => v !== '' && v !== undefined).map(([k, v]) => [k, String(v)])).toString();
     return req('GET', `/api/v1/admin/buyers?${q}`);
   },
@@ -88,7 +88,7 @@ export const publicCategoryApi = {
       .then(r => r.json()),
 };
 
-export interface PublicPlatformStats { total_creators: number; avg_rating: number; satisfaction_pct: number; avg_bids_per_job: number }
+export interface PublicPlatformStats { total_creators: number; total_projects: number; avg_rating: number; satisfaction_pct: number; avg_bids_per_job: number }
 export const publicStatsApi = {
   get: (): Promise<{ data: PublicPlatformStats }> =>
     fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/public/stats`).then(r => r.json()),
@@ -119,7 +119,7 @@ export const sellerServiceApi = {
 
 // -- Admin Services ----------------------------------------------------
 export const adminServiceApi = {
-  list: (params: Record<string, string | number>) => {
+  list: (params: Record<string, string | number> & { sortBy?: string; sortDir?: 'asc' | 'desc' }) => {
     const q = new URLSearchParams(Object.entries(params).filter(([, v]) => v !== '' && v !== undefined).map(([k, v]) => [k, String(v)])).toString();
     return req('GET', `/api/v1/admin/services?${q}`);
   },
@@ -132,7 +132,7 @@ export const adminServiceApi = {
 
 // -- Categories (admin) ------------------------------------------------
 export const categoryApi = {
-  list:   (params: Record<string, string | number>) => {
+  list:   (params: Record<string, string | number> & { sortBy?: string; sortDir?: 'asc' | 'desc' }) => {
     const q = new URLSearchParams(Object.entries(params).filter(([, v]) => v !== '' && v !== undefined).map(([k, v]) => [k, String(v)])).toString();
     return req('GET', `/api/v1/admin/categories?${q}`);
   },
@@ -278,7 +278,7 @@ export const sellerBookingApi = {
 
 // -- Admin Bookings ----------------------------------------------------
 export const adminBookingApi = {
-  list:    (params: { status?: string; search?: string; page?: number; limit?: number } = {}) => {
+  list:    (params: { status?: string; search?: string; page?: number; limit?: number; sortBy?: string; sortDir?: 'asc' | 'desc' } = {}) => {
     const q = new URLSearchParams(Object.entries(params).filter(([,v]) => v !== undefined && v !== null && String(v) !== '').map(([k,v]) => [k, String(v)])).toString();
     return req('GET', `/api/v1/admin/bookings${q ? `?${q}` : ''}`);
   },
@@ -330,7 +330,7 @@ export const sellerReviewApi = {
 
 // -- Admin Reviews -----------------------------------------------------
 export const adminReviewApi = {
-  list:    (params: { search?: string; status?: string; page?: number; limit?: number } = {}) => {
+  list:    (params: { search?: string; status?: string; page?: number; limit?: number; sortBy?: string; sortDir?: 'asc' | 'desc' } = {}) => {
     const q = new URLSearchParams(Object.entries(params).filter(([,v]) => v !== undefined && v !== null && String(v) !== '').map(([k,v]) => [k, String(v)])).toString();
     return req('GET', `/api/v1/admin/reviews${q ? `?${q}` : ''}`);
   },
@@ -388,8 +388,8 @@ export const systemApi = { health: () => req('GET', `/health`) };
 
 // -- Admin Jobs --------------------------------------------------------
 export const adminJobApi = {
-  list:   (params: Record<string, string | number> = {}) => {
-    const q = new URLSearchParams(params as Record<string, string>).toString();
+  list:   (params: { search?: string; status?: string; page?: number; limit?: number; sortBy?: string; sortDir?: 'asc' | 'desc' } = {}) => {
+    const q = new URLSearchParams(Object.entries(params).filter(([, v]) => v !== undefined && v !== null && String(v) !== '').map(([k, v]) => [k, String(v)])).toString();
     return req('GET', `/api/v1/admin/jobs${q ? `?${q}` : ''}`);
   },
   get:    (id: number) => req('GET',    `/api/v1/admin/jobs/${id}`),
@@ -401,7 +401,7 @@ export const buyerStatsApi  = { get: () => req('GET', `/api/v1/buyer/stats`)  };
 
 // -- Buyer Notifications -----------------------------------------------
 export const buyerNotificationApi = {
-  list:        (params: { page?: number; limit?: number; unread_only?: boolean } = {}) => {
+  list:        (params: { page?: number; limit?: number; unread_only?: boolean; search?: string } = {}) => {
     const q = new URLSearchParams(
       Object.entries(params)
         .filter(([, v]) => v !== undefined && v !== null && String(v) !== '')
@@ -417,7 +417,7 @@ export const buyerNotificationApi = {
 
 // -- Seller Notifications ----------------------------------------------
 export const sellerNotificationApi = {
-  list:        (params: { page?: number; limit?: number; unread_only?: boolean } = {}) => {
+  list:        (params: { page?: number; limit?: number; unread_only?: boolean; search?: string } = {}) => {
     const q = new URLSearchParams(
       Object.entries(params)
         .filter(([, v]) => v !== undefined && v !== null && String(v) !== '')
@@ -433,7 +433,7 @@ export const sellerNotificationApi = {
 
 // -- Admin Notifications ------------------------------------------------
 export const adminNotificationApi = {
-  list:        (params: { page?: number; limit?: number; unread_only?: boolean } = {}) => {
+  list:        (params: { page?: number; limit?: number; unread_only?: boolean; search?: string } = {}) => {
     const q = new URLSearchParams(
       Object.entries(params)
         .filter(([, v]) => v !== undefined && v !== null && String(v) !== '')
@@ -578,7 +578,7 @@ export const feedbackApi = {
 export const walletApi = {
   summary:      () => req('GET', `/api/v1/wallet`),
   config:       () => req('GET', `/api/v1/wallet/config`),
-  transactions: (params: { page?: number; limit?: number; type?: string } = {}) => {
+  transactions: (params: { page?: number; limit?: number; type?: string; search?: string } = {}) => {
     const q = new URLSearchParams(
       Object.entries(params).filter(([, v]) => v !== undefined && v !== null && String(v) !== '').map(([k, v]) => [k, String(v)])
     ).toString();
@@ -633,6 +633,13 @@ export const adminConnectApi = {
     ).toString();
     return req('GET', `/api/v1/admin/connects/${sellerId}/history${q ? `?${q}` : ''}`);
   },
+  /** Ledger across every seller — the "All Sellers" view */
+  allHistory: (params: { page?: number; limit?: number } = {}) => {
+    const q = new URLSearchParams(
+      Object.entries(params).filter(([, v]) => v !== undefined && v !== null && String(v) !== '').map(([k, v]) => [k, String(v)])
+    ).toString();
+    return req('GET', `/api/v1/admin/connects/history${q ? `?${q}` : ''}`);
+  },
 };
 
 // -- Admin Reports --------------------------------------------------------
@@ -648,7 +655,7 @@ export interface ReportResult {
 export const adminReportApi = {
   types: (): Promise<{ data: ReportType[] }> => req('GET', `/api/v1/admin/reports/types`),
 
-  get: (type: string, params: { from?: string; to?: string } = {}): Promise<{ data: ReportResult }> => {
+  get: (type: string, params: { from?: string; to?: string; search?: string } = {}): Promise<{ data: ReportResult }> => {
     const q = new URLSearchParams(
       Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== '').map(([k, v]) => [k, String(v)])
     ).toString();
@@ -656,7 +663,7 @@ export const adminReportApi = {
   },
 
   /** Downloads the CSV client-side (auth header can't travel on a plain <a href>) */
-  export: async (type: string, params: { from?: string; to?: string } = {}) => {
+  export: async (type: string, params: { from?: string; to?: string; search?: string } = {}) => {
     const q = new URLSearchParams(
       Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== '').map(([k, v]) => [k, String(v)])
     ).toString();
@@ -693,7 +700,7 @@ export interface AdminBroadcast {
 export const adminBroadcastApi = {
   send: (body: { title: string; body: string; audience: 'ALL' | 'SELLER' | 'BUYER' }) =>
     req('POST', `/api/v1/admin/broadcasts`, body),
-  list: (params: { page?: number; limit?: number } = {}) => {
+  list: (params: { page?: number; limit?: number; search?: string; sortBy?: string; sortDir?: 'asc' | 'desc' } = {}) => {
     const q = new URLSearchParams(
       Object.entries(params).filter(([, v]) => v !== undefined && v !== null && String(v) !== '').map(([k, v]) => [k, String(v)])
     ).toString();

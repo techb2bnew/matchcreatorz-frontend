@@ -6,7 +6,8 @@ import Avatar from '@/components/ui/Avatar';
 import Modal from '@/components/ui/Modal';
 import Button from '@/components/ui/Button';
 import CustomSelect from '@/components/ui/CustomSelect';
-import { formatCurrency, formatTimeAgo, formatBookingAmount } from '@/lib/utils';
+import SortableTh from '@/components/ui/SortableTh';
+import { formatCurrency, formatDate, formatBookingAmount } from '@/lib/utils';
 import { adminBookingApi } from '@/lib/adminApi';
 import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 
@@ -69,12 +70,19 @@ export default function AdminBookingsPage() {
   const [selected,   setSelected]   = useState<Booking | null>(null);
   const [resolving,  setResolving]  = useState(false);
   const [resolveMsg, setResolveMsg] = useState('');
+  const [sortBy,     setSortBy]     = useState('date');
+  const [sortDir,    setSortDir]    = useState<'asc' | 'desc'>('desc');
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleSort = (key: string) => {
+    if (sortBy === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    else { setSortBy(key); setSortDir('asc'); }
+  };
 
   const fetchBookings = useCallback(async (pg = 1, silent = false) => {
     if (!silent) { setLoading(true); setError(''); }
     try {
-      const res = await adminBookingApi.list({ status: status || undefined, search: search || undefined, page: pg, limit: 20 });
+      const res = await adminBookingApi.list({ status: status || undefined, search: search || undefined, page: pg, limit: 20, sortBy, sortDir });
       setBookings(res.data || []);
       setPagination(res.pagination || null);
       setSummary(res.summary || {});
@@ -82,7 +90,7 @@ export default function AdminBookingsPage() {
       if (!silent) setError(e instanceof Error ? e.message : 'Failed to load');
       else console.error(e);
     } finally { if (!silent) setLoading(false); }
-  }, [search, status]);
+  }, [search, status, sortBy, sortDir]);
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -172,9 +180,14 @@ export default function AdminBookingsPage() {
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-100">
               <tr>
-                {['#', 'Title', 'Buyer', 'Seller', 'Amount', 'Status', 'Date', 'Actions'].map(h => (
-                  <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">{h}</th>
-                ))}
+                <SortableTh label="#"      sortKey="id"     activeKey={sortBy} direction={sortDir} onSort={handleSort} />
+                <SortableTh label="Title"  sortKey="title"  activeKey={sortBy} direction={sortDir} onSort={handleSort} />
+                <SortableTh label="Buyer"  sortKey="buyer"  activeKey={sortBy} direction={sortDir} onSort={handleSort} />
+                <SortableTh label="Seller" sortKey="seller" activeKey={sortBy} direction={sortDir} onSort={handleSort} />
+                <SortableTh label="Amount" sortKey="amount" activeKey={sortBy} direction={sortDir} onSort={handleSort} />
+                <SortableTh label="Status" sortKey="status" activeKey={sortBy} direction={sortDir} onSort={handleSort} />
+                <SortableTh label="Date"   sortKey="date"   activeKey={sortBy} direction={sortDir} onSort={handleSort} />
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
@@ -211,7 +224,7 @@ export default function AdminBookingsPage() {
                           <td className="px-4 py-3">
                             <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${cfg.color}`}>{cfg.label}</span>
                           </td>
-                          <td className="px-4 py-3 text-gray-400 text-xs">{formatTimeAgo(b.createdAt)}</td>
+                          <td className="px-4 py-3 text-gray-400 text-xs whitespace-nowrap">{formatDate(b.createdAt)}</td>
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-1">
                               <button onClick={() => setSelected(b)}

@@ -6,6 +6,7 @@ import Button          from '@/components/ui/Button';
 import Modal           from '@/components/ui/Modal';
 import { Spinner, TableSkeleton } from '@/components/ui/Loader';
 import { RichTextView } from '@/components/ui/RichTextEditor';
+import SortableTh from '@/components/ui/SortableTh';
 import { formatDate, formatCurrency } from '@/lib/utils';
 import { adminJobApi } from '@/lib/adminApi';
 import { useAutoRefresh } from '@/hooks/useAutoRefresh';
@@ -212,11 +213,18 @@ export default function AdminJobsPage() {
   const [viewJob,       setViewJob]       = useState<Job | null>(null);
   const [actionLoading, setActionLoading] = useState('');
   const [deleteTarget,  setDeleteTarget]  = useState<Job | null>(null);
+  const [sortBy,        setSortBy]        = useState('date');
+  const [sortDir,       setSortDir]       = useState<'asc' | 'desc'>('desc');
+
+  const handleSort = (key: string) => {
+    if (sortBy === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    else { setSortBy(key); setSortDir('asc'); }
+  };
 
   const fetchJobs = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     try {
-      const params: Record<string, string | number> = { page, limit: LIMIT };
+      const params: Record<string, string | number> = { page, limit: LIMIT, sortBy, sortDir };
       if (search) params.search = search;
       if (status) params.status = status;
       const res = await adminJobApi.list(params);
@@ -227,7 +235,7 @@ export default function AdminJobsPage() {
       else console.error(e);
     }
     finally { if (!silent) setLoading(false); }
-  }, [page, search, status]);
+  }, [page, search, status, sortBy, sortDir]);
 
   useEffect(() => {
     const t = setTimeout(fetchJobs, 350);
@@ -314,9 +322,13 @@ export default function AdminJobsPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-100">
-                  {['Job Title', 'Buyer', 'Budget', 'Bids', 'Status', 'Date', 'Actions'].map(h => (
-                    <th key={h} className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wider px-4 py-3 whitespace-nowrap">{h}</th>
-                  ))}
+                  <SortableTh label="Job Title" sortKey="title"  activeKey={sortBy} direction={sortDir} onSort={handleSort} />
+                  <SortableTh label="Buyer"     sortKey="buyer"  activeKey={sortBy} direction={sortDir} onSort={handleSort} />
+                  <SortableTh label="Budget"    sortKey="budget" activeKey={sortBy} direction={sortDir} onSort={handleSort} />
+                  <SortableTh label="Bids"      sortKey="bids"   activeKey={sortBy} direction={sortDir} onSort={handleSort} />
+                  <SortableTh label="Status"    sortKey="status" activeKey={sortBy} direction={sortDir} onSort={handleSort} />
+                  <SortableTh label="Date"      sortKey="date"   activeKey={sortBy} direction={sortDir} onSort={handleSort} />
+                  <th className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wider px-4 py-3 whitespace-nowrap">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">

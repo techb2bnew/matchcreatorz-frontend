@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useCallback, Suspense } from 'react';
+import { useState, useEffect, useCallback, useRef, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import Card, { CardTitle } from '@/components/ui/Card';
@@ -37,21 +37,27 @@ function SellerWalletInner() {
   const [amount, setAmount] = useState('');
   const [busy, setBusy] = useState(false);
   const [cfg, setCfg] = useState<{ min_withdraw: number }>({ min_withdraw: 50 });
+  const [search, setSearch] = useState('');
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const load = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     try {
       const [s, t, w, c] = await Promise.all([
-        walletApi.connectStatus(), walletApi.transactions({ limit: 50 }), walletApi.myWithdrawals({ limit: 20 }), walletApi.config(),
+        walletApi.connectStatus(), walletApi.transactions({ limit: 50, search: search || undefined }), walletApi.myWithdrawals({ limit: 20 }), walletApi.config(),
       ]);
       setSummary(s.data); setTxns(t.data || []); setWds(w.data || []); setCfg(c.data);
     } catch (e) {
       if (!silent) toast.error((e as Error).message);
       else console.error('Silent wallet refresh failed:', e);
     } finally { setLoading(false); }
-  }, []);
+  }, [search]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => load(), 300);
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  }, [load]);
 
   useEffect(() => {
     if (params.get('connect')) { toast.success('Payout account updated'); load(); router.replace('/seller/wallet'); }
@@ -137,11 +143,25 @@ function SellerWalletInner() {
 
       {/* Transactions */}
       <Card padding="none">
-        <div className="p-4 border-b border-gray-100"><CardTitle>Transaction History</CardTitle></div>
+        <div className="flex items-center justify-between gap-3 p-4 border-b border-gray-100 flex-wrap">
+          <CardTitle>Transaction History</CardTitle>
+          <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl px-3 h-9 w-full sm:w-64">
+            <i className="fa fa-search text-xs text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search by title or date..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="flex-1 text-sm bg-transparent focus:outline-none"
+            />
+          </div>
+        </div>
         {loading ? (
           <div className="p-8 text-center text-gray-400 text-sm">Loading…</div>
         ) : txns.length === 0 ? (
-          <div className="p-8 text-center text-gray-400 text-sm">No transactions yet.</div>
+          <div className="p-8 text-center text-gray-400 text-sm">
+            {search.trim() ? 'No transactions match your search.' : 'No transactions yet.'}
+          </div>
         ) : (
           <div className="divide-y divide-gray-50">
             {txns.map((t) => {

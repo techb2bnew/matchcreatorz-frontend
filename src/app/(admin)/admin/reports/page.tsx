@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
 import {
   AreaChart,
@@ -80,6 +80,18 @@ export default function AdminReportsPage() {
   const [reportData, setReportData] = useState<ReportResult | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [exporting, setExporting] = useState<boolean>(false);
+  const [search, setSearch] = useState<string>('');
+  const [sortBy, setSortBy] = useState<string>('');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Column set differs per report type, so a stale query/sort wouldn't mean anything on switch
+  useEffect(() => { setSearch(''); setSortBy(''); }, [activeType]);
+
+  const handleSort = (key: string) => {
+    if (sortBy === key) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    else { setSortBy(key); setSortDir('asc'); }
+  };
 
   // Load available report types on mount
   useEffect(() => {
@@ -99,7 +111,7 @@ export default function AdminReportsPage() {
     return () => { cancelled = true; };
   }, []);
 
-  // Load report data whenever type or date range changes
+  // Load report data whenever type, date range, or search changes
   const loadReportData = useCallback(async (silent = false) => {
     if (!activeType) return;
     if (!silent) setLoading(true);
@@ -107,6 +119,7 @@ export default function AdminReportsPage() {
       const res = await adminReportApi.get(activeType, {
         from: from || undefined,
         to: to || undefined,
+        search: search || undefined,
       });
       setReportData(res.data);
     } catch (e) {
@@ -115,9 +128,13 @@ export default function AdminReportsPage() {
     } finally {
       setLoading(false);
     }
-  }, [activeType, from, to]);
+  }, [activeType, from, to, search]);
 
-  useEffect(() => { loadReportData(); }, [loadReportData]);
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => loadReportData(), 300);
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  }, [loadReportData]);
 
   // Keep the report data current in the background, but never while a CSV
   // export is in progress (an in-flight download shouldn't be disturbed).
@@ -130,6 +147,7 @@ export default function AdminReportsPage() {
       await adminReportApi.export(activeType, {
         from: from || undefined,
         to: to || undefined,
+        search: search || undefined,
       });
       toast.success('Report exported');
     } catch (e) {
@@ -149,7 +167,28 @@ export default function AdminReportsPage() {
   ][];
 
   const chartData = reportData?.chart ?? [];
+  // Search is now server-side (see loadReportData) — `rows` already reflects it.
   const rows = (reportData?.rows ?? []) as ReportRow[];
+
+  // Generic comparator: numeric compare when both sides parse as numbers,
+  // otherwise locale-aware string compare; nulls/blanks always sort last.
+  const sortedRows = sortBy
+    ? [...rows].sort((a, b) => {
+        const av = a[sortBy];
+        const bv = b[sortBy];
+        const aEmpty = av === null || av === undefined || av === '';
+        const bEmpty = bv === null || bv === undefined || bv === '';
+        if (aEmpty && bEmpty) return 0;
+        if (aEmpty) return 1;
+        if (bEmpty) return -1;
+
+        const dir = sortDir === 'asc' ? 1 : -1;
+        const an = Number(av);
+        const bn = Number(bv);
+        if (!Number.isNaN(an) && !Number.isNaN(bn)) return (an - bn) * dir;
+        return String(av).localeCompare(String(bv)) * dir;
+      })
+    : rows;
 
   // 'sellers' chart points put the seller's name in `date` (categorical), not a
   // real timestamp — skip Date parsing for tick/tooltip labels in that case.
@@ -401,11 +440,29 @@ export default function AdminReportsPage() {
 
         {/* Data table */}
         <Card padding="none">
+          <div className="flex items-center gap-2 p-4 border-b border-gray-100 bg-gray-50 rounded-t-2xl">
+            <i className="fa fa-search text-xs text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search this report..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="flex-1 text-sm bg-transparent focus:outline-none"
+            />
+            {search && !loading && (
+              <span className="text-xs text-gray-400 flex-shrink-0">
+                {rows.length} {rows.length === 1 ? 'result' : 'results'}
+              </span>
+            )}
+          </div>
           <Table<ReportRow>
             columns={tableColumns}
-            data={rows}
+            data={sortedRows}
             loading={loading}
-            emptyText="No data for this period"
+            emptyText={search ? 'No rows match your search' : 'No data for this period'}
+            sortBy={sortBy}
+            sortDir={sortDir}
+            onSort={handleSort}
           />
         </Card>
 

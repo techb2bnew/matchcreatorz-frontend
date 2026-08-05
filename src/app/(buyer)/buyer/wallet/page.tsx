@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useCallback, Suspense } from 'react';
+import { useState, useEffect, useCallback, useRef, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import Card, { CardTitle } from '@/components/ui/Card';
@@ -31,12 +31,14 @@ function BuyerWalletInner() {
   const [addModal, setAddModal] = useState(false);
   const [amount, setAmount] = useState('');
   const [paying, setPaying] = useState(false);
+  const [search, setSearch] = useState('');
   const quickAmounts = [100, 250, 500, 1000];
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const load = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     try {
-      const [s, t] = await Promise.all([walletApi.summary(), walletApi.transactions({ limit: 50 })]);
+      const [s, t] = await Promise.all([walletApi.summary(), walletApi.transactions({ limit: 50, search: search || undefined })]);
       setSummary(s.data); setTxns(t.data || []);
     } catch (e) {
       if (!silent) toast.error((e as Error).message);
@@ -44,9 +46,13 @@ function BuyerWalletInner() {
     } finally {
       if (!silent) setLoading(false);
     }
-  }, []);
+  }, [search]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => load(), 300);
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  }, [load]);
 
   // Handle Stripe Checkout return
   useEffect(() => {
@@ -99,11 +105,25 @@ function BuyerWalletInner() {
       </Card>
 
       <Card padding="none">
-        <div className="p-4 border-b border-gray-100"><CardTitle>Transaction History</CardTitle></div>
+        <div className="flex items-center justify-between gap-3 p-4 border-b border-gray-100 flex-wrap">
+          <CardTitle>Transaction History</CardTitle>
+          <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl px-3 h-9 w-full sm:w-64">
+            <i className="fa fa-search text-xs text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search by title or date..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="flex-1 text-sm bg-transparent focus:outline-none"
+            />
+          </div>
+        </div>
         {loading ? (
           <div className="p-8 text-center text-gray-400 text-sm">Loading…</div>
         ) : txns.length === 0 ? (
-          <div className="p-8 text-center text-gray-400 text-sm">No transactions yet.</div>
+          <div className="p-8 text-center text-gray-400 text-sm">
+            {search.trim() ? 'No transactions match your search.' : 'No transactions yet.'}
+          </div>
         ) : (
           <div className="divide-y divide-gray-50">
             {txns.map((t) => {

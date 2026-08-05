@@ -7,6 +7,7 @@ import Avatar from '@/components/ui/Avatar';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import CustomSelect from '@/components/ui/CustomSelect';
+import SortableTh from '@/components/ui/SortableTh';
 import { formatDate, formatCurrency, getProfileStatusColor } from '@/lib/utils';
 import { buyerApi } from '@/lib/adminApi';
 import { TableSkeleton, Spinner } from '@/components/ui/Loader';
@@ -46,7 +47,14 @@ export default function BuyersPage() {
   const [page, setPage]                 = useState(1);
   const [totalPages, setTotalPages]     = useState(1);
   const [total, setTotal]               = useState(0);
+  const [sortBy,  setSortBy]            = useState('joined');
+  const [sortDir, setSortDir]           = useState<'asc' | 'desc'>('desc');
   const LIMIT = 10;
+
+  const handleSort = (key: string) => {
+    if (sortBy === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    else { setSortBy(key); setSortDir('asc'); }
+  };
 
   const [showAdd, setShowAdd]       = useState(false);
   const [form, setForm]             = useState(emptyForm);
@@ -72,7 +80,8 @@ export default function BuyersPage() {
   const fetchBuyers = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     try {
-      const params: Record<string, string | number> = { page, limit: LIMIT };
+      const params: { page: number; limit: number; search?: string; approval_status?: string; sortBy: string; sortDir: 'asc' | 'desc' } =
+        { page, limit: LIMIT, sortBy, sortDir };
       if (debouncedSearch) params.search = debouncedSearch;
       if (activeFilter !== 'All') {
         params.approval_status = activeFilter.toLowerCase();
@@ -88,7 +97,7 @@ export default function BuyersPage() {
     } finally {
       if (!silent) setLoading(false);
     }
-  }, [page, debouncedSearch, activeFilter]);
+  }, [page, debouncedSearch, activeFilter, sortBy, sortDir]);
 
   useEffect(() => { fetchBuyers(); }, [fetchBuyers]);
   useEffect(() => { setPage(1); }, [activeFilter]);
@@ -236,9 +245,15 @@ export default function BuyersPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-100">
-                  {['Buyer', 'Email', 'Phone', 'Bookings', 'Spent', 'Status', 'User Status', 'Joined', 'Actions'].map(h => (
-                    <th key={h} className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wider px-4 py-3">{h}</th>
-                  ))}
+                  <SortableTh label="Buyer"       sortKey="name"            activeKey={sortBy} direction={sortDir} onSort={handleSort} />
+                  <SortableTh label="Email"       sortKey="email"           activeKey={sortBy} direction={sortDir} onSort={handleSort} />
+                  <th className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wider px-4 py-3">Phone</th>
+                  <SortableTh label="Bookings"    sortKey="bookings_count"  activeKey={sortBy} direction={sortDir} onSort={handleSort} />
+                  <SortableTh label="Spent"       sortKey="total_spent"     activeKey={sortBy} direction={sortDir} onSort={handleSort} />
+                  <SortableTh label="Status"      sortKey="approval_status" activeKey={sortBy} direction={sortDir} onSort={handleSort} />
+                  <SortableTh label="User Status" sortKey="user_status"     activeKey={sortBy} direction={sortDir} onSort={handleSort} />
+                  <SortableTh label="Joined"      sortKey="joined"          activeKey={sortBy} direction={sortDir} onSort={handleSort} />
+                  <th className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wider px-4 py-3">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">

@@ -7,7 +7,7 @@ import Input           from '@/components/ui/Input';
 import Modal           from '@/components/ui/Modal';
 import { CardSkeleton } from '@/components/ui/Loader';
 import RichTextEditor from '@/components/ui/RichTextEditor';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, stripHtml } from '@/lib/utils';
 import { sellerServiceApi, publicCategoryApi } from '@/lib/adminApi';
 import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 
@@ -181,9 +181,11 @@ type ImgItem =
 function ImageUploader({
   items,
   onChange,
+  error,
 }: {
   items: ImgItem[];
   onChange: (items: ImgItem[]) => void;
+  error?: string;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -212,9 +214,9 @@ function ImageUploader({
   return (
     <div>
       <label className="block text-sm font-medium text-gray-700 mb-1.5">
-        Service Images <span className="text-gray-400 font-normal">(max 5 -- JPG, PNG, WEBP)</span>
+        Service Images <span className="text-red-500">*</span> <span className="text-gray-400 font-normal">(max 5 -- JPG, PNG, WEBP)</span>
       </label>
-      <div className="flex flex-wrap gap-2 mb-2">
+      <div className={`flex flex-wrap gap-2 mb-2 p-1 rounded-xl ${error ? 'ring-1 ring-red-400' : ''}`}>
         {items.map((item, i) => (
           <div key={i} className="relative w-20 h-20 rounded-xl overflow-hidden border border-gray-200 group">
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -233,13 +235,14 @@ function ImageUploader({
           <button
             type="button"
             onClick={() => inputRef.current?.click()}
-            className="w-20 h-20 border-2 border-dashed border-gray-300 rounded-xl flex flex-col items-center justify-center text-gray-400 hover:border-[#e84545] hover:text-[#e84545] transition"
+            className={`w-20 h-20 border-2 border-dashed rounded-xl flex flex-col items-center justify-center text-gray-400 hover:border-[#e84545] hover:text-[#e84545] transition ${error ? 'border-red-300' : 'border-gray-300'}`}
           >
             <i className="fa fa-plus text-lg mb-0.5" />
             <span className="text-[10px]">Add photo</span>
           </button>
         )}
       </div>
+      {error && <p className="text-xs text-red-500"><i className="fa fa-times-circle mr-1" />{error}</p>}
       <input
         ref={inputRef}
         type="file"
@@ -265,7 +268,8 @@ function ServiceModal({
   const [form, setForm]     = useState<FormState>(EMPTY_FORM);
   const [imgItems, setImgs] = useState<ImgItem[]>([]);
   const [saving, setSaving] = useState(false);
-  const [error, setError]   = useState('');
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [submitError, setSubmitError] = useState('');
 
   useEffect(() => {
     if (isOpen) {
@@ -290,7 +294,8 @@ function ServiceModal({
         setForm(EMPTY_FORM);
         setImgs([]);
       }
-      setError('');
+      setErrors({});
+      setSubmitError('');
     }
   }, [isOpen, editService]);
 
@@ -298,13 +303,29 @@ function ServiceModal({
     (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
       setForm((p) => ({ ...p, [k]: e.target.value }));
 
+  const validate = () => {
+    const errs: Record<string, string> = {};
+    if (!form.title.trim()) errs.title = 'Title is required';
+    if (!stripHtml(form.description)) errs.description = 'Description is required';
+    if (imgItems.length === 0) errs.images = 'At least one image is required';
+    if (form.category_ids.length === 0) errs.category = 'Select at least one category';
+    if (!form.price.trim()) errs.price = 'Price is required';
+    else if (Number(form.price) <= 0) errs.price = 'Price must be greater than 0';
+    if (!form.delivery_days.trim()) errs.delivery_days = 'Delivery time is required';
+    else if (Number(form.delivery_days) <= 0) errs.delivery_days = 'Delivery time must be greater than 0';
+    if (!form.revisions.trim()) errs.revisions = 'Revisions is required';
+    else if (Number(form.revisions) < 0) errs.revisions = 'Revisions cannot be negative';
+    if (!form.tags.trim()) errs.tags = 'At least one tag is required';
+    return errs;
+  };
+
   const handleSave = async () => {
-    if (!form.title.trim())             return setError('Title is required');
-    if (form.category_ids.length === 0) return setError('Please select at least one category');
-    if (!form.price || Number(form.price) <= 0) return setError('Price must be greater than 0');
+    const errs = validate();
+    if (Object.keys(errs).length) { setErrors(errs); return; }
+    setErrors({});
 
     setSaving(true);
-    setError('');
+    setSubmitError('');
     try {
       const fd = new FormData();
       fd.append('title',         form.title.trim());
@@ -332,7 +353,7 @@ function ServiceModal({
       onSaved();
       onClose();
     } catch (e: unknown) {
-      setError((e as Error).message || 'Something went wrong');
+      setSubmitError((e as Error).message || 'Something went wrong');
     } finally {
       setSaving(false);
     }
@@ -343,41 +364,53 @@ function ServiceModal({
       <div className="max-h-[60vh] overflow-y-auto pr-1 -mr-1 space-y-4">
         <Input
           label="Service Title"
+          required
           placeholder="e.g. Professional Logo Design"
           value={form.title}
           onChange={set('title')}
+          error={errors.title}
         />
-        <RichTextEditor
-          label="Description"
-          placeholder="Describe what you offer..."
-          value={form.description}
-          onChange={(html) => setForm((f) => ({ ...f, description: html }))}
-          variant="full"
-        />
+        <div>
+          <label className="text-sm font-medium text-gray-700 flex items-center gap-1 mb-1.5">
+            Description <span className="text-[#e84545]">*</span>
+          </label>
+          <RichTextEditor
+            placeholder="Describe what you offer..."
+            value={form.description}
+            onChange={(html) => setForm((f) => ({ ...f, description: html }))}
+            variant="full"
+          />
+          {errors.description && <p className="text-xs text-red-500 mt-1"><i className="fa fa-times-circle mr-1" />{errors.description}</p>}
+        </div>
 
-        <ImageUploader items={imgItems} onChange={setImgs} />
+        <ImageUploader items={imgItems} onChange={setImgs} error={errors.images} />
 
-        <MultiSelectCategory
-          categories={categories}
-          selected={form.category_ids}
-          onChange={(ids) => setForm((p) => ({ ...p, category_ids: ids }))}
-        />
+        <div>
+          <MultiSelectCategory
+            categories={categories}
+            selected={form.category_ids}
+            onChange={(ids) => setForm((p) => ({ ...p, category_ids: ids }))}
+          />
+          {errors.category && <p className="text-xs text-red-500 mt-1"><i className="fa fa-times-circle mr-1" />{errors.category}</p>}
+        </div>
 
         <div className="grid grid-cols-3 gap-3">
-          <Input label="Price (Rs.)" type="number" placeholder="999" value={form.price} onChange={set('price')} />
-          <Input label="Delivery (days)" type="number" placeholder="3" value={form.delivery_days} onChange={set('delivery_days')} />
-          <Input label="Revisions" type="number" placeholder="1" value={form.revisions} onChange={set('revisions')} />
+          <Input label="Price (Rs.)" required type="number" placeholder="999" value={form.price} onChange={set('price')} error={errors.price} />
+          <Input label="Delivery (days)" required type="number" placeholder="3" value={form.delivery_days} onChange={set('delivery_days')} error={errors.delivery_days} />
+          <Input label="Revisions" required type="number" placeholder="1" value={form.revisions} onChange={set('revisions')} error={errors.revisions} />
         </div>
 
         <Input
           label="Tags (comma separated)"
+          required
           placeholder="logo, branding, design"
           value={form.tags}
           onChange={set('tags')}
+          error={errors.tags}
         />
       </div>
 
-      {error && <p className="text-xs text-red-500 mt-3">{error}</p>}
+      {submitError && <p className="text-xs text-red-500 mt-3">{submitError}</p>}
 
       <div className="flex gap-3 pt-4 border-t border-gray-100 mt-4">
         <Button variant="outline" fullWidth onClick={onClose} disabled={saving}>Cancel</Button>

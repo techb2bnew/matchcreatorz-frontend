@@ -7,6 +7,7 @@ import Input from '@/components/ui/Input';
 import Modal from '@/components/ui/Modal';
 import { categoryApi } from '@/lib/adminApi';
 import { CardSkeleton, TableSkeleton } from '@/components/ui/Loader';
+import SortableTh from '@/components/ui/SortableTh';
 import toast from 'react-hot-toast';
 import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 
@@ -177,6 +178,15 @@ export default function CategoriesPage() {
     return () => clearTimeout(t);
   }, [search]);
 
+  // sort
+  const [sortBy,  setSortBy]  = useState('name');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+
+  const handleSort = (key: string) => {
+    if (sortBy === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    else { setSortBy(key); setSortDir('asc'); }
+  };
+
   // -- Add modal ---------------------------------------------
   const [showAdd, setShowAdd]     = useState(false);
   const [addForm, setAddForm]     = useState(emptyForm);
@@ -197,7 +207,7 @@ export default function CategoriesPage() {
   const fetchCategories = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     try {
-      const params: Record<string, string | number> = { page: 1, limit: 100 };
+      const params: Record<string, string | number> & { sortBy?: string; sortDir?: 'asc' | 'desc' } = { page: 1, limit: 100, sortBy, sortDir };
       if (debouncedSearch) params.search = debouncedSearch;
       const json = await categoryApi.list(params);
       setCategories(json.data || []);
@@ -208,7 +218,7 @@ export default function CategoriesPage() {
     } finally {
       if (!silent) setLoading(false);
     }
-  }, [debouncedSearch]);
+  }, [debouncedSearch, sortBy, sortDir]);
 
   useEffect(() => { fetchCategories(); }, [fetchCategories]);
 
@@ -361,9 +371,11 @@ export default function CategoriesPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-gray-50 border-b border-gray-100">
-                    {['Name', 'Description', 'Services', 'Sellers', 'Actions'].map((h) => (
-                      <th key={h} className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wider px-4 py-3">{h}</th>
-                    ))}
+                    <SortableTh label="Name"        sortKey="name"           activeKey={sortBy} direction={sortDir} onSort={handleSort} />
+                    <th className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wider px-4 py-3">Description</th>
+                    <SortableTh label="Services"    sortKey="services_count" activeKey={sortBy} direction={sortDir} onSort={handleSort} />
+                    <SortableTh label="Sellers"     sortKey="sellers_count"  activeKey={sortBy} direction={sortDir} onSort={handleSort} />
+                    <th className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wider px-4 py-3">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">

@@ -6,6 +6,7 @@ import Button          from '@/components/ui/Button';
 import Modal           from '@/components/ui/Modal';
 import { Spinner, TableSkeleton } from '@/components/ui/Loader';
 import { RichTextView }           from '@/components/ui/RichTextEditor';
+import SortableTh                 from '@/components/ui/SortableTh';
 import { formatCurrency }          from '@/lib/utils';
 import { adminServiceApi, categoryApi } from '@/lib/adminApi';
 import { useAutoRefresh } from '@/hooks/useAutoRefresh';
@@ -273,16 +274,24 @@ export default function AdminServicesPage() {
   const [categoryFilter, setCategory] = useState('');
   const [page, setPage]               = useState(1);
   const [total, setTotal]             = useState(0);
+  const [sortBy, setSortBy]           = useState('date');
+  const [sortDir, setSortDir]         = useState<'asc' | 'desc'>('desc');
   const LIMIT = 10;
 
   const [viewService, setView]          = useState<Service | null>(null);
   const [actionLoading, setAction]      = useState('');
   const [deleteTarget, setDeleteTarget] = useState<Service | null>(null);
 
+  const handleSort = (key: string) => {
+    if (sortBy === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    else { setSortBy(key); setSortDir('asc'); }
+    setPage(1);
+  };
+
   const fetchServices = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     try {
-      const params: Record<string, string | number> = { page, limit: LIMIT };
+      const params: Record<string, string | number> = { page, limit: LIMIT, sortBy, sortDir };
       if (search)         params.search      = search;
       if (statusFilter)   params.status      = statusFilter;
       if (categoryFilter) params.category_id = categoryFilter;
@@ -294,7 +303,7 @@ export default function AdminServicesPage() {
       else console.error('Failed to silently refresh services', err);
     }
     finally { setLoading(false); }
-  }, [page, search, statusFilter, categoryFilter]);
+  }, [page, search, statusFilter, categoryFilter, sortBy, sortDir]);
 
   useEffect(() => {
     categoryApi.list({ page: 1, limit: 100 }).then((r) => setCategories(r.data || [])).catch(() => {});
@@ -380,9 +389,13 @@ export default function AdminServicesPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-100">
-                  {['Service', 'Seller', 'Category', 'Price', 'Orders', 'Status', 'Actions'].map((h) => (
-                    <th key={h} className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wider px-4 py-3">{h}</th>
-                  ))}
+                  <SortableTh label="Service"  sortKey="title"    activeKey={sortBy} direction={sortDir} onSort={handleSort} />
+                  <SortableTh label="Seller"   sortKey="seller"   activeKey={sortBy} direction={sortDir} onSort={handleSort} />
+                  <SortableTh label="Category" sortKey="category" activeKey={sortBy} direction={sortDir} onSort={handleSort} />
+                  <SortableTh label="Price"    sortKey="price"    activeKey={sortBy} direction={sortDir} onSort={handleSort} />
+                  <SortableTh label="Orders"   sortKey="orders"   activeKey={sortBy} direction={sortDir} onSort={handleSort} />
+                  <SortableTh label="Status"   sortKey="status"   activeKey={sortBy} direction={sortDir} onSort={handleSort} />
+                  <th className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wider px-4 py-3">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">

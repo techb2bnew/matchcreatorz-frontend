@@ -1,11 +1,12 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
+import SortableTh from '@/components/ui/SortableTh';
 import { adminBroadcastApi, AdminBroadcast } from '@/lib/adminApi';
 import { formatTimeAgo, truncate } from '@/lib/utils';
 import { useAutoRefresh } from '@/hooks/useAutoRefresh';
@@ -36,6 +37,15 @@ export default function AdminBroadcastPage() {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
+  const [search, setSearch] = useState('');
+  const [sortBy, setSortBy] = useState('date');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleSort = (key: string) => {
+    if (sortBy === key) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    else { setSortBy(key); setSortDir('asc'); }
+  };
 
   const loadHistory = useCallback(async (pg: number, silent = false) => {
     if (!silent) setHistoryLoading(true);
@@ -45,7 +55,7 @@ export default function AdminBroadcastPage() {
       // already expanded to via "Load more".
       const limit = silent ? pg * HISTORY_LIMIT : HISTORY_LIMIT;
       const fetchPage = silent ? 1 : pg;
-      const res = await adminBroadcastApi.list({ page: fetchPage, limit });
+      const res = await adminBroadcastApi.list({ page: fetchPage, limit, search: search || undefined, sortBy, sortDir });
       const nextTotal = res.meta?.total ?? res.pagination?.total ?? 0;
       if (silent) {
         setHistory(res.data);
@@ -60,11 +70,12 @@ export default function AdminBroadcastPage() {
     } finally {
       if (!silent) setHistoryLoading(false);
     }
-  }, []);
+  }, [search, sortBy, sortDir]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- standard fetch-on-mount; loadHistory awaits the API call before touching state, so nothing sets synchronously during this effect's render
-    loadHistory(1);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => loadHistory(1), 300);
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
   }, [loadHistory]);
 
   useAutoRefresh(() => loadHistory(page, true), 20000);
@@ -164,20 +175,30 @@ export default function AdminBroadcastPage() {
         </Card>
 
         <Card className="!bg-white" padding="none">
-          <div className="px-5 py-4 border-b border-[#e8e8e8]">
+          <div className="px-5 py-4 border-b border-[#e8e8e8] flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-lg font-semibold text-gray-900">History</h2>
+            <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl px-3 h-9 w-full sm:w-64">
+              <i className="fa fa-search text-xs text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search title or message..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="flex-1 text-sm bg-transparent focus:outline-none"
+              />
+            </div>
           </div>
 
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-[#e8e8e8] text-left text-xs font-medium text-gray-500 uppercase tracking-wide">
-                  <th className="px-5 py-3">Title</th>
+                  <SortableTh label="Title"      sortKey="title"      activeKey={sortBy} direction={sortDir} onSort={handleSort} className="px-5 py-3" />
                   <th className="px-5 py-3">Message</th>
-                  <th className="px-5 py-3">Audience</th>
-                  <th className="px-5 py-3">Recipients</th>
-                  <th className="px-5 py-3">Sent</th>
-                  <th className="px-5 py-3">Sent by</th>
+                  <SortableTh label="Audience"   sortKey="audience"   activeKey={sortBy} direction={sortDir} onSort={handleSort} className="px-5 py-3" />
+                  <SortableTh label="Recipients" sortKey="recipients" activeKey={sortBy} direction={sortDir} onSort={handleSort} className="px-5 py-3" />
+                  <SortableTh label="Sent"       sortKey="date"       activeKey={sortBy} direction={sortDir} onSort={handleSort} className="px-5 py-3" />
+                  <SortableTh label="Sent by"    sortKey="sentBy"     activeKey={sortBy} direction={sortDir} onSort={handleSort} className="px-5 py-3" />
                 </tr>
               </thead>
               <tbody>

@@ -106,6 +106,7 @@ export default function BuyerJobsPage() {
   // Edit modal
   const [editJob, setEditJob]   = useState<Job | null>(null);
   const [editForm, setEditForm] = useState<FormState>(EMPTY);
+  const [editErrors, setEditErrors] = useState<Record<string, string>>({});
   const [editSaving, setEditSaving] = useState(false);
   const [editMsg, setEditMsg]   = useState<{ ok: boolean; text: string } | null>(null);
 
@@ -169,14 +170,19 @@ export default function BuyerJobsPage() {
     { label: 'Total Bids',   val: jobStats ? String(jobStats.totalBids)  : '…', icon: 'fa-gavel',      color: '#f59e0b', bg: '#fffbeb' },
   ];
 
-  // Post job
+  // Post job — every field is required except attachments
   const validateForm = (f: FormState) => {
     const errs: Record<string, string> = {};
     if (!f.title.trim()) errs.title = 'Job title is required';
+    if (!plainText(f.description)) errs.description = 'Description is required';
+    if (f.category.length === 0) errs.category = 'Select at least one category';
+    if (!f.budget_min.trim()) errs.budget_min = 'Minimum budget is required';
+    if (!f.budget_max.trim()) errs.budget_max = 'Maximum budget is required';
     if (f.budget_min && f.budget_max && Number(f.budget_min) > Number(f.budget_max))
       errs.budget_max = 'Max must be greater than min';
-    if (f.deadline && f.deadline < todayStr())
-      errs.deadline = 'Deadline cannot be in the past';
+    if (!f.deadline) errs.deadline = 'Deadline is required';
+    else if (f.deadline < todayStr()) errs.deadline = 'Deadline cannot be in the past';
+    if (!f.skills.trim()) errs.skills = 'At least one skill is required';
     return errs;
   };
 
@@ -224,6 +230,7 @@ export default function BuyerJobsPage() {
       attachments:      Array.isArray(job.attachments) ? job.attachments : [],
     });
     setEditMsg(null);
+    setEditErrors({});
     setActiveTab('edit');
     try {
       const full = await buyerJobApi.get(job.id);
@@ -235,7 +242,8 @@ export default function BuyerJobsPage() {
   const handleEdit = async () => {
     if (!editJob) return;
     const errs = validateForm(editForm);
-    if (Object.keys(errs).length) { setErrors(errs); return; }
+    if (Object.keys(errs).length) { setEditErrors(errs); return; }
+    setEditErrors({});
     setEditSaving(true); setEditMsg(null);
     try {
       await buyerJobApi.update(editJob.id, {
@@ -308,19 +316,20 @@ export default function BuyerJobsPage() {
       </div>
 
       <div>
-        <label className={labelCls}><i className="fa fa-align-left mr-1 text-[#e84545]" /> Description</label>
+        <label className={labelCls}><i className="fa fa-align-left mr-1 text-[#e84545]" /> Description <span className="text-red-500">*</span></label>
         <RichTextEditor
           variant="full"
           placeholder="Describe what you need, including requirements, references..."
           value={f.description}
           onChange={html => setF(p => ({ ...p, description: html }))}
         />
+        {errs.description && <p className="mt-1 text-xs text-red-500"><i className="fa fa-times-circle mr-1" />{errs.description}</p>}
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
-          <label className={labelCls}><i className="fa fa-tag mr-1 text-[#e84545]" /> Category <span className="text-gray-400 normal-case font-normal">(search &amp; select multiple)</span></label>
-          <div className="border border-[#e8e8e8] rounded-xl bg-white overflow-hidden">
+          <label className={labelCls}><i className="fa fa-tag mr-1 text-[#e84545]" /> Category <span className="text-red-500">*</span> <span className="text-gray-400 normal-case font-normal">(search &amp; select multiple)</span></label>
+          <div className={cn('border rounded-xl bg-white overflow-hidden', errs.category ? 'border-red-400' : 'border-[#e8e8e8]')}>
             {/* search box */}
             <div className="relative border-b border-gray-100">
               <i className="fa fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs" />
@@ -354,7 +363,9 @@ export default function BuyerJobsPage() {
               )}
             </div>
           </div>
-          {f.category.length === 0 && <p className="mt-1 text-xs text-gray-400">Select at least one category</p>}
+          {errs.category
+            ? <p className="mt-1 text-xs text-red-500"><i className="fa fa-times-circle mr-1" />{errs.category}</p>
+            : f.category.length === 0 && <p className="mt-1 text-xs text-gray-400">Select at least one category</p>}
         </div>
         <div>
           <label className={labelCls}><i className="fa fa-clock-o mr-1 text-[#e84545]" /> Job Type</label>
@@ -371,16 +382,17 @@ export default function BuyerJobsPage() {
         <div>
           <label className={labelCls}>
             <i className="fa fa-dollar mr-1 text-[#10b981]" />
-            {f.job_type === 'hourly' ? 'Min Rate ($/hr)' : 'Budget Min ($)'}
+            {f.job_type === 'hourly' ? 'Min Rate ($/hr)' : 'Budget Min ($)'} <span className="text-red-500">*</span>
           </label>
-          <input className={inputCls} type="number" min="0" value={f.budget_min}
+          <input className={inputCls + (errs.budget_min ? ' border-red-400' : '')} type="number" min="0" value={f.budget_min}
             onChange={e => setF(p => ({ ...p, budget_min: e.target.value }))}
             placeholder={f.job_type === 'hourly' ? '25' : '500'} />
+          {errs.budget_min && <p className="mt-1 text-xs text-red-500"><i className="fa fa-times-circle mr-1" />{errs.budget_min}</p>}
         </div>
         <div>
           <label className={labelCls}>
             <i className="fa fa-dollar mr-1 text-[#10b981]" />
-            {f.job_type === 'hourly' ? 'Max Rate ($/hr)' : 'Budget Max ($)'}
+            {f.job_type === 'hourly' ? 'Max Rate ($/hr)' : 'Budget Max ($)'} <span className="text-red-500">*</span>
           </label>
           <input className={inputCls + (errs.budget_max ? ' border-red-400' : '')} type="number" min="0" value={f.budget_max}
             onChange={e => setF(p => ({ ...p, budget_max: e.target.value }))}
@@ -391,7 +403,7 @@ export default function BuyerJobsPage() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
-          <label className={labelCls}><i className="fa fa-calendar mr-1 text-[#4f9ef8]" /> Deadline</label>
+          <label className={labelCls}><i className="fa fa-calendar mr-1 text-[#4f9ef8]" /> Deadline <span className="text-red-500">*</span></label>
           <input className={inputCls + (errs.deadline ? ' border-red-400' : '')} type="date" min={todayStr()} value={f.deadline}
             onChange={e => setF(p => ({ ...p, deadline: e.target.value }))} />
           {errs.deadline && <p className="mt-1 text-xs text-red-500"><i className="fa fa-times-circle mr-1" />{errs.deadline}</p>}
@@ -408,10 +420,11 @@ export default function BuyerJobsPage() {
       </div>
 
       <div>
-        <label className={labelCls}><i className="fa fa-code mr-1 text-[#8b5cf6]" /> Required Skills</label>
-        <input className={inputCls} value={f.skills}
+        <label className={labelCls}><i className="fa fa-code mr-1 text-[#8b5cf6]" /> Required Skills <span className="text-red-500">*</span></label>
+        <input className={inputCls + (errs.skills ? ' border-red-400' : '')} value={f.skills}
           onChange={e => setF(p => ({ ...p, skills: e.target.value }))}
           placeholder="e.g. Photoshop, Illustrator, Branding (comma separated)" />
+        {errs.skills && <p className="mt-1 text-xs text-red-500"><i className="fa fa-times-circle mr-1" />{errs.skills}</p>}
       </div>
 
       {/* Attachments */}
@@ -761,7 +774,7 @@ export default function BuyerJobsPage() {
             </div>
             <p className="text-xs text-gray-400 mb-6 ml-11">Update your job details below</p>
 
-            {renderForm(editForm, setEditForm, {})}
+            {renderForm(editForm, setEditForm, editErrors)}
 
             {editMsg && (
               <div className={`mt-4 flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium border ${editMsg.ok ? 'bg-green-50 border-green-200 text-green-700' : 'bg-red-50 border-red-200 text-red-600'}`}>
