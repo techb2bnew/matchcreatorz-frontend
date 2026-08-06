@@ -526,7 +526,7 @@ export default function BuyerJobsPage() {
 
               />
             </div>
-            <div className="w-44">
+            <div className="w-full sm:w-44">
               <CustomSelect
                 value={categoryFilter === '' ? 'All Categories' : categoryFilter}
                 onChange={val => setCategoryFilter(val === 'All Categories' ? '' : val)}
@@ -534,7 +534,7 @@ export default function BuyerJobsPage() {
                 leftIcon="fa-tag"
               />
             </div>
-            <div className="w-40">
+            <div className="w-full sm:w-40">
               <CustomSelect
                 value={{ '': 'All Status', OPEN: 'Open', IN_PROGRESS: 'In Progress', COMPLETED: 'Completed', CLOSED: 'Closed', CANCELLED: 'Cancelled' }[statusFilter] ?? 'All Status'}
                 onChange={val => {
@@ -549,7 +549,7 @@ export default function BuyerJobsPage() {
             {(search || statusFilter || categoryFilter) && (
               <button
                 onClick={() => { setSearch(''); setStatusFilter(''); setCategoryFilter(''); }}
-                className="inline-flex items-center gap-1.5 px-3 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-500 hover:bg-gray-50 transition"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-500 hover:bg-gray-50 transition"
               >
                 <i className="fa fa-times" /> Clear
               </button>

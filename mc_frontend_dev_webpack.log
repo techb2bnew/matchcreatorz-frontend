@@ -1,0 +1,216 @@
+
+> matchcreatorz@0.1.0 dev
+> next dev --webpack
+
+▲ Next.js 16.2.9 (webpack)
+- Local:         http://localhost:3000
+- Network:       http://192.168.1.2:3000
+- Environments: .env.local
+✓ Ready in 1697ms
+[32m✔[0m [33mConsole Ninja[0m extension is connected to [33mNext.js[0m, see [36mhttps://tinyurl.com/2vt8jxzw[0m
+⚠ The "middleware" file convention is deprecated. Please use "proxy" instead. Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
+- Experiments (use with caution):
+  · optimizePackageImports
+
+○ Compiling /admin/categories ...
+ GET /admin/categories 200 in 16.6s (next.js: 15.3s, proxy.ts: 299ms, application-code: 1033ms)
+ GET /login 200 in 1605ms (next.js: 1304ms, proxy.ts: 19ms, application-code: 283ms)
+ GET /admin/categories 200 in 417ms (next.js: 32ms, proxy.ts: 29ms, application-code: 356ms)
+ GET /admin/connects 200 in 3.0s (next.js: 2.7s, proxy.ts: 13ms, application-code: 273ms)
+ GET /admin/connects 200 in 82ms (next.js: 9ms, proxy.ts: 13ms, application-code: 60ms)
+[browser] Detected `scroll-behavior: smooth` on the `<html>` element. To disable smooth scrolling during route transitions, add `data-scroll-behavior="smooth"` to your <html> element. Learn more: https://nextjs.org/docs/messages/missing-data-scroll-behavior
+ GET /admin/wallet 200 in 2.4s (next.js: 2.2s, proxy.ts: 17ms, application-code: 237ms)
+ GET /admin/reviews 200 in 1308ms (next.js: 1230ms, proxy.ts: 12ms, application-code: 66ms)
+○ Compiling /admin/reports ...
+ GET /admin/broadcast 200 in 3.0s (next.js: 2.6s, proxy.ts: 198ms, application-code: 135ms)
+ GET /admin/reports 200 in 9.3s (next.js: 9.1s, proxy.ts: 12ms, application-code: 140ms)
+○ Compiling /admin/pages ...
+ GET /admin/profile 200 in 3.3s (next.js: 3.0s, proxy.ts: 191ms, application-code: 126ms)
+ GET /admin/pages 200 in 9.0s (next.js: 8.8s, proxy.ts: 12ms, application-code: 127ms)
+[browser] ⨯ unhandledRejection: ChunkLoadError: Failed to load chunk /_next/static/chunks/src_app_layout_tsx_007e4b2._.js from module [project]/node_modules/next/dist/compiled/react-server-dom-turbopack/cjs/react-server-dom-turbopack-client.browser.development.js [app-client] (ecmascript)
+    at <unknown> (file://C:/Deepak/Naim/matchcreatorz/.next/dev/static/chunks/turbopack-_01_ro95._.js:698:25)
+ GET /admin/profile 200 in 871ms (next.js: 15ms, proxy.ts: 30ms, application-code: 826ms)
+○ Compiling /login ...
+[browser] Uncaught Error: Internal Next.js error: Router action dispatched before initialization.
+    at dispatchAppRouterAction (file://C:/Deepak/Naim/matchcreatorz/.next/dev/static/chunks/node_modules_next_dist_client_0r5nbpw._.js:916:37)
+    at <unknown> (file://C:/Deepak/Naim/matchcreatorz/.next/dev/static/chunks/node_modules_next_dist_client_0r5nbpw._.js:11923:61)
+    at startTransition (file://C:/Deepak/Naim/matchcreatorz/.next/dev/static/chunks/node_modules_next_dist_compiled_1amofcm._.js:1279:31)
+    at Object.hmrRefresh (file://C:/Deepak/Naim/matchcreatorz/.next/dev/static/chunks/node_modules_next_dist_client_0r5nbpw._.js:11922:40)
+    at <unknown> (file://C:/Deepak/Naim/matchcreatorz/.next/dev/static/chunks/node_modules_next_dist_client_0r5nbpw._.js:14090:64)
+    at startTransition (file://C:/Deepak/Naim/matchcreatorz/.next/dev/static/chunks/node_modules_next_dist_compiled_1amofcm._.js:1279:31)
+    at processMessage (file://C:/Deepak/Naim/matchcreatorz/.next/dev/static/chunks/node_modules_next_dist_client_0r5nbpw._.js:14089:44)
+    at WebSocket.handleMessage (file://C:/Deepak/Naim/matchcreatorz/.next/dev/static/chunks/node_modules_next_dist_client_0r5nbpw._.js:13458:52)
+ GET /login 200 in 4.4s (next.js: 3.7s, proxy.ts: 13ms, application-code: 710ms)
+ GET /admin/profile 200 in 222ms (next.js: 45ms, proxy.ts: 36ms, application-code: 141ms)
+ GET /admin/profile 200 in 229ms (next.js: 10ms, proxy.ts: 18ms, application-code: 201ms)
+○ Compiling /buyer/home ...
+ GET /buyer/home 200 in 5.8s (next.js: 5.7s, proxy.ts: 11ms, application-code: 129ms)
+[browser] Detected `scroll-behavior: smooth` on the `<html>` element. To disable smooth scrolling during route transitions, add `data-scroll-behavior="smooth"` to your <html> element. Learn more: https://nextjs.org/docs/messages/missing-data-scroll-behavior
+ GET /buyer/search 200 in 1447ms (next.js: 1359ms, proxy.ts: 15ms, application-code: 73ms)
+ GET /buyer/search 200 in 393ms (next.js: 13ms, proxy.ts: 19ms, application-code: 361ms)
+ GET /admin/profile 200 in 563ms (next.js: 35ms, proxy.ts: 18ms, application-code: 509ms)
+ GET /buyer/search 200 in 141ms (next.js: 11ms, proxy.ts: 15ms, application-code: 115ms)
+ GET /admin/profile 200 in 163ms (next.js: 12ms, proxy.ts: 16ms, application-code: 135ms)
+ GET /buyer/search 200 in 152ms (next.js: 14ms, proxy.ts: 62ms, application-code: 76ms)
+○ Compiling /buyer/jobs ...
+ GET /buyer/jobs 200 in 3.5s (next.js: 3.3s, proxy.ts: 13ms, application-code: 134ms)
+ GET /admin/profile 200 in 142ms (next.js: 38ms, proxy.ts: 24ms, application-code: 81ms)
+ GET /buyer/jobs 200 in 137ms (next.js: 11ms, proxy.ts: 17ms, application-code: 109ms)
+[browser] Detected `scroll-behavior: smooth` on the `<html>` element. To disable smooth scrolling during route transitions, add `data-scroll-behavior="smooth"` to your <html> element. Learn more: https://nextjs.org/docs/messages/missing-data-scroll-behavior
+ GET /buyer/jobs 200 in 73ms (next.js: 13ms, proxy.ts: 14ms, application-code: 45ms)
+○ Compiling /buyer/bookings ...
+ GET /buyer/bookings 200 in 3.7s (next.js: 3.6s, proxy.ts: 13ms, application-code: 108ms)
+ GET /buyer/offers 200 in 1390ms (next.js: 1288ms, proxy.ts: 10ms, application-code: 91ms)
+ GET /buyer/favourites 200 in 1306ms (next.js: 1232ms, proxy.ts: 14ms, application-code: 60ms)
+ GET /buyer/wallet 200 in 2.5s (next.js: 2.4s, proxy.ts: 10ms, application-code: 79ms)
+ GET /buyer/notifications 200 in 2.5s (next.js: 2.4s, proxy.ts: 13ms, application-code: 92ms)
+[browser] Silent notifications refresh failed TypeError: Failed to fetch
+    at req (src\lib\adminApi.ts:30:22)
+    at Object.list (src\lib\adminApi.ts:410:12)
+    at BuyerNotificationsPage.useCallback[fetchNotifications] (src\app\(buyer)\buyer\notifications\page.tsx:84:47)
+    at BuyerNotificationsPage.useAutoRefresh [as current] (src\app\(buyer)\buyer\notifications\page.tsx:106:24)
+    at useAutoRefresh.useEffect.tick (src\hooks\useAutoRefresh.ts:39:27)
+  28 |
+  29 | const req = async (method: string, path: string, body?: unknown) => {
+> 30 |   const res  = await fetch(`${API}${path}`, { method, headers: headers(), body: body ? JSO...
+     |                      ^
+  31 |   const json = await res.json();
+  32 |   if (!res.ok) {
+  33 |     if (res.status === 401) handleUnauthorized(); (src\app\(buyer)
+[browser] Silent notifications refresh failed TypeError: Failed to fetch
+    at req (src\lib\adminApi.ts:30:22)
+    at Object.list (src\lib\adminApi.ts:410:12)
+    at BuyerNotificationsPage.useCallback[fetchNotifications] (src\app\(buyer)\buyer\notifications\page.tsx:84:47)
+    at BuyerNotificationsPage.useAutoRefresh [as current] (src\app\(buyer)\buyer\notifications\page.tsx:106:24)
+    at useAutoRefresh.useEffect.tick (src\hooks\useAutoRefresh.ts:39:27)
+  28 |
+  29 | const req = async (method: string, path: string, body?: unknown) => {
+> 30 |   const res  = await fetch(`${API}${path}`, { method, headers: headers(), body: body ? JSO...
+     |                      ^
+  31 |   const json = await res.json();
+  32 |   if (!res.ok) {
+  33 |     if (res.status === 401) handleUnauthorized(); (src\app\(buyer)
+[browser] Silent notifications refresh failed TypeError: Failed to fetch
+    at req (src\lib\adminApi.ts:30:22)
+    at Object.list (src\lib\adminApi.ts:410:12)
+    at BuyerNotificationsPage.useCallback[fetchNotifications] (src\app\(buyer)\buyer\notifications\page.tsx:84:47)
+    at BuyerNotificationsPage.useAutoRefresh [as current] (src\app\(buyer)\buyer\notifications\page.tsx:106:24)
+    at useAutoRefresh.useEffect.tick (src\hooks\useAutoRefresh.ts:39:27)
+  28 |
+  29 | const req = async (method: string, path: string, body?: unknown) => {
+> 30 |   const res  = await fetch(`${API}${path}`, { method, headers: headers(), body: body ? JSO...
+     |                      ^
+  31 |   const json = await res.json();
+  32 |   if (!res.ok) {
+  33 |     if (res.status === 401) handleUnauthorized(); (src\app\(buyer)
+[browser] Silent notifications refresh failed TypeError: Failed to fetch
+    at req (src\lib\adminApi.ts:30:22)
+    at Object.list (src\lib\adminApi.ts:410:12)
+    at BuyerNotificationsPage.useCallback[fetchNotifications] (src\app\(buyer)\buyer\notifications\page.tsx:84:47)
+    at BuyerNotificationsPage.useAutoRefresh [as current] (src\app\(buyer)\buyer\notifications\page.tsx:106:24)
+    at useAutoRefresh.useEffect.tick (src\hooks\useAutoRefresh.ts:39:27)
+  28 |
+  29 | const req = async (method: string, path: string, body?: unknown) => {
+> 30 |   const res  = await fetch(`${API}${path}`, { method, headers: headers(), body: body ? JSO...
+     |                      ^
+  31 |   const json = await res.json();
+  32 |   if (!res.ok) {
+  33 |     if (res.status === 401) handleUnauthorized(); (src\app\(buyer)
+[browser] Silent notifications refresh failed TypeError: Failed to fetch
+    at req (src\lib\adminApi.ts:30:22)
+    at Object.list (src\lib\adminApi.ts:410:12)
+    at BuyerNotificationsPage.useCallback[fetchNotifications] (src\app\(buyer)\buyer\notifications\page.tsx:84:47)
+    at BuyerNotificationsPage.useAutoRefresh [as current] (src\app\(buyer)\buyer\notifications\page.tsx:106:24)
+    at useAutoRefresh.useEffect.tick (src\hooks\useAutoRefresh.ts:39:27)
+  28 |
+  29 | const req = async (method: string, path: string, body?: unknown) => {
+> 30 |   const res  = await fetch(`${API}${path}`, { method, headers: headers(), body: body ? JSO...
+     |                      ^
+  31 |   const json = await res.json();
+  32 |   if (!res.ok) {
+  33 |     if (res.status === 401) handleUnauthorized(); (src\app\(buyer)
+[browser] Silent notifications refresh failed TypeError: Failed to fetch
+    at req (src\lib\adminApi.ts:30:22)
+    at Object.list (src\lib\adminApi.ts:410:12)
+    at BuyerNotificationsPage.useCallback[fetchNotifications] (src\app\(buyer)\buyer\notifications\page.tsx:84:47)
+    at BuyerNotificationsPage.useAutoRefresh [as current] (src\app\(buyer)\buyer\notifications\page.tsx:106:24)
+    at useAutoRefresh.useEffect.tick (src\hooks\useAutoRefresh.ts:39:27)
+  28 |
+  29 | const req = async (method: string, path: string, body?: unknown) => {
+> 30 |   const res  = await fetch(`${API}${path}`, { method, headers: headers(), body: body ? JSO...
+     |                      ^
+  31 |   const json = await res.json();
+  32 |   if (!res.ok) {
+  33 |     if (res.status === 401) handleUnauthorized(); (src\app\(buyer)
+[browser] Silent notifications refresh failed TypeError: Failed to fetch
+    at req (src\lib\adminApi.ts:30:22)
+    at Object.list (src\lib\adminApi.ts:410:12)
+    at BuyerNotificationsPage.useCallback[fetchNotifications] (src\app\(buyer)\buyer\notifications\page.tsx:84:47)
+    at BuyerNotificationsPage.useAutoRefresh [as current] (src\app\(buyer)\buyer\notifications\page.tsx:106:24)
+    at useAutoRefresh.useEffect.tick (src\hooks\useAutoRefresh.ts:39:27)
+  28 |
+  29 | const req = async (method: string, path: string, body?: unknown) => {
+> 30 |   const res  = await fetch(`${API}${path}`, { method, headers: headers(), body: body ? JSO...
+     |                      ^
+  31 |   const json = await res.json();
+  32 |   if (!res.ok) {
+  33 |     if (res.status === 401) handleUnauthorized(); (src\app\(buyer)
+[browser] Silent notifications refresh failed TypeError: Failed to fetch
+    at req (src\lib\adminApi.ts:30:22)
+    at Object.list (src\lib\adminApi.ts:410:12)
+    at BuyerNotificationsPage.useCallback[fetchNotifications] (src\app\(buyer)\buyer\notifications\page.tsx:84:47)
+    at BuyerNotificationsPage.useAutoRefresh [as current] (src\app\(buyer)\buyer\notifications\page.tsx:106:24)
+    at useAutoRefresh.useEffect.tick (src\hooks\useAutoRefresh.ts:39:27)
+  28 |
+  29 | const req = async (method: string, path: string, body?: unknown) => {
+> 30 |   const res  = await fetch(`${API}${path}`, { method, headers: headers(), body: body ? JSO...
+     |                      ^
+  31 |   const json = await res.json();
+  32 |   if (!res.ok) {
+  33 |     if (res.status === 401) handleUnauthorized(); (src\app\(buyer)
+[browser] Silent notifications refresh failed TypeError: Failed to fetch
+    at req (src\lib\adminApi.ts:30:22)
+    at Object.list (src\lib\adminApi.ts:410:12)
+    at BuyerNotificationsPage.useCallback[fetchNotifications] (src\app\(buyer)\buyer\notifications\page.tsx:84:47)
+    at BuyerNotificationsPage.useAutoRefresh [as current] (src\app\(buyer)\buyer\notifications\page.tsx:106:24)
+    at useAutoRefresh.useEffect.tick (src\hooks\useAutoRefresh.ts:39:27)
+  28 |
+  29 | const req = async (method: string, path: string, body?: unknown) => {
+> 30 |   const res  = await fetch(`${API}${path}`, { method, headers: headers(), body: body ? JSO...
+     |                      ^
+  31 |   const json = await res.json();
+  32 |   if (!res.ok) {
+  33 |     if (res.status === 401) handleUnauthorized(); (src\app\(buyer)
+[browser] Silent notifications refresh failed TypeError: Failed to fetch
+    at req (src\lib\adminApi.ts:30:22)
+    at Object.list (src\lib\adminApi.ts:410:12)
+    at BuyerNotificationsPage.useCallback[fetchNotifications] (src\app\(buyer)\buyer\notifications\page.tsx:84:47)
+    at BuyerNotificationsPage.useAutoRefresh [as current] (src\app\(buyer)\buyer\notifications\page.tsx:106:24)
+    at useAutoRefresh.useEffect.tick (src\hooks\useAutoRefresh.ts:39:27)
+  28 |
+  29 | const req = async (method: string, path: string, body?: unknown) => {
+> 30 |   const res  = await fetch(`${API}${path}`, { method, headers: headers(), body: body ? JSO...
+     |                      ^
+  31 |   const json = await res.json();
+  32 |   if (!res.ok) {
+  33 |     if (res.status === 401) handleUnauthorized(); (src\app\(buyer)
+[browser] Silent notifications refresh failed TypeError: Failed to fetch
+    at req (src\lib\adminApi.ts:30:22)
+    at Object.list (src\lib\adminApi.ts:410:12)
+    at BuyerNotificationsPage.useCallback[fetchNotifications] (src\app\(buyer)\buyer\notifications\page.tsx:84:47)
+    at BuyerNotificationsPage.useAutoRefresh [as current] (src\app\(buyer)\buyer\notifications\page.tsx:106:24)
+    at useAutoRefresh.useEffect.tick (src\hooks\useAutoRefresh.ts:39:27)
+  28 |
+  29 | const req = async (method: string, path: string, body?: unknown) => {
+> 30 |   const res  = await fetch(`${API}${path}`, { method, headers: headers(), body: body ? JSO...
+     |                      ^
+  31 |   const json = await res.json();
+  32 |   if (!res.ok) {
+  33 |     if (res.status === 401) handleUnauthorized(); (src\app\(buyer)
+ GET /buyer/account 200 in 2.2s (next.js: 2.1s, proxy.ts: 13ms, application-code: 100ms)
+○ Compiling /buyer/support ...
+ GET /buyer/support 200 in 3.6s (next.js: 3.5s, proxy.ts: 20ms, application-code: 73ms)
+ GET /buyer/notifications 200 in 93ms (next.js: 36ms, proxy.ts: 15ms, application-code: 42ms)
+ GET /buyer/account 200 in 74ms (next.js: 23ms, proxy.ts: 10ms, application-code: 41ms)
+ GET /buyer/home 200 in 1600ms (next.js: 1532ms, proxy.ts: 9ms, application-code: 59ms)
+ GET /buyer/search 200 in 2.1s (next.js: 2.0s, proxy.ts: 13ms, application-code: 70ms)
