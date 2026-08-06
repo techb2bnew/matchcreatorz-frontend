@@ -83,10 +83,15 @@ export default function AdminReportsPage() {
   const [search, setSearch] = useState<string>('');
   const [sortBy, setSortBy] = useState<string>('');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+  const [page, setPage] = useState<number>(1);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const PAGE_SIZE = 20;
+
   // Column set differs per report type, so a stale query/sort wouldn't mean anything on switch
-  useEffect(() => { setSearch(''); setSortBy(''); }, [activeType]);
+  useEffect(() => { setSearch(''); setSortBy(''); setPage(1); }, [activeType]);
+  // A new filter/search/sort invalidates whatever page we were on
+  useEffect(() => { setPage(1); }, [search, sortBy, sortDir, from, to]);
 
   const handleSort = (key: string) => {
     if (sortBy === key) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
@@ -190,6 +195,9 @@ export default function AdminReportsPage() {
       })
     : rows;
 
+  const totalPages = Math.max(1, Math.ceil(sortedRows.length / PAGE_SIZE));
+  const pagedRows = sortedRows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
   // 'sellers' chart points put the seller's name in `date` (categorical), not a
   // real timestamp — skip Date parsing for tick/tooltip labels in that case.
   const isCategoricalChart = activeType === 'sellers';
@@ -272,7 +280,7 @@ export default function AdminReportsPage() {
         <Card padding="md">
           <div className="flex flex-col md:flex-row md:items-end gap-4 md:justify-between">
             <div className="flex flex-wrap items-end gap-3">
-              <div>
+              <div className="w-full sm:w-auto">
                 <label className="block text-xs font-medium text-gray-500 mb-1">
                   From
                 </label>
@@ -280,10 +288,10 @@ export default function AdminReportsPage() {
                   type="date"
                   value={from}
                   onChange={(e) => setFrom(e.target.value)}
-                  className="h-9 border border-gray-200 rounded-xl px-3 text-sm focus:outline-none focus:border-[#e84545] bg-white"
+                  className="w-full sm:w-auto h-9 border border-gray-200 rounded-xl px-3 text-sm focus:outline-none focus:border-[#e84545] bg-white"
                 />
               </div>
-              <div>
+              <div className="w-full sm:w-auto">
                 <label className="block text-xs font-medium text-gray-500 mb-1">
                   To
                 </label>
@@ -291,7 +299,7 @@ export default function AdminReportsPage() {
                   type="date"
                   value={to}
                   onChange={(e) => setTo(e.target.value)}
-                  className="h-9 border border-gray-200 rounded-xl px-3 text-sm focus:outline-none focus:border-[#e84545] bg-white"
+                  className="w-full sm:w-auto h-9 border border-gray-200 rounded-xl px-3 text-sm focus:outline-none focus:border-[#e84545] bg-white"
                 />
               </div>
               {!from && !to && (
@@ -463,6 +471,9 @@ export default function AdminReportsPage() {
               </span>
             )}
           </div>
+          {/* Table + pagination — clipped to the card's rounded bottom corners so the
+              table scrollbar can't visually poke past the border radius on mobile */}
+          <div className="overflow-hidden rounded-b-2xl">
           {!loading && sortedRows.length > 0 && (
             <p className="sm:hidden flex items-center gap-1.5 text-[11px] text-gray-400 px-4 pt-3">
               <i className="fa fa-arrows-h" /> Swipe left to see more
@@ -470,13 +481,38 @@ export default function AdminReportsPage() {
           )}
           <Table<ReportRow>
             columns={tableColumns}
-            data={sortedRows}
+            data={pagedRows}
             loading={loading}
             emptyText={search ? 'No rows match your search' : 'No data for this period'}
             sortBy={sortBy}
             sortDir={sortDir}
             onSort={handleSort}
           />
+
+          {/* Pagination — only when there's more than one page of results */}
+          {!loading && totalPages > 1 && (
+            <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100">
+              <p className="text-sm text-gray-400">
+                Showing {Math.min((page - 1) * PAGE_SIZE + 1, sortedRows.length)}–{Math.min(page * PAGE_SIZE, sortedRows.length)} of {sortedRows.length} rows
+              </p>
+              <div className="flex gap-1">
+                <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}
+                  className="h-8 w-8 rounded-lg text-sm font-medium text-gray-500 hover:bg-gray-100 disabled:opacity-40 transition-colors">&lt;</button>
+                {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+                  const p = totalPages <= 5 ? i + 1 : page <= 3 ? i + 1 : page + i - 2;
+                  if (p < 1 || p > totalPages) return null;
+                  return (
+                    <button key={p} onClick={() => setPage(p)}
+                      className={`h-8 w-8 rounded-lg text-sm font-medium transition-colors ${p === page ? 'bg-[#e84545] text-white' : 'text-gray-500 hover:bg-gray-100'}`}
+                    >{p}</button>
+                  );
+                })}
+                <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages}
+                  className="h-8 w-8 rounded-lg text-sm font-medium text-gray-500 hover:bg-gray-100 disabled:opacity-40 transition-colors">&gt;</button>
+              </div>
+            </div>
+          )}
+          </div>
         </Card>
 
         {reportData?.truncated && (
