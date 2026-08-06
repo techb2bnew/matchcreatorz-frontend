@@ -297,9 +297,9 @@ export default function CategoriesPage() {
     <DashboardLayout role="ADMIN" title="Categories">
 
       {/* Header */}
-      <div className="flex items-center gap-3 mb-5">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-5">
         <h2 className="text-lg font-semibold text-gray-900 flex-shrink-0">All Categories</h2>
-        <div className="flex-1 max-w-xs">
+        <div className="w-full sm:flex-1 sm:max-w-xs">
           <Input
             placeholder="Search categories..."
             leftIcon={<i className="fa fa-search text-gray-400 text-sm" />}
@@ -307,8 +307,8 @@ export default function CategoriesPage() {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <div className="ml-auto">
-          <Button leftIcon={<i className="fa fa-plus text-sm" />} onClick={() => { setAddForm(emptyForm); setAddErrs({}); setShowAdd(true); }}>
+        <div className="w-full sm:w-auto sm:ml-auto">
+          <Button className="w-full sm:w-auto" leftIcon={<i className="fa fa-plus text-sm" />} onClick={() => { setAddForm(emptyForm); setAddErrs({}); setShowAdd(true); }}>
             Add Category
           </Button>
         </div>
