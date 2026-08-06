@@ -175,7 +175,9 @@ export default function AdminBookingsPage() {
           </div>
         )}
 
-        {/* Table */}
+        {/* Table + pagination — clipped to the card's rounded bottom corners so the
+            table scrollbar can't visually poke past the border radius on mobile */}
+        <div className="overflow-hidden rounded-b-2xl">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-100">
@@ -264,6 +266,7 @@ export default function AdminBookingsPage() {
             </div>
           </div>
         )}
+        </div>
       </Card>
 
       {/* Detail / resolve modal */}

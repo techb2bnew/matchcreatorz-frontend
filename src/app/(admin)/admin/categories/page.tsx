@@ -367,6 +367,7 @@ export default function CategoriesPage() {
               <CardTitle>Categories Table</CardTitle>
               <span className="text-xs text-gray-400">{total} total</span>
             </div>
+            <div className="overflow-hidden rounded-b-2xl">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
@@ -405,6 +406,7 @@ export default function CategoriesPage() {
                   ))}
                 </tbody>
               </table>
+            </div>
             </div>
           </Card>
         </>

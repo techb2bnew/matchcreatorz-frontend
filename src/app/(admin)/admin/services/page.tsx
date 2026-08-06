@@ -367,7 +367,7 @@ export default function AdminServicesPage() {
             value={categoryFilter}
             onChange={(v) => { setCategory(v); setPage(1); }}
           />
-          <div className="ml-auto flex gap-1.5 flex-wrap">
+          <div className="flex gap-1.5 flex-wrap w-full sm:w-auto sm:ml-auto">
             {[{ label: 'All', value: '' }, { label: 'Active', value: 'active' }, { label: 'Paused', value: 'paused' }, { label: 'Rejected', value: 'rejected' }].map((f) => (
               <button key={f.value} onClick={() => { setStatus(f.value); setPage(1); }}
                 className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${statusFilter === f.value ? 'bg-[#e84545] text-white' : 'text-gray-500 hover:bg-gray-100'}`}
@@ -376,7 +376,9 @@ export default function AdminServicesPage() {
           </div>
         </div>
 
-        {/* Table */}
+        {/* Table + pagination — clipped to the card's rounded bottom corners so the
+            table scrollbar can't visually poke past the border radius on mobile */}
+        <div className="overflow-hidden rounded-b-2xl">
         <div className="overflow-x-auto">
           {loading ? (
             <div className="p-4"><TableSkeleton rows={8} cols={7} /></div>
@@ -485,6 +487,7 @@ export default function AdminServicesPage() {
             </div>
           </div>
         )}
+        </div>
       </Card>
 
       <ServiceDetailModal service={viewService} onClose={() => setView(null)} onAction={doAction} actionLoading={actionLoading} />

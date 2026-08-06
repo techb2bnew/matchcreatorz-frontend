@@ -292,16 +292,17 @@ export default function AdminJobsPage() {
           </div>
 
           {/* Status filters */}
-          <div className="ml-auto flex gap-1.5 flex-wrap">
+          <div className="grid grid-cols-3 gap-1.5 w-full sm:flex sm:w-auto sm:ml-auto sm:flex-wrap">
             {[
               { label: 'All',         value: '' },
               { label: 'Open',        value: 'OPEN' },
               { label: 'In Progress', value: 'IN_PROGRESS' },
+              { label: 'Completed',   value: 'COMPLETED' },
               { label: 'Closed',      value: 'CLOSED' },
               { label: 'Cancelled',   value: 'CANCELLED' },
             ].map(f => (
               <button key={f.value} onClick={() => { setStatus(f.value); setPage(1); }}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors whitespace-nowrap ${
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors whitespace-nowrap text-center sm:text-left ${
                   status === f.value ? 'bg-[#e84545] text-white' : 'text-gray-500 hover:bg-gray-100'
                 }`}
               >{f.label}</button>
@@ -309,7 +310,14 @@ export default function AdminJobsPage() {
           </div>
         </div>
 
-        {/* Table */}
+        {/* Table + pagination — clipped to the card's rounded bottom corners so the
+            table scrollbar can't visually poke past the border radius on mobile */}
+        <div className="overflow-hidden rounded-b-2xl">
+        {!loading && jobs.length > 0 && (
+          <p className="sm:hidden flex items-center gap-1.5 text-[11px] text-gray-400 px-4 pt-3">
+            <i className="fa fa-arrows-h" /> Swipe left to see more
+          </p>
+        )}
         <div className="overflow-x-auto">
           {loading ? (
             <div className="p-4"><TableSkeleton rows={8} cols={6} /></div>
@@ -413,6 +421,7 @@ export default function AdminJobsPage() {
             </div>
           </div>
         )}
+        </div>
       </Card>
 
       <JobDetailModal

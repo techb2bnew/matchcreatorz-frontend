@@ -232,7 +232,9 @@ export default function BuyersPage() {
           </div>
         </div>
 
-        {/* Table */}
+        {/* Table + pagination — clipped to the card's rounded bottom corners so the
+            table scrollbar can't visually poke past the border radius on mobile */}
+        <div className="overflow-hidden rounded-b-2xl">
         <div className="overflow-x-auto">
           {loading ? (
             <TableSkeleton rows={7} cols={6} />
@@ -337,6 +339,7 @@ export default function BuyersPage() {
               ))}
             </div>
           )}
+        </div>
         </div>
       </Card>
 

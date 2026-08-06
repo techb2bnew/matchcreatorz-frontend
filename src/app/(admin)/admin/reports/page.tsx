@@ -226,9 +226,16 @@ export default function AdminReportsPage() {
             return <span>{formatDate(val as string | Date | null | undefined)}</span>;
           }
           if (c.key === 'amount' || c.key === 'total_earnings') {
-            return <span>{formatCurrency(Number(val) || 0)}</span>;
+            return <span className="whitespace-nowrap">{formatCurrency(Number(val) || 0)}</span>;
           }
-          return <span>{String(val)}</span>;
+          if (c.key === 'note') {
+            return (
+              <span className="block max-w-[220px] truncate" title={String(val)}>
+                {String(val)}
+              </span>
+            );
+          }
+          return <span className="whitespace-nowrap">{String(val)}</span>;
         },
       }))
     : [];
@@ -238,14 +245,15 @@ export default function AdminReportsPage() {
   return (
     <DashboardLayout role="ADMIN" title="Reports">
       <div className="space-y-6">
-        {/* Report type pills */}
+        {/* Report type pills — horizontally scrollable on mobile since labels
+            vary in length and don't wrap evenly in a fixed-width grid */}
         <div>
-          <div className="flex gap-2 flex-wrap">
+          <div className="flex gap-2 overflow-x-auto pb-1 -mb-1 sm:flex-wrap sm:overflow-visible">
             {reportTypes.map((rt) => (
               <button
                 key={rt.key}
                 onClick={() => setActiveType(rt.key)}
-                className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                className={`px-4 py-1.5 rounded-full text-sm font-medium whitespace-nowrap flex-shrink-0 transition-colors ${
                   activeType === rt.key
                     ? 'bg-[#e84545] text-white'
                     : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -455,6 +463,11 @@ export default function AdminReportsPage() {
               </span>
             )}
           </div>
+          {!loading && sortedRows.length > 0 && (
+            <p className="sm:hidden flex items-center gap-1.5 text-[11px] text-gray-400 px-4 pt-3">
+              <i className="fa fa-arrows-h" /> Swipe left to see more
+            </p>
+          )}
           <Table<ReportRow>
             columns={tableColumns}
             data={sortedRows}

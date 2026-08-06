@@ -232,6 +232,7 @@ export default function AdminConnectsPage() {
             />
           </div>
         </div>
+        <div className="overflow-hidden rounded-b-2xl">
         <div className="overflow-x-auto">
           {historyLoading ? (
             <div className="flex items-center justify-center py-14"><Spinner size="lg" /></div>
@@ -288,6 +289,7 @@ export default function AdminConnectsPage() {
               </tbody>
             </table>
           )}
+        </div>
         </div>
       </Card>
 

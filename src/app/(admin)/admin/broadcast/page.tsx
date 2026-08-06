@@ -189,6 +189,7 @@ export default function AdminBroadcastPage() {
             </div>
           </div>
 
+          <div className="overflow-hidden rounded-b-2xl">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -276,6 +277,7 @@ export default function AdminBroadcastPage() {
               </Button>
             </div>
           )}
+          </div>
         </Card>
       </div>
     </DashboardLayout>
