@@ -59,12 +59,12 @@ export default function AdminWalletPage() {
 
   return (
     <DashboardLayout role="ADMIN" title="Wallet & Payments">
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
         <StatCard title="Platform Revenue"   value={v(ov?.platform_revenue)}    icon="fa-line-chart" color="green" change="Fees earned" />
         <StatCard title="Pending Withdrawals" value={v(ov?.pending_withdrawals)} icon="fa-clock-o"   color="red"   change="Awaiting approval" />
         <StatCard title="Paid Out"           value={v(ov?.paid_withdrawals)}    icon="fa-check"      color="blue"  change="All time" />
       </div>
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
         <StatCard title="Total Top-ups"      value={v(ov?.total_topups)}        icon="fa-arrow-down" color="green" change="Buyer deposits" />
         <StatCard title="Earnings Paid to Sellers" value={v(ov?.total_earnings_paid)} icon="fa-users" color="blue" change="All time" />
         <StatCard title="Platform Wallet"    value={v(ov?.admin_wallet?.balance)} icon="fa-dollar"   color="purple" change="Current balance" />
@@ -73,10 +73,10 @@ export default function AdminWalletPage() {
       <Card padding="none">
         <div className="p-4 border-b border-gray-100 flex items-center justify-between flex-wrap gap-3">
           <CardTitle>Withdrawal Requests</CardTitle>
-          <div className="flex gap-1 text-xs">
+          <div className="flex flex-wrap gap-1.5 text-xs">
             {['pending', 'approved', 'paid', 'rejected', ''].map((s) => (
               <button key={s || 'all'} onClick={() => setFilter(s)}
-                className={`px-2.5 py-1 rounded-full capitalize ${filter === s ? 'bg-[#e84545] text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+                className={`px-2.5 py-1 rounded-full capitalize whitespace-nowrap ${filter === s ? 'bg-[#e84545] text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
                 {s || 'all'}
               </button>
             ))}
@@ -89,19 +89,21 @@ export default function AdminWalletPage() {
         ) : (
           <div className="divide-y divide-gray-50">
             {wds.map((w) => (
-              <div key={w.id} className="flex items-center gap-4 px-5 py-4">
+              <div key={w.id} className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 px-5 py-4">
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-gray-900 truncate">{w.seller?.name || 'Seller'}</p>
                   <p className="text-xs text-gray-400 truncate">{w.seller?.email} · {formatDate(w.created_at || w.createdAt || '')}</p>
                 </div>
-                <p className="font-bold text-gray-900">{formatCurrency(Number(w.amount))}</p>
-                <span className={`text-[11px] font-medium px-2 py-1 rounded-full capitalize ${BADGE[w.status] || 'bg-gray-100 text-gray-600'}`}>{w.status}</span>
-                {w.status === 'pending' && (
-                  <div className="flex gap-2">
-                    <Button size="sm" disabled={busyId === w.id} onClick={() => approve(w.id)}>Approve</Button>
-                    <Button size="sm" variant="outline" disabled={busyId === w.id} onClick={() => reject(w.id)}>Reject</Button>
-                  </div>
-                )}
+                <div className="flex items-center gap-3 flex-wrap">
+                  <p className="font-bold text-gray-900 whitespace-nowrap">{formatCurrency(Number(w.amount))}</p>
+                  <span className={`text-[11px] font-medium px-2 py-1 rounded-full capitalize whitespace-nowrap ${BADGE[w.status] || 'bg-gray-100 text-gray-600'}`}>{w.status}</span>
+                  {w.status === 'pending' && (
+                    <div className="flex gap-2">
+                      <Button size="sm" disabled={busyId === w.id} onClick={() => approve(w.id)}>Approve</Button>
+                      <Button size="sm" variant="outline" disabled={busyId === w.id} onClick={() => reject(w.id)}>Reject</Button>
+                    </div>
+                  )}
+                </div>
               </div>
             ))}
           </div>

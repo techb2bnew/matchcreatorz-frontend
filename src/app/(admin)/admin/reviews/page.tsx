@@ -99,7 +99,7 @@ export default function AdminReviewsPage() {
   return (
     <DashboardLayout role="ADMIN" title="Reviews">
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
         {[
           { label: 'Total Reviews', value: summary.total,     icon: 'fa-star',       color: 'text-blue-600 bg-blue-50'   },
           { label: 'Published',     value: summary.published, icon: 'fa-check-circle',color: 'text-green-600 bg-green-50' },

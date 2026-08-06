@@ -627,14 +627,14 @@ export const adminSettingApi = {
 export const adminConnectApi = {
   add:     (sellerId: number, body: { amount: number; note?: string }) =>
     req('POST', `/api/v1/admin/connects/${sellerId}`, body),
-  history: (sellerId: number, params: { page?: number; limit?: number } = {}) => {
+  history: (sellerId: number, params: { page?: number; limit?: number; search?: string } = {}) => {
     const q = new URLSearchParams(
       Object.entries(params).filter(([, v]) => v !== undefined && v !== null && String(v) !== '').map(([k, v]) => [k, String(v)])
     ).toString();
     return req('GET', `/api/v1/admin/connects/${sellerId}/history${q ? `?${q}` : ''}`);
   },
   /** Ledger across every seller — the "All Sellers" view */
-  allHistory: (params: { page?: number; limit?: number } = {}) => {
+  allHistory: (params: { page?: number; limit?: number; search?: string } = {}) => {
     const q = new URLSearchParams(
       Object.entries(params).filter(([, v]) => v !== undefined && v !== null && String(v) !== '').map(([k, v]) => [k, String(v)])
     ).toString();

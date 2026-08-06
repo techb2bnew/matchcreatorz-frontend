@@ -462,8 +462,8 @@ export default function AdminServicesPage() {
           )}
         </div>
 
-        {/* Pagination */}
-        {!loading && total > 0 && (
+        {/* Pagination — only when there's more than one page of results */}
+        {!loading && totalPages > 1 && (
           <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100">
             <p className="text-sm text-gray-400">
               Showing {Math.min((page - 1) * LIMIT + 1, total)}-{Math.min(page * LIMIT, total)} of {total} services

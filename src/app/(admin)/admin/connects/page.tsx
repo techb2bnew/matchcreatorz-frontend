@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import Card, { CardTitle } from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
@@ -44,8 +44,10 @@ export default function AdminConnectsPage() {
 
   const [history, setHistory]           = useState<Ledger[]>([]);
   const [historyLoading, setHL]         = useState(false);
+  const [historySearch, setHistorySearch] = useState('');
   const [sortBy, setSortBy]             = useState('date');
   const [sortDir, setSortDir]           = useState<'asc' | 'desc'>('desc');
+  const historyDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleSort = (key: string) => {
     if (sortBy === key) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
@@ -97,9 +99,10 @@ export default function AdminConnectsPage() {
   const loadHistory = useCallback(async (target: number | 'all', silent = false) => {
     if (!silent) setHL(true);
     try {
+      const params = { limit: 50, search: historySearch || undefined };
       const res = target === 'all'
-        ? await adminConnectApi.allHistory({ limit: 50 })
-        : await adminConnectApi.history(target, { limit: 50 });
+        ? await adminConnectApi.allHistory(params)
+        : await adminConnectApi.history(target, params);
       setHistory(res.data || []);
     } catch (e: unknown) {
       if (!silent) {
@@ -111,10 +114,13 @@ export default function AdminConnectsPage() {
     } finally {
       if (!silent) setHL(false);
     }
-  }, []);
+  }, [historySearch]);
 
   useEffect(() => {
-    if (selectedId != null) loadHistory(selectedId);
+    if (selectedId == null) return;
+    if (historyDebounceRef.current) clearTimeout(historyDebounceRef.current);
+    historyDebounceRef.current = setTimeout(() => loadHistory(selectedId), 300);
+    return () => { if (historyDebounceRef.current) clearTimeout(historyDebounceRef.current); };
   }, [selectedId, loadHistory]);
 
   useAutoRefresh(() => { if (selectedId != null) loadHistory(selectedId, true); }, 20000, !addModal);
@@ -213,8 +219,18 @@ export default function AdminConnectsPage() {
 
       {/* History */}
       <Card padding="none">
-        <div className="flex items-center justify-between p-4 border-b border-gray-100">
+        <div className="flex items-center justify-between gap-3 p-4 border-b border-gray-100 flex-wrap">
           <CardTitle>{viewingAll ? 'All Sellers — Connect History' : selectedSeller ? `${selectedSeller.name} — Connect History` : 'Connect History'}</CardTitle>
+          <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl px-3 h-9 w-full sm:w-64">
+            <i className="fa fa-search text-xs text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search type, note, or date..."
+              value={historySearch}
+              onChange={(e) => setHistorySearch(e.target.value)}
+              className="flex-1 text-sm bg-transparent focus:outline-none"
+            />
+          </div>
         </div>
         <div className="overflow-x-auto">
           {historyLoading ? (
@@ -227,7 +243,7 @@ export default function AdminConnectsPage() {
           ) : history.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-14 text-gray-400">
               <i className="fa fa-link text-2xl mb-2" />
-              <p className="text-sm">No connect activity for this seller</p>
+              <p className="text-sm">{historySearch.trim() ? 'No transactions match your search' : 'No connect activity for this seller'}</p>
             </div>
           ) : (
             <table className="w-full text-sm">

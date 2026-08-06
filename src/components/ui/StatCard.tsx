@@ -21,15 +21,15 @@ const colorMap = {
 export default function StatCard({ title, value, icon, change, changeType = 'up', color = 'red', className }: StatCardProps) {
   const c = colorMap[color];
   return (
-    <div className={cn('bg-white rounded-2xl border border-[#e8e8e8] shadow-sm p-5 flex items-start gap-4', className)}>
-      <div className={cn('p-3 rounded-xl', c.bg)}>
-        <i className={cn('fa text-lg', icon, c.icon)} />
+    <div className={cn('bg-white rounded-2xl border border-[#e8e8e8] shadow-sm p-4 sm:p-5 flex items-start gap-3 sm:gap-4', className)}>
+      <div className={cn('p-2.5 sm:p-3 rounded-xl flex-shrink-0', c.bg)}>
+        <i className={cn('fa text-base sm:text-lg', icon, c.icon)} />
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-xs text-gray-500 font-medium truncate">{title}</p>
-        <p className="text-2xl font-bold text-gray-900 mt-0.5">{value}</p>
+        <p className="text-xs text-gray-500 font-medium leading-snug break-words">{title}</p>
+        <p className="text-xl sm:text-2xl font-bold text-gray-900 mt-0.5 break-words">{value}</p>
         {change && (
-          <p className={cn('text-xs mt-1 font-medium',
+          <p className={cn('text-xs mt-1 font-medium break-words',
             changeType === 'up' ? 'text-green-600' : changeType === 'down' ? 'text-red-500' : 'text-gray-400'
           )}>
             {changeType === 'up' ? '^' : changeType === 'down' ? 'v' : '--'} {change}
