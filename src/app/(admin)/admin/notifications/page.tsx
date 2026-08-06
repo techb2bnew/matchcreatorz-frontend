@@ -149,13 +149,15 @@ export default function AdminNotificationsPage() {
   return (
     <DashboardLayout role="ADMIN" title="Notifications">
       {/* Top row */}
-      <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
-        <div className="flex gap-2 flex-wrap">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-5 gap-3">
+        {/* Category pills — horizontally scrollable on mobile since labels
+            vary in length and don't wrap evenly in a fixed-width grid */}
+        <div className="flex gap-2 overflow-x-auto pb-1 -mb-1 sm:flex-wrap sm:overflow-visible">
           {FILTERS.map((f) => (
             <button
               key={f}
               onClick={() => setActiveFilter(f)}
-              className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
+              className={`px-4 py-1.5 rounded-full text-sm font-medium whitespace-nowrap flex-shrink-0 transition-colors ${
                 activeFilter === f ? 'bg-[#e84545] text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
               }`}
             >
@@ -163,8 +165,8 @@ export default function AdminNotificationsPage() {
             </button>
           ))}
         </div>
-        <div className="flex items-center gap-3 flex-wrap">
-          <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl px-3 h-9 w-56">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 w-full sm:w-auto">
+          <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl px-3 h-9 w-full sm:w-56">
             <i className="fa fa-search text-xs text-gray-400" />
             <input
               type="text"
@@ -174,7 +176,7 @@ export default function AdminNotificationsPage() {
               className="flex-1 text-sm bg-transparent focus:outline-none"
             />
           </div>
-          <Button variant="outline" size="sm" leftIcon={<i className="fa fa-bell-slash text-sm" />} onClick={handleMarkAllRead}>
+          <Button variant="outline" size="sm" leftIcon={<i className="fa fa-bell-slash text-sm" />} onClick={handleMarkAllRead} className="w-full sm:w-auto">
             Mark all as read
           </Button>
         </div>
