@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import ReduxProvider from '@/components/providers/ReduxProvider';
 import FcmProvider   from '@/components/providers/FcmProvider';
@@ -8,6 +8,15 @@ export const metadata: Metadata = {
   title: 'MatchCreatorz -- Connect. Create. Succeed.',
   description: 'The premier marketplace connecting talented creators with buyers.',
   icons: { icon: '/favicon.ico' },
+};
+
+// Without this, mobile browsers render at a desktop-width viewport (~980px)
+// and scale the whole page down to fit — everything looks shrunk/squeezed on
+// a real phone even though it renders correctly at the same CSS width in a
+// devtools/emulator viewport, which honors the width directly.
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

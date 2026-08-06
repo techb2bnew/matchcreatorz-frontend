@@ -57,7 +57,7 @@ export default function SellerReviewsPage() {
   return (
     <DashboardLayout role="SELLER" title="My Reviews">
       {/* Stats */}
-      <div className="grid grid-cols-2 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
         <Card padding="md">
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 rounded-xl bg-yellow-50 flex items-center justify-center">

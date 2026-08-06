@@ -351,7 +351,7 @@ export default function SellerJobsPage() {
       <div className="space-y-5">
 
         {/* Stats */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {[
             { label: 'Open Jobs',   val: String(jobs.length), icon: 'fa-briefcase', color: '#e84545', bg: '#fef2f2' },
             { label: 'My Bids',     val: String(myBidsCount), icon: 'fa-gavel',     color: '#10b981', bg: '#ecfdf5' },

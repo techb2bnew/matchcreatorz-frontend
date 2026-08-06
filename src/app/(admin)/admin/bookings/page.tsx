@@ -127,7 +127,7 @@ export default function AdminBookingsPage() {
   return (
     <DashboardLayout role="ADMIN" title="Bookings">
       {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         {[
           { label: 'Total',     value: totalBookings, icon: 'fa-calendar',       color: 'text-blue-600 bg-blue-50'   },
           { label: 'Active',    value: (summary['ongoing'] || 0) + (summary['pending'] || 0), icon: 'fa-spinner', color: 'text-yellow-600 bg-yellow-50' },

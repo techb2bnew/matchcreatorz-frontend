@@ -137,7 +137,7 @@ export default function SellerBidsPage() {
   return (
     <DashboardLayout role="SELLER" title="My Bids">
       {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         {statCards.map((s) => (
           <Card key={s.label} padding="md">
             <div className="flex items-center gap-3">

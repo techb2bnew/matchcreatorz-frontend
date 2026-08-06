@@ -120,7 +120,7 @@ export default function BuyerHomePage() {
         </div>
 
         {/* -- Stat Cards -- */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {statCards.map(s => (
             <Link key={s.label} href={s.href} className="bg-white rounded-2xl border border-[#e8e8e8] shadow-sm p-5 flex items-center gap-4 hover:border-[#e84545]/40 transition">
               <div className="h-12 w-12 rounded-2xl flex items-center justify-center flex-shrink-0" style={{ background: s.bg }}>
