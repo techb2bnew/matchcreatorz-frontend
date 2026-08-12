@@ -173,9 +173,9 @@ export const profileApi = {
 
   /** PUT /api/v1/{role}/profile */
   update: (role: 'admin' | 'seller' | 'buyer', body: {
-    user_id?: number | null; name?: string; phone?: string; bio?: string; location?: string; avatar?: string;
+    user_id?: number | null; name?: string; phone?: string; bio?: string; address?: string; avatar?: string;
     // seller professional fields
-    skills?: string[]; hourly_rate?: number; city?: string; country?: string;
+    skills?: string[]; hourly_rate?: number;
     resume?: string; portfolio_links?: string[]; portfolio_files?: string[];
   }) => req('PUT', `/api/v1/${role}/profile`, body),
 

@@ -4,6 +4,7 @@ import DashboardLayout from '@/components/layout/DashboardLayout';
 import RichTextEditor from '@/components/ui/RichTextEditor';
 import { cn } from '@/lib/utils';
 import { profileApi } from '@/lib/adminApi';
+import { useAddressAutocomplete } from '@/hooks/useAddressAutocomplete';
 
 type Tab = 'profile' | 'professional' | 'security';
 const tabs: { key: Tab; label: string; icon: string }[] = [
@@ -22,15 +23,14 @@ export default function SellerAccountPage() {
 
   // Personal form
   const [form, setForm] = useState({
-    name: '', email: '', phone: '', bio: '', location: '',
+    name: '', email: '', phone: '', bio: '', address: '',
   });
+  const addressRef = useAddressAutocomplete((addr) => setForm(f => ({ ...f, address: addr })));
 
   // Professional form
   const [profForm, setProfForm] = useState({
     skills:          [] as string[],
     hourly_rate:     '',
-    city:            '',
-    country:         '',
     resume:          '',
     portfolio_links: [] as string[],
   });
@@ -59,19 +59,17 @@ export default function SellerAccountPage() {
         const u = r.data;
         setUserId(u.id);
         setForm({
-          name:     u.name     || '',
-          email:    u.email    || '',
-          phone:    u.phone    || '',
-          bio:      u.bio      || '',
-          location: u.location || '',
+          name:    u.name    || '',
+          email:   u.email   || '',
+          phone:   u.phone   || '',
+          bio:     u.bio     || '',
+          address: u.address || '',
         });
         const sp = u.seller_profile;
         if (sp) {
           setProfForm({
             skills:          sp.skills          || [],
             hourly_rate:     sp.hourly_rate      != null ? String(sp.hourly_rate) : '',
-            city:            sp.city             || '',
-            country:         sp.country          || '',
             resume:          sp.resume           || '',
             portfolio_links: sp.portfolio_links  || [],
           });
@@ -89,7 +87,7 @@ export default function SellerAccountPage() {
     try {
       await profileApi.update('seller', {
         user_id: userId, name: form.name, phone: form.phone,
-        bio: form.bio, location: form.location,
+        bio: form.bio, address: form.address,
       });
       setProfMsg({ ok: true, text: 'Profile saved!' });
     } catch (e: unknown) {
@@ -107,8 +105,6 @@ export default function SellerAccountPage() {
       await profileApi.update('seller', {
         skills:          profForm.skills,
         hourly_rate:     profForm.hourly_rate ? Number(profForm.hourly_rate) : 0,
-        city:            profForm.city,
-        country:         profForm.country,
         resume:          profForm.resume,
         portfolio_links: profForm.portfolio_links,
       });
@@ -243,10 +239,10 @@ export default function SellerAccountPage() {
                     onChange={e => setForm(f => ({ ...f, phone: e.target.value.replace(/\D/g, '').slice(0, 15) }))} />
                 </div>
                 <div className="sm:col-span-2">
-                  <label className={labelCls}>Location</label>
-                  <input className={inputCls} value={form.location}
-                    onChange={e => setForm(f => ({ ...f, location: e.target.value }))}
-                    placeholder="City, Country" />
+                  <label className={labelCls}>Address</label>
+                  <input ref={addressRef} className={inputCls} value={form.address}
+                    onChange={e => setForm(f => ({ ...f, address: e.target.value }))}
+                    placeholder="Start typing your address..." />
                 </div>
                 <div className="sm:col-span-2">
                   <RichTextEditor label="Bio" variant="compact" value={form.bio}
@@ -316,19 +312,6 @@ export default function SellerAccountPage() {
                       onChange={e => setProfForm(f => ({ ...f, hourly_rate: e.target.value }))} />
                   </div>
 
-                  <div>
-                    <label className={labelCls}>City</label>
-                    <input className={inputCls} placeholder="e.g. Mumbai"
-                      value={profForm.city}
-                      onChange={e => setProfForm(f => ({ ...f, city: e.target.value }))} />
-                  </div>
-
-                  <div className="sm:col-span-2">
-                    <label className={labelCls}>Country</label>
-                    <input className={inputCls} placeholder="e.g. India"
-                      value={profForm.country}
-                      onChange={e => setProfForm(f => ({ ...f, country: e.target.value }))} />
-                  </div>
                 </div>
               )}
             </div>

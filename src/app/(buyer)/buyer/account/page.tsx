@@ -4,6 +4,7 @@ import DashboardLayout from '@/components/layout/DashboardLayout';
 import RichTextEditor from '@/components/ui/RichTextEditor';
 import { cn } from '@/lib/utils';
 import { profileApi } from '@/lib/adminApi';
+import { useAddressAutocomplete } from '@/hooks/useAddressAutocomplete';
 
 type Tab = 'profile' | 'security';
 const tabs: { key: Tab; label: string; icon: string }[] = [
@@ -19,7 +20,8 @@ export default function BuyerAccountPage() {
   const [loading, setLoading]     = useState(true);
   const [userId, setUserId]       = useState<number | null>(null);
 
-  const [form, setForm] = useState({ name: '', email: '', phone: '', bio: '', location: '' });
+  const [form, setForm] = useState({ name: '', email: '', phone: '', bio: '', address: '' });
+  const addressRef = useAddressAutocomplete((addr) => setForm(f => ({ ...f, address: addr })));
   const [passwords, setPasswords] = useState({ current: '', newPass: '', confirm: '' });
   const [showCur, setShowCur] = useState(false);
   const [showNew, setShowNew] = useState(false);
@@ -36,7 +38,7 @@ export default function BuyerAccountPage() {
       .then((r) => {
         const u = r.data;
         setUserId(u.id);
-        setForm({ name: u.name || '', email: u.email || '', phone: u.phone || '', bio: u.bio || '', location: u.location || '' });
+        setForm({ name: u.name || '', email: u.email || '', phone: u.phone || '', bio: u.bio || '', address: u.address || '' });
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -47,7 +49,7 @@ export default function BuyerAccountPage() {
   const saveProfile = async () => {
     setProfSaving(true); setProfMsg(null);
     try {
-      await profileApi.update('buyer', { user_id: userId, name: form.name, phone: form.phone, bio: form.bio, location: form.location });
+      await profileApi.update('buyer', { user_id: userId, name: form.name, phone: form.phone, bio: form.bio, address: form.address });
       setProfMsg({ ok: true, text: 'Profile saved!' });
     } catch (e: unknown) {
       setProfMsg({ ok: false, text: (e as Error).message || 'Failed to save' });
@@ -138,8 +140,8 @@ export default function BuyerAccountPage() {
                     onChange={e => setForm(f => ({ ...f, phone: e.target.value.replace(/\D/g, '').slice(0, 15) }))} />
                 </div>
                 <div className="sm:col-span-2">
-                  <label className={labelCls}>Location</label>
-                  <input className={inputCls} value={form.location} onChange={e => setForm(f => ({ ...f, location: e.target.value }))} placeholder="City, Country" />
+                  <label className={labelCls}>Address</label>
+                  <input ref={addressRef} className={inputCls} value={form.address} onChange={e => setForm(f => ({ ...f, address: e.target.value }))} placeholder="Start typing your address..." />
                 </div>
                 <div className="sm:col-span-2">
                   <RichTextEditor label="Bio" variant="compact" value={form.bio} onChange={html => setForm(f => ({ ...f, bio: html }))} placeholder="Tell sellers about yourself..." />

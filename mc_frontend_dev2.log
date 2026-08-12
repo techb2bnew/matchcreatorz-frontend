@@ -1,0 +1,140 @@
+
+> matchcreatorz@0.1.0 dev
+> next dev --webpack
+
+▲ Next.js 16.2.9 (webpack)
+- Local:         http://localhost:3000
+- Network:       http://192.168.29.199:3000
+- Environments: .env.local
+✓ Ready in 1625ms
+[32m✔[0m [33mConsole Ninja[0m extension is connected to [33mNext.js[0m, see [36mhttps://tinyurl.com/2vt8jxzw[0m
+⚠ The "middleware" file convention is deprecated. Please use "proxy" instead. Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
+- Experiments (use with caution):
+  · optimizePackageImports
+
+○ Compiling /signup ...
+ GET /signup 200 in 18.9s (next.js: 16.6s, proxy.ts: 275ms, application-code: 2.0s)
+ GET /seller/account 200 in 18.9s (next.js: 16.6s, proxy.ts: 275ms, application-code: 2.0s)
+ GET /admin/profile 200 in 18.9s (next.js: 16.6s, proxy.ts: 275ms, application-code: 2.0s)
+ GET /signup 200 in 713ms (next.js: 24ms, proxy.ts: 201ms, application-code: 489ms)
+ GET /signup 200 in 274ms (next.js: 7ms, proxy.ts: 16ms, application-code: 251ms)
+ GET /signup 200 in 401ms (next.js: 124ms, proxy.ts: 10ms, application-code: 267ms)
+ GET /signup 200 in 722ms (next.js: 9ms, proxy.ts: 17ms, application-code: 697ms)
+ GET /seller/account 200 in 577ms (next.js: 42ms, proxy.ts: 57ms, application-code: 478ms)
+ GET /admin/profile 200 in 578ms (next.js: 131ms, proxy.ts: 57ms, application-code: 391ms)
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+[browser] React has detected a change in the order of Hooks called by SellerAccountPage. This will lead to bugs and errors if not fixed. For more information, read the Rules of Hooks: https://react.dev/link/rules-of-hooks
+
+   Previous render            Next render
+   ------------------------------------------------------
+1. useState                   useState
+2. useState                   useState
+3. useState                   useState
+4. useState                   useState
+5. useRef                     useRef
+6. useRef                     useRef
+7. useEffect                  useRef
+   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ 
+    at useAddressAutocomplete (src\hooks\useAddressAutocomplete.ts:49:33)
+    at SellerAccountPage (src\app\(seller)\seller\account\page.tsx:28:44)
+  47 |   onSelectRef.current = onPlaceSelected;
+  48 |   const autocompleteRef = useRef<any>(null);
+> 49 |   const currentNodeRef  = useRef<HTMLInputElement | null>(null);
+     |                                 ^
+  50 |
+  51 |   return useCallback((node: HTMLInputElement | null) => {
+  52 |     if (autocompleteRef.current && window.google) { (src\hooks\useAddressAutocomplete.ts:49:33)
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+[browser] Uncaught Error: Should have a queue. You are likely calling Hooks conditionally, which is not allowed. (https://react.dev/link/invalid-hook-call)
+    at SellerAccountPage (src\app\(seller)\seller\account\page.tsx:54:47)
+  52 |   const [pwSaving,   setPwSaving]   = useState(false);
+  53 |   const [pwMsg,      setPwMsg]      = useState<{ ok: boolean; text: string } | null>(null);
+> 54 |   const [pwErrors,   setPwErrors]   = useState<Record<string, string>>({});
+     |                                               ^
+  55 |
+  56 |   useEffect(() => {
+  57 |     profileApi.get('seller')
+ GET /signup 200 in 962ms (next.js: 182ms, proxy.ts: 19ms, application-code: 762ms)
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+ GET /seller/account 200 in 846ms (next.js: 35ms, proxy.ts: 24ms, application-code: 788ms)
+ GET /signup 200 in 732ms (next.js: 22ms, proxy.ts: 80ms, application-code: 630ms)
+ GET /admin/profile 200 in 507ms (next.js: 40ms, proxy.ts: 86ms, application-code: 382ms)
+[browser] Google Maps JavaScript API has been loaded directly without loading=async. This can result in suboptimal performance. For best-practice loading patterns please see https://goo.gle/js-api-loading (https://maps.googleapis.com/maps/api/js?key=AIzaSyDoadcZAP47lSG8QrIDnhVV_ZSavYUqv2Y&libraries=places:2595:325)
+[browser] As of March 1st, 2025, google.maps.places.Autocomplete is not available to new customers. Please use google.maps.places.PlaceAutocompleteElement instead. At this time, google.maps.places.Autocomplete is not scheduled to be discontinued, but google.maps.places.PlaceAutocompleteElement is recommended over google.maps.places.Autocomplete. While google.maps.places.Autocomplete will continue to receive bug fixes for any major regressions, existing bugs in google.maps.places.Autocomplete will not be addressed. At least 12 months notice will be given before support is discontinued. Please see https://developers.google.com/maps/legacy for additional details and https://developers.google.com/maps/documentation/javascript/places-migration-overview for the migration guide. (https://maps.googleapis.com/maps/api/js?key=AIzaSyDoadcZAP47lSG8QrIDnhVV_ZSavYUqv2Y&libraries=places:782:352)
+[browser] As of March 1st, 2025, google.maps.places.Autocomplete is not available to new customers. Please use google.maps.places.PlaceAutocompleteElement instead. At this time, google.maps.places.Autocomplete is not scheduled to be discontinued, but google.maps.places.PlaceAutocompleteElement is recommended over google.maps.places.Autocomplete. While google.maps.places.Autocomplete will continue to receive bug fixes for any major regressions, existing bugs in google.maps.places.Autocomplete will not be addressed. At least 12 months notice will be given before support is discontinued. Please see https://developers.google.com/maps/legacy for additional details and https://developers.google.com/maps/documentation/javascript/places-migration-overview for the migration guide. (https://maps.googleapis.com/maps/api/js?key=AIzaSyDoadcZAP47lSG8QrIDnhVV_ZSavYUqv2Y&libraries=places:782:352)
+ GET /signup 200 in 117ms (next.js: 4ms, proxy.ts: 10ms, application-code: 103ms)
+ GET /logo.svg 404 in 2.5s (next.js: 2.2s, application-code: 231ms)
+ GET /logo.svg 404 in 58ms (next.js: 4ms, application-code: 54ms)
+ GET /logo.svg 404 in 160ms (next.js: 8ms, application-code: 152ms)
+ GET /logo.svg 404 in 68ms (next.js: 5ms, application-code: 64ms)
+[browser] Google Maps JavaScript API has been loaded directly without loading=async. This can result in suboptimal performance. For best-practice loading patterns please see https://goo.gle/js-api-loading (https://maps.googleapis.com/maps/api/js?key=AIzaSyDoadcZAP47lSG8QrIDnhVV_ZSavYUqv2Y&libraries=places:2595:325)
+[browser] As of March 1st, 2025, google.maps.places.Autocomplete is not available to new customers. Please use google.maps.places.PlaceAutocompleteElement instead. At this time, google.maps.places.Autocomplete is not scheduled to be discontinued, but google.maps.places.PlaceAutocompleteElement is recommended over google.maps.places.Autocomplete. While google.maps.places.Autocomplete will continue to receive bug fixes for any major regressions, existing bugs in google.maps.places.Autocomplete will not be addressed. At least 12 months notice will be given before support is discontinued. Please see https://developers.google.com/maps/legacy for additional details and https://developers.google.com/maps/documentation/javascript/places-migration-overview for the migration guide. (https://maps.googleapis.com/maps/api/js?key=AIzaSyDoadcZAP47lSG8QrIDnhVV_ZSavYUqv2Y&libraries=places:1187:352)
+[browser] As of March 1st, 2025, google.maps.places.Autocomplete is not available to new customers. Please use google.maps.places.PlaceAutocompleteElement instead. At this time, google.maps.places.Autocomplete is not scheduled to be discontinued, but google.maps.places.PlaceAutocompleteElement is recommended over google.maps.places.Autocomplete. While google.maps.places.Autocomplete will continue to receive bug fixes for any major regressions, existing bugs in google.maps.places.Autocomplete will not be addressed. At least 12 months notice will be given before support is discontinued. Please see https://developers.google.com/maps/legacy for additional details and https://developers.google.com/maps/documentation/javascript/places-migration-overview for the migration guide. (https://maps.googleapis.com/maps/api/js?key=AIzaSyDoadcZAP47lSG8QrIDnhVV_ZSavYUqv2Y&libraries=places:1187:352)
+[browser] Google Maps JavaScript API has been loaded directly without loading=async. This can result in suboptimal performance. For best-practice loading patterns please see https://goo.gle/js-api-loading (https://maps.googleapis.com/maps/api/js?key=AIzaSyDoadcZAP47lSG8QrIDnhVV_ZSavYUqv2Y&libraries=places:2595:325)
+[browser] As of March 1st, 2025, google.maps.places.Autocomplete is not available to new customers. Please use google.maps.places.PlaceAutocompleteElement instead. At this time, google.maps.places.Autocomplete is not scheduled to be discontinued, but google.maps.places.PlaceAutocompleteElement is recommended over google.maps.places.Autocomplete. While google.maps.places.Autocomplete will continue to receive bug fixes for any major regressions, existing bugs in google.maps.places.Autocomplete will not be addressed. At least 12 months notice will be given before support is discontinued. Please see https://developers.google.com/maps/legacy for additional details and https://developers.google.com/maps/documentation/javascript/places-migration-overview for the migration guide. (https://maps.googleapis.com/maps/api/js?key=AIzaSyDoadcZAP47lSG8QrIDnhVV_ZSavYUqv2Y&libraries=places:1326:352)
+[browser] As of March 1st, 2025, google.maps.places.Autocomplete is not available to new customers. Please use google.maps.places.PlaceAutocompleteElement instead. At this time, google.maps.places.Autocomplete is not scheduled to be discontinued, but google.maps.places.PlaceAutocompleteElement is recommended over google.maps.places.Autocomplete. While google.maps.places.Autocomplete will continue to receive bug fixes for any major regressions, existing bugs in google.maps.places.Autocomplete will not be addressed. At least 12 months notice will be given before support is discontinued. Please see https://developers.google.com/maps/legacy for additional details and https://developers.google.com/maps/documentation/javascript/places-migration-overview for the migration guide. (https://maps.googleapis.com/maps/api/js?key=AIzaSyDoadcZAP47lSG8QrIDnhVV_ZSavYUqv2Y&libraries=places:1326:352)
+ GET /admin/profile 200 in 243ms (next.js: 35ms, proxy.ts: 24ms, application-code: 184ms)
+ GET /signup 200 in 1311ms (next.js: 50ms, proxy.ts: 14ms, application-code: 1247ms)
+ GET /seller/account 200 in 1331ms (next.js: 57ms, proxy.ts: 554ms, application-code: 720ms)
+ GET /signup 200 in 733ms (next.js: 137ms, proxy.ts: 167ms, application-code: 430ms)
+[browser] Google Maps JavaScript API has been loaded directly without loading=async. This can result in suboptimal performance. For best-practice loading patterns please see https://goo.gle/js-api-loading (https://maps.googleapis.com/maps/api/js?key=AIzaSyDoadcZAP47lSG8QrIDnhVV_ZSavYUqv2Y&libraries=places:2595:325)
+[browser] As of March 1st, 2025, google.maps.places.Autocomplete is not available to new customers. Please use google.maps.places.PlaceAutocompleteElement instead. At this time, google.maps.places.Autocomplete is not scheduled to be discontinued, but google.maps.places.PlaceAutocompleteElement is recommended over google.maps.places.Autocomplete. While google.maps.places.Autocomplete will continue to receive bug fixes for any major regressions, existing bugs in google.maps.places.Autocomplete will not be addressed. At least 12 months notice will be given before support is discontinued. Please see https://developers.google.com/maps/legacy for additional details and https://developers.google.com/maps/documentation/javascript/places-migration-overview for the migration guide. (https://maps.googleapis.com/maps/api/js?key=AIzaSyDoadcZAP47lSG8QrIDnhVV_ZSavYUqv2Y&libraries=places:1326:352)
+[browser] As of March 1st, 2025, google.maps.places.Autocomplete is not available to new customers. Please use google.maps.places.PlaceAutocompleteElement instead. At this time, google.maps.places.Autocomplete is not scheduled to be discontinued, but google.maps.places.PlaceAutocompleteElement is recommended over google.maps.places.Autocomplete. While google.maps.places.Autocomplete will continue to receive bug fixes for any major regressions, existing bugs in google.maps.places.Autocomplete will not be addressed. At least 12 months notice will be given before support is discontinued. Please see https://developers.google.com/maps/legacy for additional details and https://developers.google.com/maps/documentation/javascript/places-migration-overview for the migration guide. (https://maps.googleapis.com/maps/api/js?key=AIzaSyDoadcZAP47lSG8QrIDnhVV_ZSavYUqv2Y&libraries=places:1326:352)
+ GET /admin/profile 200 in 49ms (next.js: 6ms, proxy.ts: 14ms, application-code: 30ms)
+ GET /admin/profile 200 in 121ms (next.js: 8ms, proxy.ts: 19ms, application-code: 93ms)
+ GET /admin/profile 200 in 593ms (next.js: 168ms, proxy.ts: 18ms, application-code: 407ms)
+ GET /signup 200 in 586ms (next.js: 45ms, proxy.ts: 259ms, application-code: 282ms)
+ GET /seller/account 200 in 578ms (next.js: 120ms, proxy.ts: 262ms, application-code: 195ms)
+ GET /signup 200 in 144ms (next.js: 16ms, proxy.ts: 23ms, application-code: 104ms)
+ GET /signup 200 in 335ms (next.js: 7ms, proxy.ts: 7ms, application-code: 321ms)
+ GET /signup 200 in 804ms (next.js: 13ms, proxy.ts: 19ms, application-code: 772ms)
+ GET /admin/profile 200 in 729ms (next.js: 46ms, proxy.ts: 43ms, application-code: 641ms)
+ GET /seller/account 200 in 730ms (next.js: 218ms, proxy.ts: 65ms, application-code: 447ms)
+[browser] Google Maps JavaScript API has been loaded directly without loading=async. This can result in suboptimal performance. For best-practice loading patterns please see https://goo.gle/js-api-loading (https://maps.googleapis.com/maps/api/js?key=AIzaSyDoadcZAP47lSG8QrIDnhVV_ZSavYUqv2Y&libraries=places:2595:325)
+[browser] As of March 1st, 2025, google.maps.places.Autocomplete is not available to new customers. Please use google.maps.places.PlaceAutocompleteElement instead. At this time, google.maps.places.Autocomplete is not scheduled to be discontinued, but google.maps.places.PlaceAutocompleteElement is recommended over google.maps.places.Autocomplete. While google.maps.places.Autocomplete will continue to receive bug fixes for any major regressions, existing bugs in google.maps.places.Autocomplete will not be addressed. At least 12 months notice will be given before support is discontinued. Please see https://developers.google.com/maps/legacy for additional details and https://developers.google.com/maps/documentation/javascript/places-migration-overview for the migration guide. (https://maps.googleapis.com/maps/api/js?key=AIzaSyDoadcZAP47lSG8QrIDnhVV_ZSavYUqv2Y&libraries=places:1326:352)
+[browser] As of March 1st, 2025, google.maps.places.Autocomplete is not available to new customers. Please use google.maps.places.PlaceAutocompleteElement instead. At this time, google.maps.places.Autocomplete is not scheduled to be discontinued, but google.maps.places.PlaceAutocompleteElement is recommended over google.maps.places.Autocomplete. While google.maps.places.Autocomplete will continue to receive bug fixes for any major regressions, existing bugs in google.maps.places.Autocomplete will not be addressed. At least 12 months notice will be given before support is discontinued. Please see https://developers.google.com/maps/legacy for additional details and https://developers.google.com/maps/documentation/javascript/places-migration-overview for the migration guide. (https://maps.googleapis.com/maps/api/js?key=AIzaSyDoadcZAP47lSG8QrIDnhVV_ZSavYUqv2Y&libraries=places:1326:352)
+[browser] Google Maps JavaScript API has been loaded directly without loading=async. This can result in suboptimal performance. For best-practice loading patterns please see https://goo.gle/js-api-loading (https://maps.googleapis.com/maps/api/js?key=AIzaSyDoadcZAP47lSG8QrIDnhVV_ZSavYUqv2Y&libraries=places:2595:325)
+[browser] As of March 1st, 2025, google.maps.places.Autocomplete is not available to new customers. Please use google.maps.places.PlaceAutocompleteElement instead. At this time, google.maps.places.Autocomplete is not scheduled to be discontinued, but google.maps.places.PlaceAutocompleteElement is recommended over google.maps.places.Autocomplete. While google.maps.places.Autocomplete will continue to receive bug fixes for any major regressions, existing bugs in google.maps.places.Autocomplete will not be addressed. At least 12 months notice will be given before support is discontinued. Please see https://developers.google.com/maps/legacy for additional details and https://developers.google.com/maps/documentation/javascript/places-migration-overview for the migration guide. (https://maps.googleapis.com/maps/api/js?key=AIzaSyDoadcZAP47lSG8QrIDnhVV_ZSavYUqv2Y&libraries=places:782:352)
+[browser] As of March 1st, 2025, google.maps.places.Autocomplete is not available to new customers. Please use google.maps.places.PlaceAutocompleteElement instead. At this time, google.maps.places.Autocomplete is not scheduled to be discontinued, but google.maps.places.PlaceAutocompleteElement is recommended over google.maps.places.Autocomplete. While google.maps.places.Autocomplete will continue to receive bug fixes for any major regressions, existing bugs in google.maps.places.Autocomplete will not be addressed. At least 12 months notice will be given before support is discontinued. Please see https://developers.google.com/maps/legacy for additional details and https://developers.google.com/maps/documentation/javascript/places-migration-overview for the migration guide. (https://maps.googleapis.com/maps/api/js?key=AIzaSyDoadcZAP47lSG8QrIDnhVV_ZSavYUqv2Y&libraries=places:782:352)
+ GET /admin/profile 200 in 149ms (next.js: 9ms, proxy.ts: 19ms, application-code: 121ms)
+[browser] Google Maps JavaScript API has been loaded directly without loading=async. This can result in suboptimal performance. For best-practice loading patterns please see https://goo.gle/js-api-loading (https://maps.googleapis.com/maps/api/js?key=AIzaSyDoadcZAP47lSG8QrIDnhVV_ZSavYUqv2Y&libraries=places:2595:325)
+[browser] As of March 1st, 2025, google.maps.places.Autocomplete is not available to new customers. Please use google.maps.places.PlaceAutocompleteElement instead. At this time, google.maps.places.Autocomplete is not scheduled to be discontinued, but google.maps.places.PlaceAutocompleteElement is recommended over google.maps.places.Autocomplete. While google.maps.places.Autocomplete will continue to receive bug fixes for any major regressions, existing bugs in google.maps.places.Autocomplete will not be addressed. At least 12 months notice will be given before support is discontinued. Please see https://developers.google.com/maps/legacy for additional details and https://developers.google.com/maps/documentation/javascript/places-migration-overview for the migration guide. (https://maps.googleapis.com/maps/api/js?key=AIzaSyDoadcZAP47lSG8QrIDnhVV_ZSavYUqv2Y&libraries=places:1326:352)
+[browser] As of March 1st, 2025, google.maps.places.Autocomplete is not available to new customers. Please use google.maps.places.PlaceAutocompleteElement instead. At this time, google.maps.places.Autocomplete is not scheduled to be discontinued, but google.maps.places.PlaceAutocompleteElement is recommended over google.maps.places.Autocomplete. While google.maps.places.Autocomplete will continue to receive bug fixes for any major regressions, existing bugs in google.maps.places.Autocomplete will not be addressed. At least 12 months notice will be given before support is discontinued. Please see https://developers.google.com/maps/legacy for additional details and https://developers.google.com/maps/documentation/javascript/places-migration-overview for the migration guide. (https://maps.googleapis.com/maps/api/js?key=AIzaSyDoadcZAP47lSG8QrIDnhVV_ZSavYUqv2Y&libraries=places:1326:352)
+[browser] As of March 1st, 2025, google.maps.places.Autocomplete is not available to new customers. Please use google.maps.places.PlaceAutocompleteElement instead. At this time, google.maps.places.Autocomplete is not scheduled to be discontinued, but google.maps.places.PlaceAutocompleteElement is recommended over google.maps.places.Autocomplete. While google.maps.places.Autocomplete will continue to receive bug fixes for any major regressions, existing bugs in google.maps.places.Autocomplete will not be addressed. At least 12 months notice will be given before support is discontinued. Please see https://developers.google.com/maps/legacy for additional details and https://developers.google.com/maps/documentation/javascript/places-migration-overview for the migration guide. (https://maps.googleapis.com/maps/api/js?key=AIzaSyDoadcZAP47lSG8QrIDnhVV_ZSavYUqv2Y&libraries=places:782:352)
+[browser] As of March 1st, 2025, google.maps.places.Autocomplete is not available to new customers. Please use google.maps.places.PlaceAutocompleteElement instead. At this time, google.maps.places.Autocomplete is not scheduled to be discontinued, but google.maps.places.PlaceAutocompleteElement is recommended over google.maps.places.Autocomplete. While google.maps.places.Autocomplete will continue to receive bug fixes for any major regressions, existing bugs in google.maps.places.Autocomplete will not be addressed. At least 12 months notice will be given before support is discontinued. Please see https://developers.google.com/maps/legacy for additional details and https://developers.google.com/maps/documentation/javascript/places-migration-overview for the migration guide. (https://maps.googleapis.com/maps/api/js?key=AIzaSyDoadcZAP47lSG8QrIDnhVV_ZSavYUqv2Y&libraries=places:782:352)
+○ Compiling /seller/dashboard ...
+ GET /seller/dashboard 200 in 13.1s (next.js: 13.0s, proxy.ts: 11ms, application-code: 125ms)
+[browser] Detected `scroll-behavior: smooth` on the `<html>` element. To disable smooth scrolling during route transitions, add `data-scroll-behavior="smooth"` to your <html> element. Learn more: https://nextjs.org/docs/messages/missing-data-scroll-behavior
+ GET /login 200 in 2.5s (next.js: 2.4s, proxy.ts: 19ms, application-code: 95ms)
+[browser] Uncaught TypeError: Cannot read properties of undefined (reading 'id')
+    at GoogleAuthBox.useEffect.init (src\components\auth\GoogleAuthBox.tsx:75:30)
+    at GoogleAuthBox.useEffect (src\components\auth\GoogleAuthBox.tsx:83:26)
+    at LoginPage (src\app\(auth)\login\page.tsx:96:7)
+  73 |     const init = () => {
+  74 |       if (!window.google || !btnRef.current) return;
+> 75 |       window.google.accounts.id.initialize({
+     |                              ^
+  76 |         client_id: CLIENT_ID,
+  77 |         callback: (resp: { credential: string }) => sendCredential(resp.credential),
+  78 |       });
+ GET /login 200 in 414ms (next.js: 6ms, proxy.ts: 24ms, application-code: 383ms)
+ GET /signup 200 in 1154ms (next.js: 70ms, proxy.ts: 72ms, application-code: 1012ms)
+ GET /admin/profile 200 in 799ms (next.js: 48ms, proxy.ts: 40ms, application-code: 712ms)
+ GET /signup 200 in 788ms (next.js: 39ms, proxy.ts: 350ms, application-code: 399ms)
+ GET /forgot-password 200 in 2.8s (next.js: 2.7s, application-code: 135ms)
+[browser] Detected `scroll-behavior: smooth` on the `<html>` element. To disable smooth scrolling during route transitions, add `data-scroll-behavior="smooth"` to your <html> element. Learn more: https://nextjs.org/docs/messages/missing-data-scroll-behavior
+ GET /forgot-password 200 in 351ms (next.js: 8ms, application-code: 343ms)
+[browser] Google Maps JavaScript API has been loaded directly without loading=async. This can result in suboptimal performance. For best-practice loading patterns please see https://goo.gle/js-api-loading (https://maps.googleapis.com/maps/api/js?key=AIzaSyDoadcZAP47lSG8QrIDnhVV_ZSavYUqv2Y&libraries=places:2595:325)
+[browser] As of March 1st, 2025, google.maps.places.Autocomplete is not available to new customers. Please use google.maps.places.PlaceAutocompleteElement instead. At this time, google.maps.places.Autocomplete is not scheduled to be discontinued, but google.maps.places.PlaceAutocompleteElement is recommended over google.maps.places.Autocomplete. While google.maps.places.Autocomplete will continue to receive bug fixes for any major regressions, existing bugs in google.maps.places.Autocomplete will not be addressed. At least 12 months notice will be given before support is discontinued. Please see https://developers.google.com/maps/legacy for additional details and https://developers.google.com/maps/documentation/javascript/places-migration-overview for the migration guide. (https://maps.googleapis.com/maps/api/js?key=AIzaSyDoadcZAP47lSG8QrIDnhVV_ZSavYUqv2Y&libraries=places:1326:352)
+[browser] As of March 1st, 2025, google.maps.places.Autocomplete is not available to new customers. Please use google.maps.places.PlaceAutocompleteElement instead. At this time, google.maps.places.Autocomplete is not scheduled to be discontinued, but google.maps.places.PlaceAutocompleteElement is recommended over google.maps.places.Autocomplete. While google.maps.places.Autocomplete will continue to receive bug fixes for any major regressions, existing bugs in google.maps.places.Autocomplete will not be addressed. At least 12 months notice will be given before support is discontinued. Please see https://developers.google.com/maps/legacy for additional details and https://developers.google.com/maps/documentation/javascript/places-migration-overview for the migration guide. (https://maps.googleapis.com/maps/api/js?key=AIzaSyDoadcZAP47lSG8QrIDnhVV_ZSavYUqv2Y&libraries=places:1326:352)
+ GET /forgot-password 200 in 170ms (next.js: 10ms, application-code: 161ms)
+ GET /login 200 in 208ms (next.js: 56ms, proxy.ts: 60ms, application-code: 92ms)
+[browser] Detected `scroll-behavior: smooth` on the `<html>` element. To disable smooth scrolling during route transitions, add `data-scroll-behavior="smooth"` to your <html> element. Learn more: https://nextjs.org/docs/messages/missing-data-scroll-behavior
+[browser] [GSI_LOGGER]: google.accounts.id.initialize() is called multiple times. This could cause unexpected behavior and only the last initialized instance will be used. (https://accounts.google.com/gsi/client:87:460)
+○ Compiling /admin/dashboard ...
+ GET /admin/dashboard 200 in 6.2s (next.js: 6.1s, proxy.ts: 15ms, application-code: 119ms)
+ GET /login 200 in 151ms (next.js: 32ms, proxy.ts: 22ms, application-code: 97ms)
+ GET /admin/dashboard 200 in 64ms (next.js: 6ms, proxy.ts: 8ms, application-code: 49ms)
+[browser] Detected `scroll-behavior: smooth` on the `<html>` element. To disable smooth scrolling during route transitions, add `data-scroll-behavior="smooth"` to your <html> element. Learn more: https://nextjs.org/docs/messages/missing-data-scroll-behavior

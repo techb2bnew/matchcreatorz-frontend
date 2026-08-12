@@ -58,3 +58,52 @@ body {
   animation: shimmer 1.5s infinite;
   border-radius: 6px;
 }
+
+/* Google Places autocomplete dropdown (.pac-container is injected directly
+   into <body> by the Maps JS SDK, outside React's tree — restyled here to
+   match the app's other dropdowns, e.g. CustomSelect). */
+.pac-container {
+  margin-top: 6px;
+  border: 1px solid #f0f0f0;
+  border-radius: 14px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.13);
+  font-family: Inter, system-ui, -apple-system, sans-serif;
+  overflow: hidden;
+  padding: 6px;
+}
+.pac-container:empty { display: none; }
+.pac-item {
+  border-top: none;
+  border-radius: 10px;
+  padding: 9px 10px;
+  font-size: 13px;
+  line-height: 1.3;
+  color: #6b7280;
+  cursor: pointer;
+}
+.pac-item:hover,
+.pac-item-selected {
+  background-color: #fff0f0;
+}
+.pac-icon {
+  margin-top: 3px;
+  background-image: none;
+}
+.pac-icon::before {
+  font-family: 'FontAwesome';
+  content: '\f041';
+  color: #e84545;
+  font-size: 14px;
+}
+.pac-item-query {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #1a1a1a;
+  padding-right: 4px;
+}
+.pac-matched { color: #e84545; }
+.pac-item .pac-item-query + span { color: #9ca3af; }
+.pac-logo:after {
+  margin: 4px 6px 0;
+  opacity: 0.6;
+}

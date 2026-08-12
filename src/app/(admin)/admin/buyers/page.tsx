@@ -13,11 +13,9 @@ import { buyerApi } from '@/lib/adminApi';
 import { TableSkeleton, Spinner } from '@/components/ui/Loader';
 import toast from 'react-hot-toast';
 import { useAutoRefresh } from '@/hooks/useAutoRefresh';
+import { useAddressAutocomplete } from '@/hooks/useAddressAutocomplete';
 
-const COUNTRIES = ['India', 'USA', 'UK', 'Canada', 'Australia', 'UAE', 'Singapore', 'Germany'];
-const STATES    = ['Delhi', 'Maharashtra', 'Karnataka', 'Tamil Nadu', 'Gujarat', 'Rajasthan', 'Uttar Pradesh'];
-
-const emptyForm = { name: '', email: '', phone: '', password: '', countryCode: '+1', country: 'India', state: 'Delhi', city: '', zip: '' };
+const emptyForm = { name: '', email: '', phone: '', password: '', countryCode: '+1', address: '' };
 
 const statusClass = (s: string) => s === 'active' || s === 'ACTIVE' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700';
 
@@ -32,8 +30,7 @@ const mapBuyer = (b: any) => ({
   status:    (b.profile?.approval_status || 'pending').toUpperCase(),
   userStatus: b.status || 'active',
   joined:    b.joined || b.createdAt,
-  city:      b.profile?.city || '--',
-  country:   b.profile?.country || '--',
+  address:   b.profile?.address || '--',
   raw:       b,
 });
 
@@ -58,12 +55,14 @@ export default function BuyersPage() {
 
   const [showAdd, setShowAdd]       = useState(false);
   const [form, setForm]             = useState(emptyForm);
+  const addAddressRef  = useAddressAutocomplete((addr) => setForm(f => ({ ...f, address: addr })));
   const [addLoading, setAddLoading] = useState(false);
   const [viewBuyer, setViewBuyer]   = useState<any | null>(null);
 
   // -- Edit state --------------------------------------------
   const [editBuyer, setEditBuyer]   = useState<any | null>(null);
-  const [editForm, setEditForm]     = useState({ name: '', phone: '', countryCode: '+1', city: '', state: 'Delhi', country: 'India', zip: '', company_name: '' });
+  const [editForm, setEditForm]     = useState({ name: '', phone: '', countryCode: '+1', address: '', company_name: '' });
+  const editAddressRef = useAddressAutocomplete((addr) => setEditForm(f => ({ ...f, address: addr })));
   const [editLoading, setEditLoading] = useState(false);
 
   // -- Validation helpers ------------------------------------
@@ -136,8 +135,7 @@ export default function BuyersPage() {
         email:    form.email,
         password: form.password,
         phone:    form.phone ? form.countryCode + form.phone : undefined,
-        city:     form.city    || undefined,
-        country:  form.country || undefined,
+        address:  form.address || undefined,
       });
       toast.success('Buyer added successfully');
       setForm(emptyForm);
@@ -168,10 +166,7 @@ export default function BuyersPage() {
       name:         b.name,
       phone,
       countryCode,
-      city:         b.city    === '--' ? '' : b.city,
-      state:        'Delhi',
-      country:      b.country === '--' ? 'India' : b.country,
-      zip:          '',
+      address:      b.address === '--' ? '' : b.address,
       company_name: b.raw?.profile?.company_name || '',
     });
   };
@@ -188,8 +183,7 @@ export default function BuyersPage() {
       await buyerApi.edit(editBuyer.id, {
         name:         editForm.name || undefined,
         phone:        editForm.phone ? editForm.countryCode + editForm.phone : undefined,
-        city:         editForm.city         || undefined,
-        country:      editForm.country      || undefined,
+        address:      editForm.address      || undefined,
         company_name: editForm.company_name || undefined,
       });
       toast.success('Buyer updated successfully');
@@ -387,12 +381,7 @@ export default function BuyersPage() {
               <span className="text-[11px] font-bold text-gray-600 uppercase tracking-wider">Location</span>
               <div className="flex-1 h-px bg-gray-100" />
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <CustomSelect label="Country" leftIcon="fa-globe" value={form.country} onChange={(v) => setForm({ ...form, country: v })} options={COUNTRIES} />
-              <CustomSelect label="State" leftIcon="fa-map-o" value={form.state} onChange={(v) => setForm({ ...form, state: v })} options={STATES} />
-              <Input label="City" placeholder="Enter city" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} />
-              <Input label="Zip Code" placeholder="ZIP / PIN code" value={form.zip} onChange={(e) => setForm({ ...form, zip: e.target.value })} />
-            </div>
+            <Input ref={addAddressRef} label="Address" placeholder="Start typing an address..." value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
           </div>
 
         </div>
@@ -423,8 +412,7 @@ export default function BuyersPage() {
               <div><p className="text-xs text-gray-400 mb-0.5">Bookings</p><p className="font-medium">{viewBuyer.bookings}</p></div>
               <div><p className="text-xs text-gray-400 mb-0.5">Total Spent</p><p className="font-semibold text-[#e84545]">{formatCurrency(viewBuyer.spent)}</p></div>
               <div><p className="text-xs text-gray-400 mb-0.5">Joined</p><p className="font-medium">{formatDate(viewBuyer.joined)}</p></div>
-              <div><p className="text-xs text-gray-400 mb-0.5">Country</p><p className="font-medium">{viewBuyer.country}</p></div>
-              <div><p className="text-xs text-gray-400 mb-0.5">City</p><p className="font-medium">{viewBuyer.city}</p></div>
+              <div className="col-span-2"><p className="text-xs text-gray-400 mb-0.5">Address</p><p className="font-medium">{viewBuyer.address}</p></div>
             </div>
           </div>
         </Modal>
@@ -477,12 +465,7 @@ export default function BuyersPage() {
                 <span className="text-[11px] font-bold text-gray-600 uppercase tracking-wider">Location</span>
                 <div className="flex-1 h-px bg-gray-100" />
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <CustomSelect label="Country" leftIcon="fa-globe" value={editForm.country} onChange={v => setEditForm({ ...editForm, country: v })} options={COUNTRIES} />
-                <CustomSelect label="State" leftIcon="fa-map-o" value={editForm.state} onChange={v => setEditForm({ ...editForm, state: v })} options={STATES} />
-                <Input label="City" placeholder="Enter city" value={editForm.city} onChange={e => setEditForm({ ...editForm, city: e.target.value })} />
-                <Input label="Zip Code" placeholder="ZIP / PIN code" value={editForm.zip} onChange={e => setEditForm({ ...editForm, zip: e.target.value })} />
-              </div>
+              <Input ref={editAddressRef} label="Address" placeholder="Start typing an address..." value={editForm.address} onChange={e => setEditForm({ ...editForm, address: e.target.value })} />
             </div>
 
           </div>

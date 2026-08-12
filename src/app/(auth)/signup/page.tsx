@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils';
 import toast from 'react-hot-toast';
 import Cookies from 'js-cookie';
 import GoogleAuthBox from '@/components/auth/GoogleAuthBox';
+import { useAddressAutocomplete } from '@/hooks/useAddressAutocomplete';
 
 type RoleType = 'SELLER' | 'BUYER';
 
@@ -33,8 +34,6 @@ const COUNTRY_CODES = [
   { flag: '🇸🇬', code: '+65',  label: 'SG', maxLen: 8  },
 ];
 
-const COUNTRIES  = ['India','USA','UK','Canada','Australia','UAE','Singapore','Germany'];
-const STATES     = ['Delhi','Maharashtra','Karnataka','Tamil Nadu','Gujarat','Rajasthan','Uttar Pradesh'];
 const RANGES     = ['$500-$1,000/project','$1,000-$5,000/project','$5,000-$15,000/project','$15,000-$50,000/project','$50,000+/project'];
 const RANGE_RATE: Record<string, number> = {
   '$500-$1,000/project':     500,
@@ -93,10 +92,8 @@ export default function SignupPage() {
   /* Step 2 */
   const [range, setRange]           = useState(RANGES[0]);
   const [dob, setDob]               = useState('');
-  const [country, setCountry]       = useState('India');
-  const [stateName, setStateName]   = useState('Delhi');
-  const [city, setCity]             = useState('');
-  const [zip, setZip]               = useState('');
+  const [address, setAddress]       = useState('');
+  const addressRef = useAddressAutocomplete(setAddress);
   const [gender, setGender]         = useState('Male');
   const [category, setCategory]     = useState('');
   const [tags, setTags]             = useState<string[]>([]);
@@ -127,8 +124,7 @@ export default function SignupPage() {
         fd.append('bio', bio);
         fd.append('skills', JSON.stringify(tags));
         fd.append('hourly_rate', String(RANGE_RATE[range] ?? 500));
-        fd.append('city', city);
-        fd.append('country', country);
+        fd.append('address', address);
         if (resumeFile) fd.append('resume', resumeFile);
 
         // Portfolio files -- append each under same key 'portfolio_files'
@@ -184,7 +180,7 @@ export default function SignupPage() {
     }
     if (step === 2) {
       if (role === 'SELLER') {
-        if (!city)           { toast.error('City is required'); return; }
+        if (!address.trim()) { toast.error('Address is required'); return; }
         if (tags.length < 1) { toast.error('Select at least one skill/tag'); return; }
       }
       setStep(3); return;
@@ -376,33 +372,9 @@ export default function SignupPage() {
         </div>
 
         {/* Row 2 */}
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className={lbl}>Country</label>
-            <div className="relative">
-              <select className={sel} value={country} onChange={e => setCountry(e.target.value)}>{COUNTRIES.map(c => <option key={c}>{c}</option>)}</select>
-              <i className="fa fa-chevron-down absolute right-3 top-3.5 text-gray-400 text-xs pointer-events-none" />
-            </div>
-          </div>
-          <div>
-            <label className={lbl}>State</label>
-            <div className="relative">
-              <select className={sel} value={stateName} onChange={e => setStateName(e.target.value)}>{STATES.map(s => <option key={s}>{s}</option>)}</select>
-              <i className="fa fa-chevron-down absolute right-3 top-3.5 text-gray-400 text-xs pointer-events-none" />
-            </div>
-          </div>
-        </div>
-
-        {/* Row 3 */}
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className={lbl}>City *</label>
-            <div className={iBox}><i className="fa fa-map-marker text-[#aaa] text-xs" /><input placeholder="City" value={city} onChange={e => setCity(e.target.value)} className={iText} /></div>
-          </div>
-          <div>
-            <label className={lbl}>Zip Code</label>
-            <div className={iBox}><i className="fa fa-hashtag text-[#aaa] text-xs" /><input placeholder="110001" value={zip} onChange={e => setZip(e.target.value)} className={iText} /></div>
-          </div>
+        <div>
+          <label className={lbl}>Address *</label>
+          <div className={iBox}><i className="fa fa-map-marker text-[#aaa] text-xs" /><input ref={addressRef} placeholder="Start typing your address..." value={address} onChange={e => setAddress(e.target.value)} className={iText} /></div>
         </div>
 
         {/* Row 4 */}

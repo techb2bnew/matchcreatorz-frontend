@@ -14,9 +14,8 @@ import { sellerApi, categoryApi } from '@/lib/adminApi';
 import { TableSkeleton, Spinner } from '@/components/ui/Loader';
 import toast from 'react-hot-toast';
 import { useAutoRefresh } from '@/hooks/useAutoRefresh';
+import { useAddressAutocomplete } from '@/hooks/useAddressAutocomplete';
 
-const COUNTRIES  = ['India', 'USA', 'UK', 'Canada', 'Australia', 'UAE', 'Singapore', 'Germany'];
-const STATES     = ['Delhi', 'Maharashtra', 'Karnataka', 'Tamil Nadu', 'Gujarat', 'Rajasthan', 'Uttar Pradesh'];
 const RANGES     = ['$500-$1,000/project', '$1,000-$5,000/project', '$5,000-$15,000/project', '$15,000-$50,000/project', '$50,000+/project'];
 const RESP_TIMES = ['Within 1 hour', 'Within 6 hours', 'Within 24 hours', 'Within 48 hours', 'Within a week'];
 
@@ -32,7 +31,7 @@ const MODAL_STEPS = [
 const emptyForm = {
   name: '', email: '', phone: '', password: '', countryCode: '+1',
   dob: '', gender: 'Male', range: RANGES[0], hourlyRate: '',
-  country: 'India', state: 'Delhi', city: '', zip: '',
+  address: '',
   tags: [] as string[], bio: '', responseTime: RESP_TIMES[2],
   portfolioLinks: '',
 };
@@ -51,8 +50,7 @@ const mapSeller = (s: any) => ({
   status:      (s.profile?.approval_status || 'pending').toUpperCase(),
   userStatus:  s.status,
   joined:      s.joined || s.createdAt,
-  city:        s.profile?.city || '--',
-  country:     s.profile?.country || '--',
+  address:     s.profile?.address || '--',
   bio:         s.profile?.bio || '',
   skills:      s.profile?.skills || [],
   raw:         s,
@@ -89,12 +87,14 @@ export default function SellersPage() {
   const [showAdd, setShowAdd]       = useState(false);
   const [addStep, setAddStep]       = useState(1);
   const [form, setForm]             = useState(emptyForm);
+  const addAddressRef  = useAddressAutocomplete((addr) => setForm(f => ({ ...f, address: addr })));
   const [addLoading, setAddLoading] = useState(false);
   const [viewSeller, setViewSeller] = useState<any | null>(null);
 
   // -- Edit state --------------------------------------------
   const [editSeller, setEditSeller] = useState<any | null>(null);
-  const [editForm, setEditForm]     = useState({ name: '', phone: '', countryCode: '+1', bio: '', city: '', country: 'India', hourlyRate: '', tags: [] as string[] });
+  const [editForm, setEditForm]     = useState({ name: '', phone: '', countryCode: '+1', bio: '', address: '', hourlyRate: '', tags: [] as string[] });
+  const editAddressRef = useAddressAutocomplete((addr) => setEditForm(f => ({ ...f, address: addr })));
   const [editLoading, setEditLoading] = useState(false);
 
   // -- Validation errors -------------------------------------
@@ -175,8 +175,7 @@ export default function SellersPage() {
         bio:         form.bio   || undefined,
         skills:      form.tags.length ? form.tags : undefined,
         hourly_rate: form.hourlyRate ? Number(form.hourlyRate) : undefined,
-        city:        form.city    || undefined,
-        country:     form.country || undefined,
+        address:     form.address || undefined,
       });
       toast.success('Seller added successfully');
       setForm(emptyForm);
@@ -211,8 +210,7 @@ export default function SellersPage() {
       phone,
       countryCode,
       bio:        s.bio || '',
-      city:       s.city === '--' ? '' : s.city,
-      country:    s.country === '--' ? 'India' : s.country,
+      address:    s.address === '--' ? '' : s.address,
       hourlyRate: s.hourlyRate ? String(s.hourlyRate) : '',
       tags:       [...(s.skills || [])],
     });
@@ -236,8 +234,7 @@ export default function SellersPage() {
         name:        editForm.name      || undefined,
         phone:       editForm.phone ? editForm.countryCode + editForm.phone : undefined,
         bio:         editForm.bio       || undefined,
-        city:        editForm.city      || undefined,
-        country:     editForm.country   || undefined,
+        address:     editForm.address   || undefined,
         hourly_rate: editForm.hourlyRate ? Number(editForm.hourlyRate) : undefined,
         skills:      editForm.tags.length ? editForm.tags : undefined,
       });
@@ -505,22 +502,11 @@ export default function SellersPage() {
                   <span className="text-[11px] font-bold text-gray-600 uppercase tracking-wider">Location</span>
                   <div className="flex-1 h-px bg-gray-100" />
                 </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <CustomSelect label="Country" leftIcon="fa-globe" value={form.country} onChange={v => setForm({ ...form, country: v })} options={COUNTRIES} />
-                  <CustomSelect label="State" leftIcon="fa-map-o" value={form.state} onChange={v => setForm({ ...form, state: v })} options={STATES} />
-                  <div>
-                    <label className={labelCls}>City</label>
-                    <div className="relative">
-                      <i className="fa fa-building-o absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none" />
-                      <input className={selectCls + ' pl-8'} placeholder="Enter city" value={form.city} onChange={e => setForm({ ...form, city: e.target.value })} />
-                    </div>
-                  </div>
-                  <div>
-                    <label className={labelCls}>Zip Code</label>
-                    <div className="relative">
-                      <i className="fa fa-hashtag absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none" />
-                      <input className={selectCls + ' pl-8'} placeholder="ZIP / PIN code" value={form.zip} onChange={e => setForm({ ...form, zip: e.target.value })} />
-                    </div>
+                <div>
+                  <label className={labelCls}>Address</label>
+                  <div className="relative">
+                    <i className="fa fa-map-marker absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none" />
+                    <input ref={addAddressRef} className={selectCls + ' pl-8'} placeholder="Start typing an address..." value={form.address} onChange={e => setForm({ ...form, address: e.target.value })} />
                   </div>
                 </div>
               </div>
@@ -607,8 +593,7 @@ export default function SellersPage() {
               <div><p className="text-xs text-gray-400 mb-0.5">Hourly Rate</p><p className="font-medium">{viewSeller.hourlyRate ? `$${viewSeller.hourlyRate}/hr` : '--'}</p></div>
               <div><p className="text-xs text-gray-400 mb-0.5">Rating</p><p className="font-medium flex items-center gap-1"><i className="fa fa-star text-yellow-400 text-xs" />{viewSeller.rating || '--'}</p></div>
               <div><p className="text-xs text-gray-400 mb-0.5">Joined</p><p className="font-medium">{formatDate(viewSeller.joined)}</p></div>
-              <div><p className="text-xs text-gray-400 mb-0.5">Country</p><p className="font-medium">{viewSeller.country}</p></div>
-              <div><p className="text-xs text-gray-400 mb-0.5">City</p><p className="font-medium">{viewSeller.city}</p></div>
+              <div className="col-span-2"><p className="text-xs text-gray-400 mb-0.5">Address</p><p className="font-medium">{viewSeller.address}</p></div>
             </div>
             {viewSeller.skills?.length > 0 && (
               <div>
@@ -681,9 +666,8 @@ export default function SellersPage() {
                   </div>
                   {editErrs.hourlyRate && <p className="text-xs text-red-500 mt-1">{editErrs.hourlyRate}</p>}
                 </div>
-                <CustomSelect label="Country" leftIcon="fa-globe" value={editForm.country} onChange={v => setEditForm({ ...editForm, country: v })} options={COUNTRIES} />
                 <div className="col-span-2">
-                  <Input label="City" value={editForm.city} onChange={e => setEditForm({ ...editForm, city: e.target.value })} />
+                  <Input ref={editAddressRef} label="Address" value={editForm.address} onChange={e => setEditForm({ ...editForm, address: e.target.value })} placeholder="Start typing an address..." />
                 </div>
               </div>
             </div>
