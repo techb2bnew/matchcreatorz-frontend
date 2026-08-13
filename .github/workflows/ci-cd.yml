@@ -144,16 +144,34 @@ jobs:
           fi
 
           mkdir -p "$DEPLOY_ROOT/releases"
+
+          PREVIOUS_RELEASE="$(readlink -f "$CURRENT_LINK" 2>/dev/null || true)"
+
+          # This EC2 has a small disk. Before creating a new release, remove
+          # failed/obsolete releases while preserving the active one.
+          while IFS= read -r -d '' OLD_RELEASE; do
+            RESOLVED_RELEASE="$(readlink -f "$OLD_RELEASE" 2>/dev/null || true)"
+            if [ -n "$PREVIOUS_RELEASE" ] && [ "$RESOLVED_RELEASE" = "$PREVIOUS_RELEASE" ]; then
+              continue
+            fi
+            case "$RESOLVED_RELEASE" in
+              "$DEPLOY_ROOT/releases/"*) rm -rf -- "$RESOLVED_RELEASE" ;;
+              *) echo "Skipping unsafe cleanup path: $OLD_RELEASE" >&2 ;;
+            esac
+          done < <(find "$DEPLOY_ROOT/releases" -mindepth 1 -maxdepth 1 -type d -print0)
+
           mkdir "$RELEASE_DIR"
           tar -xzf "$ARCHIVE" -C "$RELEASE_DIR"
           ln -s "$ENV_FILE" "$RELEASE_DIR/.env.local"
 
-          PREVIOUS_RELEASE="$(readlink -f "$CURRENT_LINK" 2>/dev/null || true)"
-
           cd "$RELEASE_DIR"
           npm ci
           npm run build
-          pm2 startOrReload ecosystem.config.cjs --env production --update-env
+
+          # Recreate the process so an old PM2 script/cwd definition cannot be
+          # reused for the newly built release.
+          pm2 delete "$APP_NAME" >/dev/null 2>&1 || true
+          pm2 start ecosystem.config.cjs --env production
 
           HEALTHY=false
           for attempt in $(seq 1 30); do
@@ -174,11 +192,13 @@ jobs:
           if [ "$HEALTHY" != "true" ] || [ "$APP_CWD" != "$RELEASE_DIR" ]; then
             echo "New release failed its health/process check." >&2
             pm2 logs "$APP_NAME" --lines 80 --nostream || true
+            pm2 delete "$APP_NAME" >/dev/null 2>&1 || true
 
             if [ -n "$PREVIOUS_RELEASE" ] && [ -f "$PREVIOUS_RELEASE/ecosystem.config.cjs" ]; then
               echo "Rolling back to $PREVIOUS_RELEASE" >&2
               cd "$PREVIOUS_RELEASE"
-              pm2 startOrReload ecosystem.config.cjs --env production --update-env
+              pm2 start ecosystem.config.cjs --env production
+              pm2 save
             fi
             exit 1
           fi
@@ -186,24 +206,6 @@ jobs:
           ln -sfn "$RELEASE_DIR" "$CURRENT_LINK"
           pm2 save
           rm -f "$ARCHIVE"
-
-          # Keep the newest three releases so the EC2 disk does not fill up.
-          # Resolve and validate every path before removing anything.
-          while IFS= read -r OLD_RELEASE; do
-            RESOLVED_RELEASE="$(readlink -f "$OLD_RELEASE" 2>/dev/null || true)"
-            if [ "$RESOLVED_RELEASE" = "$RELEASE_DIR" ]; then
-              continue
-            fi
-            case "$RESOLVED_RELEASE" in
-              "$DEPLOY_ROOT/releases/"*) rm -rf -- "$RESOLVED_RELEASE" ;;
-              *) echo "Skipping unsafe cleanup path: $OLD_RELEASE" >&2 ;;
-            esac
-          done < <(
-            find "$DEPLOY_ROOT/releases" -mindepth 1 -maxdepth 1 -type d -printf '%T@ %p\n' \
-              | sort -rn \
-              | tail -n +4 \
-              | cut -d' ' -f2-
-          )
 
           echo "Deployed $DEPLOY_SHA successfully."
           REMOTE_SCRIPT

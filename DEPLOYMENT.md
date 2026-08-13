@@ -77,12 +77,14 @@ codebase has pre-existing lint errors.
 After a successful `main` build, GitHub uploads the source through SSH. EC2 then
 creates an isolated release, links the server-only `.env.local`, installs exact
 lockfile dependencies, builds, restarts PM2, and checks
-`http://127.0.0.1:3000/`. A failed health check attempts to restart the previous
-successful release.
+`http://127.0.0.1:3000/`. The PM2 process is recreated from the committed
+ecosystem definition so an older manual PM2 command cannot leak into the new
+release. A failed health check attempts to restart the previous successful
+release.
 
-The newest three releases are retained for rollback and older release folders
-are permanently removed after a successful health check.
+The active release is retained for rollback while a new release is built.
+Failed and obsolete release folders are permanently removed before the next
+deployment so the small EC2 disk does not fill up.
 
-The first deployment may fail if another manually started process already owns
-port `3000`. Stop that old process once, then re-run the failed workflow from
-GitHub Actions.
+If another non-PM2 process owns port `3000`, stop that process once and re-run
+the failed workflow from GitHub Actions.
