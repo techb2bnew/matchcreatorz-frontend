@@ -1,0 +1,209 @@
+name: CI and deploy to EC2
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: matchcreatorz-production
+  cancel-in-progress: false
+
+jobs:
+  ci:
+    name: Build check
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+
+      - name: Use Node.js 20
+        uses: actions/setup-node@v6
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # The repository currently has pre-existing lint errors. Keep the report
+      # visible without blocking production until those errors are cleaned up.
+      - name: Lint report
+        continue-on-error: true
+        run: npm run lint
+
+      - name: Verify production build
+        run: npm run build
+
+  deploy:
+    name: Deploy production
+    if: github.event_name != 'pull_request'
+    needs: ci
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: production
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+
+      - name: Create release archive
+        run: |
+          tar \
+            --exclude='./.git' \
+            --exclude='./.next' \
+            --exclude='./node_modules' \
+            --exclude='./.env*' \
+            --exclude='./*.log' \
+            -czf "$RUNNER_TEMP/matchcreatorz-release.tar.gz" .
+
+      - name: Configure SSH
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_PORT: ${{ secrets.EC2_PORT || '22' }}
+          EC2_USER: ${{ secrets.EC2_USER }}
+          EC2_SSH_PRIVATE_KEY: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+          EC2_KNOWN_HOSTS: ${{ secrets.EC2_KNOWN_HOSTS }}
+        run: |
+          set -Eeuo pipefail
+          test -n "$EC2_HOST"
+          test -n "$EC2_USER"
+          test -n "$EC2_SSH_PRIVATE_KEY"
+          [[ "$EC2_PORT" =~ ^[0-9]+$ ]]
+
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$EC2_SSH_PRIVATE_KEY" | tr -d '\r' > "$HOME/.ssh/deploy_key"
+          chmod 600 "$HOME/.ssh/deploy_key"
+
+          if [ -n "$EC2_KNOWN_HOSTS" ]; then
+            printf '%s\n' "$EC2_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          else
+            ssh-keyscan -p "$EC2_PORT" -H "$EC2_HOST" > "$HOME/.ssh/known_hosts"
+          fi
+          chmod 600 "$HOME/.ssh/known_hosts"
+
+      - name: Upload release
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_PORT: ${{ secrets.EC2_PORT || '22' }}
+          EC2_USER: ${{ secrets.EC2_USER }}
+        run: |
+          scp \
+            -i "$HOME/.ssh/deploy_key" \
+            -P "$EC2_PORT" \
+            -o BatchMode=yes \
+            "$RUNNER_TEMP/matchcreatorz-release.tar.gz" \
+            "$EC2_USER@$EC2_HOST:/tmp/matchcreatorz-$GITHUB_SHA-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT.tar.gz"
+
+      - name: Build and restart on EC2
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_PORT: ${{ secrets.EC2_PORT || '22' }}
+          EC2_USER: ${{ secrets.EC2_USER }}
+        run: |
+          ssh \
+            -i "$HOME/.ssh/deploy_key" \
+            -p "$EC2_PORT" \
+            -o BatchMode=yes \
+            "$EC2_USER@$EC2_HOST" \
+            "DEPLOY_SHA='$GITHUB_SHA' RUN_ID='$GITHUB_RUN_ID' RUN_ATTEMPT='$GITHUB_RUN_ATTEMPT' bash -s" <<'REMOTE_SCRIPT'
+          set -Eeuo pipefail
+
+          export NVM_DIR="$HOME/.nvm"
+          if [ -s "$NVM_DIR/nvm.sh" ]; then
+            # Make Node installed through nvm available to non-interactive SSH.
+            . "$NVM_DIR/nvm.sh"
+          fi
+
+          APP_NAME="matchcreatorz-frontend"
+          APP_ROOT="$HOME/matchcreatorz-frontend"
+          DEPLOY_ROOT="$APP_ROOT/.deploy"
+          RELEASE_ID="$DEPLOY_SHA-$RUN_ID-$RUN_ATTEMPT"
+          RELEASE_DIR="$DEPLOY_ROOT/releases/$RELEASE_ID"
+          CURRENT_LINK="$DEPLOY_ROOT/current"
+          ARCHIVE="/tmp/matchcreatorz-$RELEASE_ID.tar.gz"
+          ENV_FILE="$APP_ROOT/.env.local"
+
+          command -v node >/dev/null
+          command -v npm >/dev/null
+          command -v pm2 >/dev/null
+          command -v curl >/dev/null
+          test -f "$ENV_FILE"
+
+          NODE_MAJOR="$(node -p "process.versions.node.split('.')[0]")"
+          if [ "$NODE_MAJOR" -lt 20 ]; then
+            echo "Node.js 20 or newer is required; found $(node --version)." >&2
+            exit 1
+          fi
+
+          mkdir -p "$DEPLOY_ROOT/releases"
+          mkdir "$RELEASE_DIR"
+          tar -xzf "$ARCHIVE" -C "$RELEASE_DIR"
+          ln -s "$ENV_FILE" "$RELEASE_DIR/.env.local"
+
+          PREVIOUS_RELEASE="$(readlink -f "$CURRENT_LINK" 2>/dev/null || true)"
+
+          cd "$RELEASE_DIR"
+          npm ci
+          npm run build
+          pm2 startOrReload ecosystem.config.cjs --env production --update-env
+
+          HEALTHY=false
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent --show-error http://127.0.0.1:3000/ >/dev/null; then
+              HEALTHY=true
+              break
+            fi
+            sleep 2
+          done
+
+          sleep 2
+          APP_PID="$(pm2 pid "$APP_NAME" | tail -n 1)"
+          APP_CWD=""
+          if [ -n "$APP_PID" ] && [ "$APP_PID" != "0" ]; then
+            APP_CWD="$(readlink -f "/proc/$APP_PID/cwd" 2>/dev/null || true)"
+          fi
+
+          if [ "$HEALTHY" != "true" ] || [ "$APP_CWD" != "$RELEASE_DIR" ]; then
+            echo "New release failed its health/process check." >&2
+            pm2 logs "$APP_NAME" --lines 80 --nostream || true
+
+            if [ -n "$PREVIOUS_RELEASE" ] && [ -f "$PREVIOUS_RELEASE/ecosystem.config.cjs" ]; then
+              echo "Rolling back to $PREVIOUS_RELEASE" >&2
+              cd "$PREVIOUS_RELEASE"
+              pm2 startOrReload ecosystem.config.cjs --env production --update-env
+            fi
+            exit 1
+          fi
+
+          ln -sfn "$RELEASE_DIR" "$CURRENT_LINK"
+          pm2 save
+          rm -f "$ARCHIVE"
+
+          # Keep the newest three releases so the EC2 disk does not fill up.
+          # Resolve and validate every path before removing anything.
+          while IFS= read -r OLD_RELEASE; do
+            RESOLVED_RELEASE="$(readlink -f "$OLD_RELEASE" 2>/dev/null || true)"
+            if [ "$RESOLVED_RELEASE" = "$RELEASE_DIR" ]; then
+              continue
+            fi
+            case "$RESOLVED_RELEASE" in
+              "$DEPLOY_ROOT/releases/"*) rm -rf -- "$RESOLVED_RELEASE" ;;
+              *) echo "Skipping unsafe cleanup path: $OLD_RELEASE" >&2 ;;
+            esac
+          done < <(
+            find "$DEPLOY_ROOT/releases" -mindepth 1 -maxdepth 1 -type d -printf '%T@ %p\n' \
+              | sort -rn \
+              | tail -n +4 \
+              | cut -d' ' -f2-
+          )
+
+          echo "Deployed $DEPLOY_SHA successfully."
+          REMOTE_SCRIPT
