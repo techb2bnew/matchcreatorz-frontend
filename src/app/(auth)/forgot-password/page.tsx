@@ -97,17 +97,23 @@ export default function ForgotPasswordPage() {
     setLoading(true);
 
     try {
-      const body = method === 'email' ? { email: email.trim() } : { phone: fullPhone() };
-      const res  = await fetch(`${API}/api/v1/auth/forgot-password`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-      const json = await res.json();
-      if (!res.ok) {
-        setErrs({ [method]: json.message || 'Something went wrong' });
-        return;
+      if (method === 'email') {
+        const res  = await fetch(`${API}/api/v1/auth/forgot-password`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: email.trim() }),
+        });
+        const json = await res.json();
+        if (!res.ok) { setErrs({ email: json.message || 'Something went wrong' }); return; }
+        toast.success('OTP sent to your email!');
+      } else {
+        const res  = await fetch(`${API}/api/v1/auth/send-phone-otp`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone: fullPhone() }),
+        });
+        const json = await res.json();
+        if (!res.ok) { setErrs({ phone: json.message || 'Could not send OTP' }); return; }
+        toast.success('OTP sent to your phone!');
       }
-      toast.success(`OTP sent to your ${method === 'email' ? 'email' : 'phone'}!`);
       startTimer();
       setStep('otp');
     } catch {
@@ -124,18 +130,23 @@ export default function ForgotPasswordPage() {
     setLoading(true);
 
     try {
-      const body = method === 'email'
-        ? { email: email.trim(), otp }
-        : { phone: fullPhone(), otp };
-
-      const res  = await fetch(`${API}/api/v1/auth/verify-forgot-otp`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-      const json = await res.json();
-      if (!res.ok) { setErrs({ otp: json.message || 'Invalid OTP' }); return; }
-
-      setResetToken(json.data?.reset_token || '');
+      if (method === 'email') {
+        const res  = await fetch(`${API}/api/v1/auth/verify-forgot-otp`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: email.trim(), otp }),
+        });
+        const json = await res.json();
+        if (!res.ok) { setErrs({ otp: json.message || 'Invalid OTP' }); return; }
+        setResetToken(json.data?.reset_token || '');
+      } else {
+        const res  = await fetch(`${API}/api/v1/auth/verify-forgot-phone`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone: fullPhone(), otp }),
+        });
+        const json = await res.json();
+        if (!res.ok) { setErrs({ otp: json.message || 'Invalid OTP' }); return; }
+        setResetToken(json.data?.reset_token || '');
+      }
       setStep('reset');
     } catch {
       setErrs({ otp: 'Network error. Try again.' });
@@ -149,13 +160,21 @@ export default function ForgotPasswordPage() {
     if (timer > 0) return;
     setLoading(true);
     try {
-      const body = method === 'email' ? { email: email.trim() } : { phone: fullPhone() };
-      const res  = await fetch(`${API}/api/v1/auth/forgot-password`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-      const json = await res.json();
-      if (!res.ok) { toast.error(json.message || 'Could not resend OTP'); return; }
+      if (method === 'email') {
+        const res  = await fetch(`${API}/api/v1/auth/forgot-password`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: email.trim() }),
+        });
+        const json = await res.json();
+        if (!res.ok) { toast.error(json.message || 'Could not resend OTP'); return; }
+      } else {
+        const res  = await fetch(`${API}/api/v1/auth/send-phone-otp`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone: fullPhone() }),
+        });
+        const json = await res.json();
+        if (!res.ok) { toast.error(json.message || 'Could not resend OTP'); return; }
+      }
       toast.success('OTP resent!');
       setOtp('');
       startTimer();

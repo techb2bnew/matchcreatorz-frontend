@@ -155,6 +155,17 @@ export const adminBannerApi = {
   delete: (id: number) => req('DELETE', `/api/v1/admin/banners/${id}`),
 };
 
+// -- Active banners (public, no auth) — for display on dashboards, etc. --
+export interface PublicBanner {
+  id: number; title: string; image_url: string; link_url: string | null;
+  position: string; display_order: number;
+}
+export const publicBannerApi = {
+  list: (position?: string): Promise<{ data: PublicBanner[] }> =>
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/banners${position ? `?position=${encodeURIComponent(position)}` : ''}`)
+      .then(r => r.json()),
+};
+
 // -- Static Pages (admin) -------------------------------------------------
 export interface AdminPage {
   id: number; slug: string; title: string; content: string;

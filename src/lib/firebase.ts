@@ -1,7 +1,8 @@
 /**
  * firebase.ts
- * Firebase app initialisation (kept for potential future use — Auth, Storage, etc.)
- * Push notifications now use native Web Push API (see fcm.ts) — no firebase/messaging needed.
+ * Firebase app initialisation. Push notifications use the native Web Push
+ * API instead (see fcm.ts) — no firebase/messaging needed. Kept for
+ * potential future use — Auth, Storage, etc.
  */
 import { initializeApp, getApps, getApp } from 'firebase/app';
 

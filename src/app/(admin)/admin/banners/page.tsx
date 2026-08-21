@@ -10,9 +10,7 @@ import { PageLoader } from '@/components/ui/Loader';
 import toast from 'react-hot-toast';
 import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 
-const POSITIONS = ['Home Top', 'Sidebar', 'Services Page', 'Footer'];
-
-const emptyForm = { title: '', link_url: '', position: 'Home Top', is_active: true };
+const emptyForm = { title: '', is_active: true };
 
 export default function BannersPage() {
   const [banners, setBanners] = useState<AdminBanner[]>([]);
@@ -56,7 +54,7 @@ export default function BannersPage() {
 
   const openEdit = (b: AdminBanner) => {
     setEditing(b);
-    setForm({ title: b.title, link_url: b.link_url || '', position: b.position, is_active: b.is_active });
+    setForm({ title: b.title, is_active: b.is_active });
     setImageFile(null);
     setPreview(b.image_url);
     setErr('');
@@ -76,8 +74,6 @@ export default function BannersPage() {
     try {
       const fd = new FormData();
       fd.append('title', form.title.trim());
-      fd.append('link_url', form.link_url.trim());
-      fd.append('position', form.position);
       fd.append('is_active', String(form.is_active));
       if (imageFile) fd.append('image', imageFile);
 
@@ -153,7 +149,6 @@ export default function BannersPage() {
                 <div className="flex items-start justify-between mb-1">
                   <div className="min-w-0">
                     <h3 className="font-semibold text-gray-900 truncate">{b.title}</h3>
-                    <p className="text-xs text-gray-400 mt-0.5">{b.position}</p>
                   </div>
                   <div className="flex items-center gap-1 flex-shrink-0">
                     <button onClick={() => openEdit(b)} className="p-1.5 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors">
@@ -202,17 +197,6 @@ export default function BannersPage() {
             />
           </div>
           <Input label="Banner Title" placeholder="e.g. Summer Sale" value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} />
-          <Input label="Link URL (optional)" placeholder="https://..." value={form.link_url} onChange={(e) => setForm((f) => ({ ...f, link_url: e.target.value }))} />
-          <div>
-            <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">Position</label>
-            <select
-              value={form.position}
-              onChange={(e) => setForm((f) => ({ ...f, position: e.target.value }))}
-              className="w-full border border-gray-200 rounded-xl px-3 h-11 text-sm focus:outline-none focus:border-[#e84545] bg-white"
-            >
-              {POSITIONS.map((p) => <option key={p} value={p}>{p}</option>)}
-            </select>
-          </div>
           <div className="flex items-center gap-2">
             <input type="checkbox" id="activeCheck" checked={form.is_active} onChange={(e) => setForm((f) => ({ ...f, is_active: e.target.checked }))} className="accent-[#e84545]" />
             <label htmlFor="activeCheck" className="text-sm text-gray-700">Set as Active</label>

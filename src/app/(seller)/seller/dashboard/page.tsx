@@ -9,6 +9,7 @@ import { formatCurrency, formatDate, getBookingStatusColor, getBookingStatusLabe
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { sellerStatsApi } from '@/lib/adminApi';
 import { useAutoRefresh } from '@/hooks/useAutoRefresh';
+import BannerStrip from '@/components/ui/BannerStrip';
 
 interface BookingRow {
   id: number;
@@ -73,6 +74,7 @@ export default function SellerDashboardPage() {
 
   return (
     <DashboardLayout role="SELLER" title="My Dashboard">
+      <BannerStrip />
       {error && (
         <div className="mb-4 p-4 rounded-xl bg-red-50 border border-red-200 text-sm text-red-700 flex items-center gap-2">
           <i className="fa fa-exclamation-circle" />

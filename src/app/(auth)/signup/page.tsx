@@ -9,6 +9,8 @@ import Cookies from 'js-cookie';
 import GoogleAuthBox from '@/components/auth/GoogleAuthBox';
 import { useAddressAutocomplete } from '@/hooks/useAddressAutocomplete';
 
+const API = process.env.NEXT_PUBLIC_API_URL;
+
 type RoleType = 'SELLER' | 'BUYER';
 
 /* -- shared styles -- */
@@ -84,6 +86,66 @@ export default function SignupPage() {
   const [showCC, setShowCC]     = useState(false);
   const [errs, setErrs]         = useState<Record<string, string>>({});
 
+  // Phone verification (Twilio Verify OTP) — phone stays optional, but if
+  // entered it must be verified before the form can advance/submit.
+  const [phoneVerified, setPhoneVerified]         = useState(false);
+  const [phoneVerifyToken, setPhoneVerifyToken]   = useState('');
+  const [otpSent, setOtpSent]                     = useState(false);
+  const [phoneOtpCode, setPhoneOtpCode]           = useState('');
+  const [phoneOtpBusy, setPhoneOtpBusy]           = useState(false);
+  const fullPhoneNumber = () => cc.code + phone;
+
+  const handleSendPhoneOtp = async () => {
+    if (phone.length < cc.maxLen) { setErr('phone', `Enter a valid ${cc.maxLen}-digit number`); return; }
+    clrErr('phone');
+    setPhoneOtpBusy(true);
+    try {
+      const res  = await fetch(`${API}/api/v1/auth/send-phone-otp`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: fullPhoneNumber() }),
+      });
+      const json = await res.json();
+      if (!res.ok) { setErr('phone', json.message || 'Could not send OTP'); return; }
+      setOtpSent(true);
+      toast.success('OTP sent to your phone!');
+    } catch {
+      setErr('phone', 'Network error. Try again.');
+    } finally {
+      setPhoneOtpBusy(false);
+    }
+  };
+
+  const handleConfirmPhoneOtp = async () => {
+    if (phoneOtpCode.length < 6) { setErr('phoneOtp', 'Enter the 6-digit OTP'); return; }
+    clrErr('phoneOtp');
+    setPhoneOtpBusy(true);
+    try {
+      const res  = await fetch(`${API}/api/v1/auth/verify-phone-otp`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: fullPhoneNumber(), otp: phoneOtpCode }),
+      });
+      const json = await res.json();
+      if (!res.ok) { setErr('phoneOtp', json.message || 'Invalid OTP'); return; }
+      setPhoneVerifyToken(json.data?.phoneVerifyToken || '');
+      setPhoneVerified(true);
+      setOtpSent(false);
+      toast.success('Phone verified!');
+    } catch {
+      setErr('phoneOtp', 'Network error. Try again.');
+    } finally {
+      setPhoneOtpBusy(false);
+    }
+  };
+
+  // Editing the number after verifying invalidates the old verification
+  const handlePhoneChange = (v: string) => {
+    setPhone(v.replace(/\D/g, '').slice(0, cc.maxLen));
+    setPhoneVerified(false);
+    setPhoneVerifyToken('');
+    setOtpSent(false);
+    clrErr('phone');
+  };
+
   const setErr = (field: string, msg: string) => setErrs(p => ({ ...p, [field]: msg }));
   const clrErr = (field: string) => setErrs(p => { const n = { ...p }; delete n[field]; return n; });
   const ErrMsg = ({ field }: { field: string }) =>
@@ -118,7 +180,10 @@ export default function SignupPage() {
       fd.append('email', email.trim());
       fd.append('password', password);
       fd.append('role', role);
-      if (phone) fd.append('phone', cc.code + phone.replace(/\D/g, ''));
+      if (phone) {
+        fd.append('phone', fullPhoneNumber());
+        fd.append('phoneVerifyToken', phoneVerifyToken);
+      }
 
       if (role === 'SELLER') {
         fd.append('bio', bio);
@@ -172,6 +237,7 @@ export default function SignupPage() {
       if (password && !confirm)          newErrs.confirm  = 'Please confirm your password';
       else if (confirm && password !== confirm) newErrs.confirm = "Passwords don't match";
       if (!terms)                        newErrs.terms    = 'Please accept Terms & Conditions';
+      if (phone && !phoneVerified)       newErrs.phone    = 'Please verify your phone number';
 
       if (Object.keys(newErrs).length) { setErrs(newErrs); return; }
       setErrs({});
@@ -264,34 +330,65 @@ export default function SignupPage() {
         </div>
 
         {/* Phone */}
-        <div className={iBox} style={{ position: 'relative' }}>
-          <button type="button" onClick={() => setShowCC(!showCC)}
-            className="flex items-center gap-1 text-xs font-semibold text-[#1a1a1a] bg-white rounded-lg px-2 py-1 border border-[#d8d8d8] flex-shrink-0 hover:border-[#e84545] transition-colors">
-            {cc.flag} {cc.code}
-            <i className="fa fa-chevron-down text-[9px] text-gray-400 ml-0.5" />
-          </button>
-          {showCC && (
-            <div className="absolute top-12 left-0 z-50 bg-white border border-[#e8e8e8] rounded-xl shadow-lg py-1 w-44">
-              {COUNTRY_CODES.map(c => (
-                <button key={c.label} type="button"
-                  onClick={() => { setCc(c); setShowCC(false); setPhone(''); }}
-                  className={`w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-50 transition-colors ${cc.label === c.label ? 'text-[#e84545] font-semibold' : 'text-[#1a1a1a]'}`}>
-                  <span>{c.flag}</span>
-                  <span className="flex-1 text-left">{c.label}</span>
-                  <span className="text-gray-400 text-xs">{c.code}</span>
-                </button>
-              ))}
+        <div>
+          <div className={`${iBox} ${errs.phone ? 'border-red-400 ring-2 ring-red-100' : ''}`} style={{ position: 'relative' }}>
+            <button type="button" onClick={() => setShowCC(!showCC)} disabled={phoneVerified}
+              className="flex items-center gap-1 text-xs font-semibold text-[#1a1a1a] bg-white rounded-lg px-2 py-1 border border-[#d8d8d8] flex-shrink-0 hover:border-[#e84545] transition-colors disabled:opacity-60">
+              {cc.flag} {cc.code}
+              <i className="fa fa-chevron-down text-[9px] text-gray-400 ml-0.5" />
+            </button>
+            {showCC && (
+              <div className="absolute top-12 left-0 z-50 bg-white border border-[#e8e8e8] rounded-xl shadow-lg py-1 w-44">
+                {COUNTRY_CODES.map(c => (
+                  <button key={c.label} type="button"
+                    onClick={() => { setCc(c); setShowCC(false); handlePhoneChange(''); }}
+                    className={`w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-50 transition-colors ${cc.label === c.label ? 'text-[#e84545] font-semibold' : 'text-[#1a1a1a]'}`}>
+                    <span>{c.flag}</span>
+                    <span className="flex-1 text-left">{c.label}</span>
+                    <span className="text-gray-400 text-xs">{c.code}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+            <div className="w-px h-4 bg-[#d8d8d8] flex-shrink-0" />
+            <i className="fa fa-phone text-[#aaa] text-xs" />
+            <input type="tel" placeholder={`Phone number (${cc.maxLen} digits)`} value={phone}
+              maxLength={cc.maxLen}
+              disabled={phoneVerified}
+              onChange={e => handlePhoneChange(e.target.value)}
+              className={iText} />
+            {phoneVerified ? (
+              <span className="text-[11px] text-green-600 font-semibold flex items-center gap-1 flex-shrink-0">
+                <i className="fa fa-check-circle" />Verified
+              </span>
+            ) : phone.length === cc.maxLen ? (
+              <button type="button" onClick={handleSendPhoneOtp} disabled={phoneOtpBusy}
+                className="text-[11px] text-[#e84545] font-semibold flex-shrink-0 hover:text-[#c73333] disabled:opacity-60">
+                {phoneOtpBusy ? <Spinner size="xs" /> : 'Verify'}
+              </button>
+            ) : phone.length > 0 ? (
+              <span className="text-[10px] text-gray-400 flex-shrink-0">{phone.length}/{cc.maxLen}</span>
+            ) : null}
+          </div>
+          <ErrMsg field="phone" />
+
+          {/* Inline OTP entry -- shown after "Verify" sends an OTP */}
+          {otpSent && !phoneVerified && (
+            <div className="mt-1.5 flex items-center gap-2">
+              <div className={`${iBox} flex-1`}>
+                <i className="fa fa-key text-[#aaa] text-xs" />
+                <input type="text" inputMode="numeric" placeholder="Enter 6-digit OTP" value={phoneOtpCode}
+                  maxLength={6}
+                  onChange={e => setPhoneOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  className={`${iText} text-center tracking-[0.3em] font-bold`} />
+              </div>
+              <button type="button" onClick={handleConfirmPhoneOtp} disabled={phoneOtpBusy}
+                className="h-11 px-4 rounded-xl bg-[#e84545] text-white text-xs font-semibold hover:bg-[#c73333] transition disabled:opacity-60 flex-shrink-0">
+                {phoneOtpBusy ? <Spinner size="xs" /> : 'Confirm'}
+              </button>
             </div>
           )}
-          <div className="w-px h-4 bg-[#d8d8d8] flex-shrink-0" />
-          <i className="fa fa-phone text-[#aaa] text-xs" />
-          <input type="tel" placeholder={`Phone number (${cc.maxLen} digits)`} value={phone}
-            maxLength={cc.maxLen}
-            onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, cc.maxLen))}
-            className={iText} />
-          {phone.length > 0 && (
-            <span className="text-[10px] text-gray-400 flex-shrink-0">{phone.length}/{cc.maxLen}</span>
-          )}
+          <ErrMsg field="phoneOtp" />
         </div>
 
         {/* Password */}

@@ -20,7 +20,7 @@ export const adminNav: NavItem[] = [
   { label: 'Broadcast',      href: '/admin/broadcast',     icon: 'fa-bullhorn'       },
   { label: 'Support',        href: '/admin/support',       icon: 'fa-life-ring'      },
   { label: 'Notifications',  href: '/admin/notifications', icon: 'fa-bell'           },
-  // { label: 'Banners',     href: '/admin/banners',       icon: 'fa-picture-o'      }, // disabled — not loading
+  { label: 'Banners',        href: '/admin/banners',       icon: 'fa-picture-o'      },
   { label: 'Pages',          href: '/admin/pages',         icon: 'fa-file-text-o'    },
   { label: 'My Profile',     href: '/admin/profile',       icon: 'fa-user-circle-o'  },
   { label: 'Settings',       href: '/admin/settings',      icon: 'fa-cog'            },
