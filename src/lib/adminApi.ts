@@ -224,13 +224,13 @@ export const buyerJobApi = {
     title: string; description?: string; category?: string;
     job_type?: string; budget_min?: number; budget_max?: number;
     deadline?: string; skills?: string[]; experience_level?: string;
-    attachments?: { url: string; name: string }[];
+    attachments?: { url: string; name: string }[]; questions?: string[];
   }) => req('POST', `/api/v1/buyer/jobs`, body),
   update: (id: number, body: {
     title?: string; description?: string; category?: string;
     job_type?: string; budget_min?: number; budget_max?: number;
     deadline?: string; skills?: string[]; experience_level?: string;
-    attachments?: { url: string; name: string }[];
+    attachments?: { url: string; name: string }[]; questions?: string[];
   }) => req('PUT', `/api/v1/buyer/jobs/${id}`, body),
   uploadDocs: (files: File[]) => {
     const fd = new FormData();
@@ -263,6 +263,14 @@ export const buyerBookingApi = {
     req('PATCH', `/api/v1/buyer/bookings/${id}/milestones/${milestoneId}/accept`),
   rejectMilestone: (id: number, milestoneId: number, dispute_reason?: string) =>
     req('PATCH', `/api/v1/buyer/bookings/${id}/milestones/${milestoneId}/reject`, { dispute_reason }),
+  counterMilestone: (id: number, milestoneId: number, body: { counter_amount: number; counter_note?: string }) =>
+    req('PATCH', `/api/v1/buyer/bookings/${id}/milestones/${milestoneId}/counter`, body),
+  approveWorkEntry: (id: number, entryId: number) =>
+    req('PATCH', `/api/v1/buyer/bookings/${id}/work-entries/${entryId}/approve`),
+  counterWorkEntry: (id: number, entryId: number, body: { counter_hours: number; counter_note?: string }) =>
+    req('PATCH', `/api/v1/buyer/bookings/${id}/work-entries/${entryId}/counter`, body),
+  disputeWorkEntry: (id: number, entryId: number, dispute_reason?: string) =>
+    req('PATCH', `/api/v1/buyer/bookings/${id}/work-entries/${entryId}/dispute`, { dispute_reason }),
 };
 
 // -- Seller Bookings ---------------------------------------------------
@@ -285,6 +293,16 @@ export const sellerBookingApi = {
     req('POST', `/api/v1/seller/bookings/${id}/milestones`, { milestones }),
   submitMilestone: (id: number, milestoneId: number, body: { attachments?: BookingAttachment[]; notes?: string; duration_days?: number | null } = {}) =>
     req('PATCH', `/api/v1/seller/bookings/${id}/milestones/${milestoneId}/submit`, body),
+  acceptMilestoneCounter: (id: number, milestoneId: number) =>
+    req('PATCH', `/api/v1/seller/bookings/${id}/milestones/${milestoneId}/accept-counter`),
+  counterMilestoneBySeller: (id: number, milestoneId: number, body: { counter_amount: number; counter_note?: string }) =>
+    req('PATCH', `/api/v1/seller/bookings/${id}/milestones/${milestoneId}/counter`, body),
+  submitWorkEntry: (id: number, body: { work_date: string; description?: string; hours: number; attachments?: BookingAttachment[] }) =>
+    req('POST', `/api/v1/seller/bookings/${id}/work-entries`, body),
+  acceptWorkEntryCounter: (id: number, entryId: number) =>
+    req('PATCH', `/api/v1/seller/bookings/${id}/work-entries/${entryId}/accept-counter`),
+  counterWorkEntryBySeller: (id: number, entryId: number, body: { counter_hours: number; counter_note?: string }) =>
+    req('PATCH', `/api/v1/seller/bookings/${id}/work-entries/${entryId}/counter`, body),
 };
 
 // -- Admin Bookings ----------------------------------------------------
@@ -373,9 +391,9 @@ export const sellerJobApi = {
     return req('GET', `/api/v1/seller/jobs${q ? `?${q}` : ''}`);
   },
   get:         (id: number) => req('GET',    `/api/v1/seller/jobs/${id}`),
-  bid:         (id: number, body: { amount: number; delivery_days: number; proposal?: string; attachments?: BookingAttachment[] }) =>
+  bid:         (id: number, body: { amount: number; delivery_days: number; proposal?: string; attachments?: BookingAttachment[]; answers?: string[] }) =>
     req('POST',   `/api/v1/seller/jobs/${id}/bid`, body),
-  updateBid:   (id: number, body: { amount: number; delivery_days: number; proposal?: string; attachments?: BookingAttachment[] }) =>
+  updateBid:   (id: number, body: { amount: number; delivery_days: number; proposal?: string; attachments?: BookingAttachment[]; answers?: string[] }) =>
     req('PATCH',  `/api/v1/seller/jobs/${id}/bid`, body),
   /** POST /api/v1/seller/bids/upload — upload one portfolio/work-sample file, returns { url, name, type, size } */
   uploadBidFile: (file: File) => {

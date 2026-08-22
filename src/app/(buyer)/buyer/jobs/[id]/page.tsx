@@ -24,6 +24,7 @@ interface Bid {
   counter_by: 'buyer' | 'seller' | null;
   counter_note: string | null;
   attachments?: { url: string; name: string; type?: string; size?: number }[];
+  question_answers?: { question: string; answer: string }[];
   createdAt: string;
   seller: Seller | null;
 }
@@ -292,6 +293,20 @@ export default function JobDetailPage() {
                           <div className="mt-3 bg-white rounded-xl p-3 border border-gray-100">
                             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Proposal</p>
                             <RichTextView html={bid.proposal} className="text-sm leading-relaxed" />
+                          </div>
+                        )}
+
+                        {bid.question_answers && bid.question_answers.length > 0 && (
+                          <div className="mt-3 bg-white rounded-xl p-3 border border-gray-100 space-y-2">
+                            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                              <i className="fa fa-question-circle mr-1" />Answers to Your Questions
+                            </p>
+                            {bid.question_answers.map((qa, i) => (
+                              <div key={i}>
+                                <p className="text-xs text-gray-500">{i + 1}. {qa.question}</p>
+                                <p className="text-sm text-gray-700">{qa.answer}</p>
+                              </div>
+                            ))}
                           </div>
                         )}
 

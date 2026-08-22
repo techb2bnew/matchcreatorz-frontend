@@ -33,12 +33,14 @@ interface MyBid {
   counter_amount?: number | null; counter_delivery_days?: number | null;
   counter_by?: 'buyer' | 'seller' | null; counter_note?: string | null;
   attachments?: BookingAttachment[];
+  question_answers?: { question: string; answer: string }[];
 }
 interface Job {
   id: number; title: string; description: string; category: string;
   job_type: string; budget_min: number | null; budget_max: number | null;
   deadline: string | null; skills: string[]; experience_level: string;
   status: string; bids_count: number; created_at: string;
+  questions?: string[];
   buyer: Buyer; has_bid: boolean; my_bid: MyBid | null;
 }
 
@@ -90,6 +92,7 @@ export default function SellerJobsPage() {
   const [bidDays, setBidDays]     = useState('');
   const [proposal, setProposal]   = useState('');
   const [bidFiles, setBidFiles]   = useState<BookingAttachment[]>([]);
+  const [bidAnswers, setBidAnswers] = useState<string[]>([]);
   const [bidUploading, setBidUploading] = useState(false);
   const [bidSaving, setBidSaving] = useState(false);
   const [bidMsg, setBidMsg]       = useState<{ ok: boolean; text: string } | null>(null);
@@ -100,6 +103,7 @@ export default function SellerJobsPage() {
   const [editDays, setEditDays]       = useState('');
   const [editProposal, setEditProposal] = useState('');
   const [editFiles, setEditFiles]     = useState<BookingAttachment[]>([]);
+  const [editAnswers, setEditAnswers] = useState<string[]>([]);
   const [editUploading, setEditUploading] = useState(false);
   const [editSaving, setEditSaving]   = useState(false);
   const [editMsg, setEditMsg]         = useState<{ ok: boolean; text: string } | null>(null);
@@ -226,12 +230,14 @@ export default function SellerJobsPage() {
     setBidJob(job);
     setBidAmount(job.job_type === 'hourly' && myHourlyRate ? String(myHourlyRate) : '');
     setBidDays(''); setProposal(''); setBidFiles([]); setBidMsg(null);
+    setBidAnswers((job.questions || []).map(() => ''));
   };
 
   const handleBid = async () => {
     if (!bidJob) return;
     if (!bidAmount || !bidDays) { setBidMsg({ ok: false, text: 'Amount and delivery days are required' }); return; }
     if (Number(bidDays) > MAX_DELIVERY_DAYS) { setBidMsg({ ok: false, text: `Delivery days can't exceed ${MAX_DELIVERY_DAYS}` }); return; }
+    if (bidJob.questions?.length && bidAnswers.some(a => !a.trim())) { setBidMsg({ ok: false, text: "Please answer all of the buyer's questions" }); return; }
     setBidSaving(true); setBidMsg(null);
     try {
       await sellerJobApi.bid(bidJob.id, {
@@ -239,6 +245,7 @@ export default function SellerJobsPage() {
         delivery_days: Number(bidDays),
         proposal:      proposal || undefined,
         attachments:   bidFiles,
+        answers:       bidAnswers,
       });
       setBidMsg({ ok: true, text: 'Bid placed successfully!' });
       await loadJobs(true);
@@ -257,6 +264,8 @@ export default function SellerJobsPage() {
     setEditDays(String(job.my_bid.delivery_days));
     setEditProposal(job.my_bid.proposal || '');
     setEditFiles(Array.isArray(job.my_bid.attachments) ? job.my_bid.attachments : []);
+    const prevAnswers = Array.isArray(job.my_bid.question_answers) ? job.my_bid.question_answers : [];
+    setEditAnswers((job.questions || []).map((_, i) => prevAnswers[i]?.answer || ''));
     setEditMsg(null);
   };
 
@@ -264,6 +273,7 @@ export default function SellerJobsPage() {
     if (!editJob) return;
     if (!editAmount || !editDays) { setEditMsg({ ok: false, text: 'Amount and delivery days are required' }); return; }
     if (Number(editDays) > MAX_DELIVERY_DAYS) { setEditMsg({ ok: false, text: `Delivery days can't exceed ${MAX_DELIVERY_DAYS}` }); return; }
+    if (editJob.questions?.length && editAnswers.some(a => !a.trim())) { setEditMsg({ ok: false, text: "Please answer all of the buyer's questions" }); return; }
     setEditSaving(true); setEditMsg(null);
     try {
       await sellerJobApi.updateBid(editJob.id, {
@@ -271,6 +281,7 @@ export default function SellerJobsPage() {
         delivery_days: Number(editDays),
         proposal:      editProposal || undefined,
         attachments:   editFiles,
+        answers:       editAnswers,
       });
       setEditMsg({ ok: true, text: 'Bid updated successfully!' });
       await loadJobs(true);
@@ -593,6 +604,20 @@ export default function SellerJobsPage() {
                 onChange={setProposal}
               />
             </div>
+            {bidJob.questions && bidJob.questions.length > 0 && (
+              <div className="space-y-3">
+                <label className={labelCls}><i className="fa fa-question-circle mr-1 text-[#8b5cf6]" /> Buyer&apos;s Questions <span className="text-gray-400 normal-case font-normal">(required)</span></label>
+                {bidJob.questions.map((q, i) => (
+                  <div key={i}>
+                    <p className="text-xs text-gray-600 mb-1">{i + 1}. {q}</p>
+                    <textarea rows={2} value={bidAnswers[i] || ''}
+                      onChange={e => setBidAnswers(prev => prev.map((a, idx) => idx === i ? e.target.value : a))}
+                      placeholder="Your answer..."
+                      className={inputCls + ' resize-none'} />
+                  </div>
+                ))}
+              </div>
+            )}
             {renderBidFiles(bidFiles, setBidFiles, bidUploading, setBidUploading, setBidMsg)}
             <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl p-3">
               <i className="fa fa-bolt text-sm text-amber-500 flex-shrink-0 mt-0.5" />
@@ -646,6 +671,20 @@ export default function SellerJobsPage() {
                 onChange={setEditProposal}
               />
             </div>
+            {editJob.questions && editJob.questions.length > 0 && (
+              <div className="space-y-3">
+                <label className={labelCls}><i className="fa fa-question-circle mr-1 text-[#8b5cf6]" /> Buyer&apos;s Questions <span className="text-gray-400 normal-case font-normal">(required)</span></label>
+                {editJob.questions.map((q, i) => (
+                  <div key={i}>
+                    <p className="text-xs text-gray-600 mb-1">{i + 1}. {q}</p>
+                    <textarea rows={2} value={editAnswers[i] || ''}
+                      onChange={e => setEditAnswers(prev => prev.map((a, idx) => idx === i ? e.target.value : a))}
+                      placeholder="Your answer..."
+                      className={inputCls + ' resize-none'} />
+                  </div>
+                ))}
+              </div>
+            )}
             {renderBidFiles(editFiles, setEditFiles, editUploading, setEditUploading, setEditMsg)}
             {editMsg && (
               <div className={cn('flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium border',

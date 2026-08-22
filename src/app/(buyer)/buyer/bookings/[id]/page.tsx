@@ -19,9 +19,27 @@ interface Milestone {
   amount: string;
   duration_days: number | null;
   position: number;
-  status: 'pending' | 'submitted' | 'approved' | 'rejected';
+  status: 'pending' | 'submitted' | 'countered' | 'approved' | 'rejected';
+  counter_amount: string | null;
+  counter_by: 'buyer' | 'seller' | null;
+  counter_note: string | null;
   attachments: BookingAttachment[];
   notes: string | null;
+}
+interface WorkEntry {
+  id: number;
+  work_date: string;
+  description: string | null;
+  hours: string;
+  rate: string;
+  amount: string;
+  platform_fee: string;
+  status: 'pending' | 'countered' | 'approved' | 'disputed' | 'rejected';
+  counter_hours: string | null;
+  counter_by: 'buyer' | 'seller' | null;
+  counter_note: string | null;
+  dispute_reason: string | null;
+  attachments: BookingAttachment[];
 }
 interface Booking {
   id: number;
@@ -30,6 +48,8 @@ interface Booking {
   platform_fee: string;
   job_type: string;
   hours_worked: string | null;
+  hourly_rate: string | null;
+  weekly_hour_limit: string | null;
   status: string;
   notes: string | null;
   cancel_reason: string | null;
@@ -41,6 +61,7 @@ interface Booking {
   seller: BookingUser | null;
   buyer: BookingUser | null;
   milestones: Milestone[];
+  workEntries: WorkEntry[];
   review?: { id: number; rating: number } | null;
 }
 
@@ -56,8 +77,17 @@ const STATUS_CFG: Record<string, { label: string; color: string; dot: string }> 
 const MILESTONE_CFG: Record<string, { label: string; color: string }> = {
   pending:   { label: 'Not submitted', color: 'bg-gray-100 text-gray-500'   },
   submitted: { label: 'Awaiting you',  color: 'bg-purple-100 text-purple-700' },
+  countered: { label: 'Countered',     color: 'bg-amber-100 text-amber-700' },
   approved:  { label: 'Paid',          color: 'bg-green-100 text-green-700' },
   rejected:  { label: 'Rejected',      color: 'bg-red-100 text-red-700'     },
+};
+
+const ENTRY_CFG: Record<string, { label: string; color: string }> = {
+  pending:   { label: 'Awaiting you', color: 'bg-purple-100 text-purple-700' },
+  countered: { label: 'Countered',    color: 'bg-amber-100 text-amber-700'  },
+  approved:  { label: 'Paid',         color: 'bg-green-100 text-green-700'  },
+  disputed:  { label: 'Disputed',     color: 'bg-red-100 text-red-700'      },
+  rejected:  { label: 'Rejected',     color: 'bg-gray-100 text-gray-500'    },
 };
 
 function Skeleton() {
@@ -89,8 +119,21 @@ export default function BuyerBookingDetailPage() {
   const [milestoneReason, setMilestoneReason] = useState('');
   const [milestoneActing, setMilestoneActing] = useState(false);
 
+  // Milestone counter form
+  const [counterMilestoneId, setCounterMilestoneId] = useState<number | null>(null);
+  const [counterAmount,      setCounterAmount]      = useState('');
+  const [counterMilestoneNote, setCounterMilestoneNote] = useState('');
+
   // Accept & Pay (whole booking, non-milestone)
   const [accepting, setAccepting] = useState(false);
+
+  // Work entries (hourly bookings)
+  const [entryActing, setEntryActing] = useState<number | null>(null);
+  const [counterEntryId, setCounterEntryId] = useState<number | null>(null);
+  const [counterHours,   setCounterHours]   = useState('');
+  const [counterNote,    setCounterNote]    = useState('');
+  const [disputeEntryId, setDisputeEntryId] = useState<number | null>(null);
+  const [entryDisputeReason, setEntryDisputeReason] = useState('');
 
   // Review
   const [reviewOpen,    setReviewOpen]    = useState(false);
@@ -186,7 +229,71 @@ export default function BuyerBookingDetailPage() {
     } finally { setMilestoneActing(false); }
   };
 
+  const openCounterMilestoneForm = (milestoneId: number) => {
+    setCounterMilestoneId(milestoneId); setCounterAmount(''); setCounterMilestoneNote('');
+  };
+
+  const submitMilestoneCounter = async () => {
+    if (!booking || counterMilestoneId == null) return;
+    const amount = Number(counterAmount);
+    if (!amount || amount <= 0) { toast.error('Enter a valid amount'); return; }
+    setMilestoneActing(true);
+    try {
+      await buyerBookingApi.counterMilestone(booking.id, counterMilestoneId, { counter_amount: amount, counter_note: counterMilestoneNote || undefined });
+      toast.success('Counter sent to seller');
+      setCounterMilestoneId(null);
+      await fetchBooking();
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Failed to send counter');
+    } finally { setMilestoneActing(false); }
+  };
+
   const hasMilestones = (b: Booking) => Array.isArray(b.milestones) && b.milestones.length > 0;
+
+  // ── Hourly work entries ──────────────────────────────────────────────
+  const approveEntry = async (entryId: number) => {
+    if (!booking) return;
+    setEntryActing(entryId);
+    try {
+      await buyerBookingApi.approveWorkEntry(booking.id, entryId);
+      toast.success('Entry approved — payment released to the seller!');
+      await fetchBooking();
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Failed to approve — please add funds to your wallet and try again');
+    } finally { setEntryActing(null); }
+  };
+
+  const openCounterForm = (entryId: number) => {
+    setCounterEntryId(entryId); setCounterHours(''); setCounterNote('');
+  };
+
+  const submitCounter = async () => {
+    if (!booking || counterEntryId == null) return;
+    const hours = Number(counterHours);
+    if (!hours || hours <= 0) { toast.error('Enter a valid hours value'); return; }
+    setEntryActing(counterEntryId);
+    try {
+      await buyerBookingApi.counterWorkEntry(booking.id, counterEntryId, { counter_hours: hours, counter_note: counterNote || undefined });
+      toast.success('Counter sent to seller');
+      setCounterEntryId(null);
+      await fetchBooking();
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Failed to send counter');
+    } finally { setEntryActing(null); }
+  };
+
+  const submitDisputeEntry = async () => {
+    if (!booking || disputeEntryId == null) return;
+    setEntryActing(disputeEntryId);
+    try {
+      await buyerBookingApi.disputeWorkEntry(booking.id, disputeEntryId, entryDisputeReason || undefined);
+      toast.success('Entry sent to dispute');
+      setDisputeEntryId(null); setEntryDisputeReason('');
+      await fetchBooking();
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Failed to dispute entry');
+    } finally { setEntryActing(null); }
+  };
 
   return (
     <DashboardLayout role="BUYER" title="Booking Details">
@@ -284,6 +391,93 @@ export default function BuyerBookingDetailPage() {
               </div>
             </Card>
 
+            {/* Hourly work entries */}
+            {booking.job_type === 'hourly' && (
+              <Card padding="md">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Hourly Breakdown</p>
+                  {booking.weekly_hour_limit && (
+                    <p className="text-[11px] text-gray-400">Weekly limit: {booking.weekly_hour_limit}h</p>
+                  )}
+                </div>
+                {booking.workEntries.length === 0 ? (
+                  <p className="text-xs text-gray-400 text-center py-4">No hours logged yet.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {booking.workEntries.map((e) => {
+                      const ecfg = ENTRY_CFG[e.status];
+                      return (
+                        <div key={e.id} className="border border-gray-100 rounded-xl p-3">
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="text-sm font-semibold text-gray-900">{e.work_date}</p>
+                            <span className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${ecfg.color}`}>{ecfg.label}</span>
+                          </div>
+                          {e.description && <p className="text-xs text-gray-500 mt-1">{e.description}</p>}
+                          <p className="text-xs text-gray-400 mt-1">
+                            {e.hours}h &times; {formatCurrency(Number(e.rate))}/hr = <strong className="text-gray-700">{formatCurrency(Number(e.amount))}</strong>
+                          </p>
+                          {e.attachments?.length > 0 && (
+                            <div className="flex flex-wrap gap-1.5 mt-2">
+                              {e.attachments.map((a, i) => (
+                                <a key={i} href={a.url} target="_blank" rel="noreferrer"
+                                  className="inline-flex items-center gap-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg px-2 py-1 text-[11px] text-gray-700 transition">
+                                  <i className="fa fa-paperclip text-[#e84545]" /><span className="max-w-[120px] truncate">{a.name}</span>
+                                </a>
+                              ))}
+                            </div>
+                          )}
+
+                          {e.status === 'countered' && e.counter_by === 'seller' && (
+                            <div className="mt-2 bg-amber-50 border border-amber-200 rounded-lg p-2">
+                              <p className="text-xs text-amber-800">
+                                Seller countered back with <strong>{e.counter_hours}h</strong> (originally logged {e.hours}h)
+                                {e.counter_note && <span className="block text-amber-700 mt-0.5">&ldquo;{e.counter_note}&rdquo;</span>}
+                              </p>
+                            </div>
+                          )}
+
+                          {(e.status === 'pending' || (e.status === 'countered' && e.counter_by === 'seller')) && (
+                            <div className="flex gap-2 mt-2.5">
+                              <Button variant="primary" fullWidth disabled={entryActing === e.id}
+                                onClick={() => approveEntry(e.id)}>
+                                {entryActing === e.id
+                                  ? 'Processing...'
+                                  : e.status === 'countered' ? `Accept ${e.counter_hours}h` : 'Approve'}
+                              </Button>
+                              <Button variant="outline" fullWidth disabled={entryActing === e.id}
+                                onClick={() => openCounterForm(e.id)}>
+                                Counter
+                              </Button>
+                              {e.status === 'pending' && (
+                                <Button variant="outline" fullWidth className="text-red-600 border-red-200" disabled={entryActing === e.id}
+                                  onClick={() => { setDisputeEntryId(e.id); setEntryDisputeReason(''); }}>
+                                  Dispute
+                                </Button>
+                              )}
+                            </div>
+                          )}
+
+                          {e.status === 'countered' && e.counter_by === 'buyer' && (
+                            <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-2 mt-2">
+                              Waiting for seller to respond to your offer of {e.counter_hours}h.
+                            </p>
+                          )}
+
+                          {e.status === 'disputed' && e.dispute_reason && (
+                            <p className="text-xs text-red-600 bg-red-50 rounded-lg p-2 mt-2">{e.dispute_reason}</p>
+                          )}
+                        </div>
+                      );
+                    })}
+                    <div className="flex justify-between text-xs text-gray-500 pt-1 px-1">
+                      <span>Total logged</span>
+                      <strong>{booking.workEntries.reduce((s, e) => s + Number(e.hours), 0)}h</strong>
+                    </div>
+                  </div>
+                )}
+              </Card>
+            )}
+
             {/* Milestones section */}
             {hasMilestones(booking) && (
               <Card padding="md">
@@ -321,17 +515,40 @@ export default function BuyerBookingDetailPage() {
                             ))}
                           </div>
                         )}
-                        {m.status === 'submitted' && (
+                        {m.status === 'countered' && m.counter_by === 'seller' && (
+                          <div className="mt-2 bg-amber-50 border border-amber-200 rounded-lg p-2">
+                            <p className="text-xs text-amber-800">
+                              Seller countered back with <strong>{formatCurrency(Number(m.counter_amount))}</strong> (originally submitted at {formatCurrency(Number(m.amount))})
+                              {m.counter_note && <span className="block text-amber-700 mt-0.5">&ldquo;{m.counter_note}&rdquo;</span>}
+                            </p>
+                          </div>
+                        )}
+
+                        {(m.status === 'submitted' || (m.status === 'countered' && m.counter_by === 'seller')) && (
                           <div className="flex gap-2 mt-2.5">
                             <Button variant="primary" fullWidth disabled={milestoneActing}
                               onClick={() => acceptMilestone(m.id)}>
-                              {milestoneActing ? 'Processing...' : 'Accept & Pay'}
+                              {milestoneActing
+                                ? 'Processing...'
+                                : m.status === 'countered' ? `Accept ${formatCurrency(Number(m.counter_amount))}` : 'Accept & Pay'}
                             </Button>
-                            <Button variant="outline" fullWidth className="text-red-600 border-red-200" disabled={milestoneActing}
-                              onClick={() => { setRejectMilestoneId(m.id); setMilestoneReason(''); }}>
-                              Reject
+                            <Button variant="outline" fullWidth disabled={milestoneActing}
+                              onClick={() => openCounterMilestoneForm(m.id)}>
+                              Counter
                             </Button>
+                            {m.status === 'submitted' && (
+                              <Button variant="outline" fullWidth className="text-red-600 border-red-200" disabled={milestoneActing}
+                                onClick={() => { setRejectMilestoneId(m.id); setMilestoneReason(''); }}>
+                                Reject
+                              </Button>
+                            )}
                           </div>
+                        )}
+
+                        {m.status === 'countered' && m.counter_by === 'buyer' && (
+                          <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-2 mt-2">
+                            Waiting for seller to respond to your offer of {formatCurrency(Number(m.counter_amount))}.
+                          </p>
                         )}
                       </div>
                     );
@@ -446,6 +663,84 @@ export default function BuyerBookingDetailPage() {
               <Button variant="outline" fullWidth onClick={() => setRejectMilestoneId(null)}>Back</Button>
               <Button variant="primary" fullWidth disabled={milestoneActing} onClick={rejectMilestone}>
                 {milestoneActing ? 'Processing...' : 'Send Back'}
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Counter a milestone */}
+      {counterMilestoneId != null && booking && (
+        <Modal isOpen onClose={() => !milestoneActing && setCounterMilestoneId(null)} title="Counter Milestone" size="sm">
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600">
+              Propose a different amount than submitted
+              {(() => {
+                const m = booking.milestones.find((x) => x.id === counterMilestoneId);
+                return m ? ` (seller submitted ${formatCurrency(Number(m.amount))})` : '';
+              })()}.
+            </p>
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 mb-1.5">Amount you&apos;ll pay</label>
+              <input type="number" min={1} step={0.01} value={counterAmount} onChange={(e) => setCounterAmount(e.target.value)}
+                placeholder="e.g. 100"
+                className="w-full border border-gray-200 rounded-xl px-3 h-10 text-sm focus:outline-none focus:border-[#e84545]" />
+            </div>
+            <textarea value={counterMilestoneNote} onChange={(e) => setCounterMilestoneNote(e.target.value)} rows={3}
+              placeholder="Explain why (optional)"
+              className="w-full border border-gray-200 rounded-xl p-3 text-sm focus:outline-none focus:border-[#e84545] resize-none" />
+            <div className="flex gap-2">
+              <Button variant="outline" fullWidth onClick={() => setCounterMilestoneId(null)}>Back</Button>
+              <Button variant="primary" fullWidth disabled={milestoneActing} onClick={submitMilestoneCounter}>
+                {milestoneActing ? 'Sending...' : 'Send Counter'}
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Counter a work entry */}
+      {counterEntryId != null && booking && (
+        <Modal isOpen onClose={() => !entryActing && setCounterEntryId(null)} title="Counter Hours" size="sm">
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600">
+              Propose paying for fewer hours than logged
+              {(() => {
+                const e = booking.workEntries.find((x) => x.id === counterEntryId);
+                return e ? ` (seller logged ${e.hours}h)` : '';
+              })()}.
+            </p>
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 mb-1.5">Hours you&apos;ll pay for</label>
+              <input type="number" min={0.25} step={0.25} value={counterHours} onChange={(e) => setCounterHours(e.target.value)}
+                placeholder="e.g. 3"
+                className="w-full border border-gray-200 rounded-xl px-3 h-10 text-sm focus:outline-none focus:border-[#e84545]" />
+            </div>
+            <textarea value={counterNote} onChange={(e) => setCounterNote(e.target.value)} rows={3}
+              placeholder="Explain why (optional)"
+              className="w-full border border-gray-200 rounded-xl p-3 text-sm focus:outline-none focus:border-[#e84545] resize-none" />
+            <div className="flex gap-2">
+              <Button variant="outline" fullWidth onClick={() => setCounterEntryId(null)}>Back</Button>
+              <Button variant="primary" fullWidth disabled={entryActing === counterEntryId} onClick={submitCounter}>
+                {entryActing === counterEntryId ? 'Sending...' : 'Send Counter'}
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Dispute a work entry */}
+      {disputeEntryId != null && (
+        <Modal isOpen onClose={() => !entryActing && setDisputeEntryId(null)} title="Dispute Entry" size="sm">
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600">What&apos;s wrong with this entry? This escalates to our team.</p>
+            <textarea value={entryDisputeReason} onChange={(e) => setEntryDisputeReason(e.target.value)} rows={3}
+              placeholder="Explain the issue..."
+              className="w-full border border-gray-200 rounded-xl p-3 text-sm focus:outline-none focus:border-[#e84545] resize-none" />
+            <div className="flex gap-2">
+              <Button variant="outline" fullWidth onClick={() => setDisputeEntryId(null)}>Back</Button>
+              <Button variant="primary" fullWidth disabled={entryActing === disputeEntryId} onClick={submitDisputeEntry}>
+                {entryActing === disputeEntryId ? 'Processing...' : 'Raise Dispute'}
               </Button>
             </div>
           </div>

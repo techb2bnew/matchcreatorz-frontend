@@ -18,10 +18,28 @@ interface Milestone {
   amount: string;
   duration_days: number | null;
   position: number;
-  status: 'pending' | 'submitted' | 'approved' | 'rejected';
+  status: 'pending' | 'submitted' | 'countered' | 'approved' | 'rejected';
+  counter_amount: string | null;
+  counter_by: 'buyer' | 'seller' | null;
+  counter_note: string | null;
   attachments: BookingAttachment[];
   notes: string | null;
   dispute_reason: string | null;
+}
+interface WorkEntry {
+  id: number;
+  work_date: string;
+  description: string | null;
+  hours: string;
+  rate: string;
+  amount: string;
+  platform_fee: string;
+  status: 'pending' | 'countered' | 'approved' | 'disputed' | 'rejected';
+  counter_hours: string | null;
+  counter_by: 'buyer' | 'seller' | null;
+  counter_note: string | null;
+  dispute_reason: string | null;
+  attachments: BookingAttachment[];
 }
 interface Booking {
   id: number;
@@ -30,6 +48,8 @@ interface Booking {
   platform_fee: string;
   job_type: string;
   hours_worked: string | null;
+  hourly_rate: string | null;
+  weekly_hour_limit: string | null;
   status: string;
   notes: string | null;
   cancel_reason: string | null;
@@ -41,6 +61,7 @@ interface Booking {
   buyer: BookingUser | null;
   seller: BookingUser | null;
   milestones: Milestone[];
+  workEntries: WorkEntry[];
 }
 
 const MAX_DELIVERY_DAYS = 365;
@@ -67,8 +88,17 @@ const STATUS_CFG: Record<string, { label: string; color: string; dot: string }> 
 const MILESTONE_CFG: Record<string, { label: string; color: string }> = {
   pending:   { label: 'Not submitted', color: 'bg-gray-100 text-gray-500'   },
   submitted: { label: 'Under review',  color: 'bg-purple-100 text-purple-700' },
+  countered: { label: 'Countered',     color: 'bg-amber-100 text-amber-700' },
   approved:  { label: 'Paid',          color: 'bg-green-100 text-green-700' },
   rejected:  { label: 'Rejected',      color: 'bg-red-100 text-red-700'     },
+};
+
+const ENTRY_CFG: Record<string, { label: string; color: string }> = {
+  pending:   { label: 'Under review',  color: 'bg-purple-100 text-purple-700' },
+  countered: { label: 'Countered',     color: 'bg-amber-100 text-amber-700'  },
+  approved:  { label: 'Paid',          color: 'bg-green-100 text-green-700'  },
+  disputed:  { label: 'Disputed',      color: 'bg-red-100 text-red-700'      },
+  rejected:  { label: 'Rejected',      color: 'bg-gray-100 text-gray-500'    },
 };
 
 function Skeleton() {
@@ -94,13 +124,32 @@ export default function SellerBookingDetailPage() {
   const [showCancel, setShowCancel] = useState(false);
   const [reason,    setReason]    = useState('');
 
-  // Submit-work / submit-milestone form (shared)
+  // Submit-work / submit-milestone form (shared) — fixed-price / milestone bookings only
   const [submitTarget, setSubmitTarget] = useState<{ milestoneId: number | null } | null>(null);
   const [submitFiles,  setSubmitFiles]  = useState<File[]>([]);
   const [submitNotes,  setSubmitNotes]  = useState('');
   const [submitDuration, setSubmitDuration] = useState('');
-  const [submitHours,  setSubmitHours]  = useState('');
   const [submitting,   setSubmitting]   = useState(false);
+
+  // Log Work form (hourly bookings — one dated entry at a time)
+  const [showLogWork, setShowLogWork]   = useState(false);
+  const [logDate,     setLogDate]       = useState('');
+  const [logDesc,      setLogDesc]      = useState('');
+  const [logHours,     setLogHours]     = useState('');
+  const [logFiles,     setLogFiles]     = useState<File[]>([]);
+  const [loggingWork,  setLoggingWork]  = useState(false);
+  const [entryActing,  setEntryActing]  = useState<number | null>(null);
+
+  // Seller re-counters the buyer's counter on an entry
+  const [sellerCounterEntryId, setSellerCounterEntryId] = useState<number | null>(null);
+  const [sellerCounterHours,   setSellerCounterHours]   = useState('');
+  const [sellerCounterNote,    setSellerCounterNote]    = useState('');
+
+  // Seller re-counters the buyer's counter on a milestone
+  const [milestoneActing, setMilestoneActing] = useState<number | null>(null);
+  const [sellerCounterMilestoneId, setSellerCounterMilestoneId] = useState<number | null>(null);
+  const [sellerCounterAmount,      setSellerCounterAmount]      = useState('');
+  const [sellerCounterMilestoneNote, setSellerCounterMilestoneNote] = useState('');
 
   // Milestone setup form
   const [showMilestoneSetup, setShowMilestoneSetup] = useState(false);
@@ -134,44 +183,31 @@ export default function SellerBookingDetailPage() {
     } finally { setActing(false); }
   };
 
-  // ── Submit work / submit milestone ─────────────────────────────────────
+  // ── Submit work / submit milestone (fixed-price / milestone bookings) ──
   const openSubmitForm = (milestoneId: number | null) => {
     setSubmitTarget({ milestoneId });
     setSubmitFiles([]);
     setSubmitNotes('');
     setSubmitDuration('');
-    setSubmitHours('');
   };
 
-  const uploadAll = async (): Promise<BookingAttachment[]> => {
+  const uploadAll = async (files: File[]): Promise<BookingAttachment[]> => {
     const out: BookingAttachment[] = [];
-    for (const file of submitFiles) {
+    for (const file of files) {
       const res = await sellerBookingApi.uploadAttachment(file);
       out.push(res.data);
     }
     return out;
   };
 
-  const isHourlyWholeBooking = (b: Booking, milestoneId: number | null) => milestoneId == null && b.job_type === 'hourly';
-
-  // `amount` holds the $/hr rate until first submission, then the computed total —
-  // recover the original rate on resubmission the same way the backend does.
-  const currentHourlyRate = (b: Booking) =>
-    b.hours_worked != null ? Number(b.amount) / Number(b.hours_worked) : Number(b.amount);
-
   const handleSubmit = async () => {
     if (!booking || !submitTarget) return;
-    if (isHourlyWholeBooking(booking, submitTarget.milestoneId) && (!submitHours || Number(submitHours) <= 0)) {
-      toast.error('Enter the hours worked');
-      return;
-    }
     setSubmitting(true);
     try {
-      const attachments = await uploadAll();
+      const attachments = await uploadAll(submitFiles);
       const duration = submitDuration ? Number(submitDuration) : undefined;
       if (submitTarget.milestoneId == null) {
-        const hours = isHourlyWholeBooking(booking, submitTarget.milestoneId) ? Number(submitHours) : undefined;
-        await sellerBookingApi.submit(booking.id, { attachments, notes: submitNotes || undefined, delivery_days: duration, hours_worked: hours });
+        await sellerBookingApi.submit(booking.id, { attachments, notes: submitNotes || undefined, delivery_days: duration });
         toast.success('Work submitted for review!');
       } else {
         await sellerBookingApi.submitMilestone(booking.id, submitTarget.milestoneId, { attachments, notes: submitNotes || undefined, duration_days: duration });
@@ -182,6 +218,86 @@ export default function SellerBookingDetailPage() {
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : 'Failed to submit');
     } finally { setSubmitting(false); }
+  };
+
+  // ── Log Work (hourly bookings — one dated entry at a time) ──────────────
+  const openLogWork = () => {
+    setLogDate(new Date().toISOString().slice(0, 10));
+    setLogDesc('');
+    setLogHours('');
+    setLogFiles([]);
+    setShowLogWork(true);
+  };
+
+  const handleLogWork = async () => {
+    if (!booking) return;
+    const hours = Number(logHours);
+    if (!logDate) { toast.error('Pick a date'); return; }
+    if (!hours || hours <= 0) { toast.error('Enter the hours worked'); return; }
+    setLoggingWork(true);
+    try {
+      const attachments = await uploadAll(logFiles);
+      await sellerBookingApi.submitWorkEntry(booking.id, { work_date: logDate, description: logDesc || undefined, hours, attachments });
+      toast.success('Hours logged for review!');
+      setShowLogWork(false);
+      await fetchBooking();
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Failed to log work');
+    } finally { setLoggingWork(false); }
+  };
+
+  const handleSellerCounter = async () => {
+    if (!booking || sellerCounterEntryId == null) return;
+    const hours = Number(sellerCounterHours);
+    if (!hours || hours <= 0) { toast.error('Enter a valid hours value'); return; }
+    setEntryActing(sellerCounterEntryId);
+    try {
+      await sellerBookingApi.counterWorkEntryBySeller(booking.id, sellerCounterEntryId, { counter_hours: hours, counter_note: sellerCounterNote || undefined });
+      toast.success('Counter sent to buyer');
+      setSellerCounterEntryId(null);
+      await fetchBooking();
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Failed to send counter');
+    } finally { setEntryActing(null); }
+  };
+
+  const handleAcceptCounter = async (entryId: number) => {
+    if (!booking) return;
+    setEntryActing(entryId);
+    try {
+      await sellerBookingApi.acceptWorkEntryCounter(booking.id, entryId);
+      toast.success('Counter accepted — paid!');
+      await fetchBooking();
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Failed to accept counter');
+    } finally { setEntryActing(null); }
+  };
+
+  const handleAcceptMilestoneCounter = async (milestoneId: number) => {
+    if (!booking) return;
+    setMilestoneActing(milestoneId);
+    try {
+      await sellerBookingApi.acceptMilestoneCounter(booking.id, milestoneId);
+      toast.success('Counter accepted — paid!');
+      await fetchBooking();
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Failed to accept counter');
+    } finally { setMilestoneActing(null); }
+  };
+
+  const handleSellerCounterMilestone = async () => {
+    if (!booking || sellerCounterMilestoneId == null) return;
+    const amount = Number(sellerCounterAmount);
+    if (!amount || amount <= 0) { toast.error('Enter a valid amount'); return; }
+    setMilestoneActing(sellerCounterMilestoneId);
+    try {
+      await sellerBookingApi.counterMilestoneBySeller(booking.id, sellerCounterMilestoneId, { counter_amount: amount, counter_note: sellerCounterMilestoneNote || undefined });
+      toast.success('Counter sent to buyer');
+      setSellerCounterMilestoneId(null);
+      await fetchBooking();
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Failed to send counter');
+    } finally { setMilestoneActing(null); }
   };
 
   // ── Milestone setup ─────────────────────────────────────────────────────
@@ -305,6 +421,80 @@ export default function SellerBookingDetailPage() {
               </div>
             </Card>
 
+            {/* Hourly work entries — running breakdown, one row per logged day */}
+            {booking.job_type === 'hourly' && (
+              <Card padding="md">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Hourly Breakdown</p>
+                  {booking.weekly_hour_limit && (
+                    <p className="text-[11px] text-gray-400">Weekly limit: {booking.weekly_hour_limit}h</p>
+                  )}
+                </div>
+                {booking.workEntries.length === 0 ? (
+                  <p className="text-xs text-gray-400 text-center py-4">No hours logged yet.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {booking.workEntries.map((e) => {
+                      const ecfg = ENTRY_CFG[e.status];
+                      return (
+                        <div key={e.id} className="border border-gray-100 rounded-xl p-3">
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="text-sm font-semibold text-gray-900">{e.work_date}</p>
+                            <span className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${ecfg.color}`}>{ecfg.label}</span>
+                          </div>
+                          {e.description && <p className="text-xs text-gray-500 mt-1">{e.description}</p>}
+                          <p className="text-xs text-gray-400 mt-1">
+                            {e.hours}h &times; {formatCurrency(Number(e.rate))}/hr = <strong className="text-gray-700">{formatCurrency(Number(e.amount))}</strong>
+                          </p>
+                          {e.attachments?.length > 0 && (
+                            <div className="flex flex-wrap gap-1.5 mt-2">
+                              {e.attachments.map((a, i) => (
+                                <a key={i} href={a.url} target="_blank" rel="noreferrer"
+                                  className="inline-flex items-center gap-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg px-2 py-1 text-[11px] text-gray-700 transition">
+                                  <i className="fa fa-paperclip text-[#e84545]" /><span className="max-w-[120px] truncate">{a.name}</span>
+                                </a>
+                              ))}
+                            </div>
+                          )}
+                          {e.status === 'countered' && e.counter_by === 'buyer' && (
+                            <div className="mt-2 bg-amber-50 border border-amber-200 rounded-lg p-2">
+                              <p className="text-xs text-amber-800">
+                                Buyer offered to pay for <strong>{e.counter_hours}h</strong> instead of {e.hours}h
+                                {e.counter_note && <span className="block text-amber-700 mt-0.5">&ldquo;{e.counter_note}&rdquo;</span>}
+                              </p>
+                              <div className="flex gap-3 mt-2">
+                                <button onClick={() => handleAcceptCounter(e.id)} disabled={entryActing === e.id}
+                                  className="text-xs font-semibold text-[#e84545] hover:underline disabled:opacity-60">
+                                  {entryActing === e.id ? 'Processing...' : `Accept ${e.counter_hours}h`}
+                                </button>
+                                <button onClick={() => { setSellerCounterEntryId(e.id); setSellerCounterHours(''); setSellerCounterNote(''); }}
+                                  disabled={entryActing === e.id}
+                                  className="text-xs font-semibold text-gray-600 hover:underline disabled:opacity-60">
+                                  Counter Back
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                          {e.status === 'countered' && e.counter_by === 'seller' && (
+                            <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-2 mt-2">
+                              You offered {e.counter_hours}h — waiting for buyer to respond.
+                            </p>
+                          )}
+                          {e.status === 'disputed' && e.dispute_reason && (
+                            <p className="text-xs text-red-600 bg-red-50 rounded-lg p-2 mt-2">{e.dispute_reason}</p>
+                          )}
+                        </div>
+                      );
+                    })}
+                    <div className="flex justify-between text-xs text-gray-500 pt-1 px-1">
+                      <span>Total logged</span>
+                      <strong>{booking.workEntries.reduce((s, e) => s + Number(e.hours), 0)}h</strong>
+                    </div>
+                  </div>
+                )}
+              </Card>
+            )}
+
             {/* Milestones section */}
             {hasMilestones(booking) && (
               <Card padding="md">
@@ -335,6 +525,30 @@ export default function SellerBookingDetailPage() {
                         )}
                         {m.notes && m.status !== 'rejected' && (
                           <p className="text-xs text-gray-500 mt-1">{m.notes}</p>
+                        )}
+                        {m.status === 'countered' && m.counter_by === 'buyer' && (
+                          <div className="mt-2 bg-amber-50 border border-amber-200 rounded-lg p-2">
+                            <p className="text-xs text-amber-800">
+                              Buyer offered to pay <strong>{formatCurrency(Number(m.counter_amount))}</strong> instead of {formatCurrency(Number(m.amount))}
+                              {m.counter_note && <span className="block text-amber-700 mt-0.5">&ldquo;{m.counter_note}&rdquo;</span>}
+                            </p>
+                            <div className="flex gap-3 mt-2">
+                              <button onClick={() => handleAcceptMilestoneCounter(m.id)} disabled={milestoneActing === m.id}
+                                className="text-xs font-semibold text-[#e84545] hover:underline disabled:opacity-60">
+                                {milestoneActing === m.id ? 'Processing...' : `Accept ${formatCurrency(Number(m.counter_amount))}`}
+                              </button>
+                              <button onClick={() => { setSellerCounterMilestoneId(m.id); setSellerCounterAmount(''); setSellerCounterMilestoneNote(''); }}
+                                disabled={milestoneActing === m.id}
+                                className="text-xs font-semibold text-gray-600 hover:underline disabled:opacity-60">
+                                Counter Back
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                        {m.status === 'countered' && m.counter_by === 'seller' && (
+                          <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-2 mt-2">
+                            You offered {formatCurrency(Number(m.counter_amount))} — waiting for buyer to respond.
+                          </p>
                         )}
                         {m.attachments?.length > 0 && (
                           <div className="flex flex-wrap gap-1.5 mt-2">
@@ -375,17 +589,11 @@ export default function SellerBookingDetailPage() {
                   </>
                 )}
 
-                {booking.status === 'ongoing' && !hasMilestones(booking) && (
+                {booking.status === 'ongoing' && booking.job_type === 'hourly' && (
                   <>
-                    <Button variant="primary" fullWidth disabled={acting} onClick={() => openSubmitForm(null)}>
-                      Submit Work for Review
+                    <Button variant="primary" fullWidth disabled={acting} onClick={openLogWork}>
+                      Log Work
                     </Button>
-                    {booking.job_type !== 'hourly' && (
-                      <button onClick={() => setShowMilestoneSetup(true)}
-                        className="w-full text-xs text-gray-500 hover:text-[#e84545] hover:underline text-center">
-                        <i className="fa fa-flag-checkered mr-1" />Split into milestones instead
-                      </button>
-                    )}
                     <button onClick={() => setShowCancel(true)}
                       className="w-full text-xs text-red-500 hover:underline text-center pt-1">
                       Cancel this booking
@@ -393,15 +601,28 @@ export default function SellerBookingDetailPage() {
                   </>
                 )}
 
-                {booking.status === 'in_dispute' && !hasMilestones(booking) && (
+                {['ongoing', 'in_dispute'].includes(booking.status) && booking.job_type !== 'hourly' && !hasMilestones(booking) && (
                   <>
                     <Button variant="primary" fullWidth disabled={acting} onClick={() => openSubmitForm(null)}>
-                      Resubmit Work
+                      {booking.status === 'in_dispute' ? 'Resubmit Work' : 'Submit Work for Review'}
                     </Button>
-                    <Button variant="outline" fullWidth className="text-amber-700 border-amber-300"
-                      onClick={() => router.push('/seller/support')}>
-                      Chat with Support
-                    </Button>
+                    {booking.status === 'ongoing' && (
+                      <button onClick={() => setShowMilestoneSetup(true)}
+                        className="w-full text-xs text-gray-500 hover:text-[#e84545] hover:underline text-center">
+                        <i className="fa fa-flag-checkered mr-1" />Split into milestones instead
+                      </button>
+                    )}
+                    {booking.status === 'in_dispute' ? (
+                      <Button variant="outline" fullWidth className="text-amber-700 border-amber-300"
+                        onClick={() => router.push('/seller/support')}>
+                        Chat with Support
+                      </Button>
+                    ) : (
+                      <button onClick={() => setShowCancel(true)}
+                        className="w-full text-xs text-red-500 hover:underline text-center pt-1">
+                        Cancel this booking
+                      </button>
+                    )}
                   </>
                 )}
 
@@ -455,24 +676,6 @@ export default function SellerBookingDetailPage() {
                 placeholder="Describe what you delivered..."
                 className="w-full border border-gray-200 rounded-xl p-3 text-sm focus:outline-none focus:border-[#e84545] resize-none" />
             </div>
-            {booking && isHourlyWholeBooking(booking, submitTarget.milestoneId) && (
-              <div>
-                <label className="block text-xs font-semibold text-gray-500 mb-1.5">
-                  Hours Worked <span className="font-normal text-gray-400 normal-case">(at {formatCurrency(currentHourlyRate(booking))}/hr)</span>
-                </label>
-                <div className="relative">
-                  <input type="number" min={0.25} max={MAX_HOURS} step={0.25} value={submitHours} onChange={(e) => setSubmitHours(clampNumber(e.target.value, MAX_HOURS))}
-                    placeholder="e.g. 20"
-                    className="w-full border border-gray-200 rounded-xl pl-3 pr-14 h-10 text-sm focus:outline-none focus:border-[#e84545]" />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">hrs</span>
-                </div>
-                {submitHours && Number(submitHours) > 0 && (
-                  <p className="text-xs text-gray-500 mt-1.5">
-                    {submitHours} hrs &times; {formatCurrency(currentHourlyRate(booking))}/hr = <strong className="text-gray-800">{formatCurrency(Number(submitHours) * currentHourlyRate(booking))}</strong> total
-                  </p>
-                )}
-              </div>
-            )}
             <div>
               <label className="block text-xs font-semibold text-gray-500 mb-1.5">Duration (optional)</label>
               <div className="relative">
@@ -494,6 +697,114 @@ export default function SellerBookingDetailPage() {
             <Button variant="primary" fullWidth disabled={submitting} onClick={handleSubmit}>
               {submitting ? 'Submitting...' : 'Submit for Review'}
             </Button>
+          </div>
+        </Modal>
+      )}
+
+      {/* Log Work form (hourly bookings) */}
+      {showLogWork && booking && (
+        <Modal isOpen onClose={() => !loggingWork && setShowLogWork(false)} title="Log Work" size="sm">
+          <div className="space-y-4">
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 mb-1.5">Date</label>
+              <input type="date" value={logDate} onChange={(e) => setLogDate(e.target.value)}
+                max={new Date().toISOString().slice(0, 10)}
+                className="w-full border border-gray-200 rounded-xl px-3 h-10 text-sm focus:outline-none focus:border-[#e84545]" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 mb-1.5">
+                Hours <span className="font-normal text-gray-400 normal-case">(at {formatCurrency(Number(booking.hourly_rate))}/hr)</span>
+              </label>
+              <div className="relative">
+                <input type="number" min={0.25} max={MAX_HOURS} step={0.25} value={logHours} onChange={(e) => setLogHours(clampNumber(e.target.value, MAX_HOURS))}
+                  placeholder="e.g. 5"
+                  className="w-full border border-gray-200 rounded-xl pl-3 pr-14 h-10 text-sm focus:outline-none focus:border-[#e84545]" />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">hrs</span>
+              </div>
+              {logHours && Number(logHours) > 0 && (
+                <p className="text-xs text-gray-500 mt-1.5">
+                  {logHours} hrs &times; {formatCurrency(Number(booking.hourly_rate))}/hr = <strong className="text-gray-800">{formatCurrency(Number(logHours) * Number(booking.hourly_rate))}</strong> total
+                </p>
+              )}
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 mb-1.5">Description (optional)</label>
+              <textarea value={logDesc} onChange={(e) => setLogDesc(e.target.value)} rows={3}
+                placeholder="What did you work on..."
+                className="w-full border border-gray-200 rounded-xl p-3 text-sm focus:outline-none focus:border-[#e84545] resize-none" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 mb-1.5">Attach files (optional)</label>
+              <input type="file" multiple
+                onChange={(e) => setLogFiles(Array.from(e.target.files || []))}
+                className="w-full text-sm text-gray-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-gray-100 file:text-gray-700 file:text-xs hover:file:bg-gray-200" />
+              {logFiles.length > 0 && (
+                <p className="text-xs text-gray-400 mt-1.5">{logFiles.length} file{logFiles.length > 1 ? 's' : ''} selected</p>
+              )}
+            </div>
+            <Button variant="primary" fullWidth disabled={loggingWork} onClick={handleLogWork}>
+              {loggingWork ? 'Logging...' : 'Log Work for Review'}
+            </Button>
+          </div>
+        </Modal>
+      )}
+
+      {/* Counter back the buyer's counter */}
+      {sellerCounterEntryId != null && booking && (
+        <Modal isOpen onClose={() => entryActing == null && setSellerCounterEntryId(null)} title="Counter Back" size="sm">
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600">
+              Propose a different hours value back to the buyer
+              {(() => {
+                const e = booking.workEntries.find((x) => x.id === sellerCounterEntryId);
+                return e ? ` (they offered ${e.counter_hours}h, you logged ${e.hours}h)` : '';
+              })()}.
+            </p>
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 mb-1.5">Hours you&apos;ll accept</label>
+              <input type="number" min={0.25} step={0.25} value={sellerCounterHours} onChange={(e) => setSellerCounterHours(e.target.value)}
+                placeholder="e.g. 4"
+                className="w-full border border-gray-200 rounded-xl px-3 h-10 text-sm focus:outline-none focus:border-[#e84545]" />
+            </div>
+            <textarea value={sellerCounterNote} onChange={(e) => setSellerCounterNote(e.target.value)} rows={3}
+              placeholder="Explain why (optional)"
+              className="w-full border border-gray-200 rounded-xl p-3 text-sm focus:outline-none focus:border-[#e84545] resize-none" />
+            <div className="flex gap-2">
+              <Button variant="outline" fullWidth onClick={() => setSellerCounterEntryId(null)}>Back</Button>
+              <Button variant="primary" fullWidth disabled={entryActing === sellerCounterEntryId} onClick={handleSellerCounter}>
+                {entryActing === sellerCounterEntryId ? 'Sending...' : 'Send Counter'}
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Counter back the buyer's counter on a milestone */}
+      {sellerCounterMilestoneId != null && booking && (
+        <Modal isOpen onClose={() => milestoneActing == null && setSellerCounterMilestoneId(null)} title="Counter Back" size="sm">
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600">
+              Propose a different amount back to the buyer
+              {(() => {
+                const m = booking.milestones.find((x) => x.id === sellerCounterMilestoneId);
+                return m ? ` (they offered ${formatCurrency(Number(m.counter_amount))}, you submitted ${formatCurrency(Number(m.amount))})` : '';
+              })()}.
+            </p>
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 mb-1.5">Amount you&apos;ll accept</label>
+              <input type="number" min={1} step={0.01} value={sellerCounterAmount} onChange={(e) => setSellerCounterAmount(e.target.value)}
+                placeholder="e.g. 125"
+                className="w-full border border-gray-200 rounded-xl px-3 h-10 text-sm focus:outline-none focus:border-[#e84545]" />
+            </div>
+            <textarea value={sellerCounterMilestoneNote} onChange={(e) => setSellerCounterMilestoneNote(e.target.value)} rows={3}
+              placeholder="Explain why (optional)"
+              className="w-full border border-gray-200 rounded-xl p-3 text-sm focus:outline-none focus:border-[#e84545] resize-none" />
+            <div className="flex gap-2">
+              <Button variant="outline" fullWidth onClick={() => setSellerCounterMilestoneId(null)}>Back</Button>
+              <Button variant="primary" fullWidth disabled={milestoneActing === sellerCounterMilestoneId} onClick={handleSellerCounterMilestone}>
+                {milestoneActing === sellerCounterMilestoneId ? 'Sending...' : 'Send Counter'}
+              </Button>
+            </div>
           </div>
         </Modal>
       )}

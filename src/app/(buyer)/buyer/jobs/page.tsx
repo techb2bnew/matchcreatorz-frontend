@@ -22,6 +22,7 @@ const inputCls = 'w-full border border-[#e8e8e8] rounded-xl px-4 py-2.5 text-sm 
 const labelCls = 'block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide';
 const todayStr = () => new Date().toISOString().slice(0, 10);
 const MAX_ATTACHMENTS = 5;
+const MAX_QUESTIONS = 10;
 
 const STATUS_MAP: Record<string, { label: string; bg: string; color: string }> = {
   OPEN:        { label: 'Open',        bg: '#d1fae5', color: '#059669' },
@@ -44,6 +45,7 @@ interface Job {
   deadline: string | null; skills: string[]; experience_level: string;
   status: string; bids_count: number; created_at: string;
   attachments?: { url: string; name: string }[];
+  questions?: string[];
 }
 
 interface JobDoc { url: string; name: string }
@@ -51,12 +53,12 @@ interface FormState {
   title: string; description: string; category: string[];
   job_type: string; budget_min: string; budget_max: string;
   deadline: string; skills: string; experience_level: string;
-  attachments: JobDoc[];
+  attachments: JobDoc[]; questions: string[];
 }
 const EMPTY: FormState = {
   title: '', description: '', category: [],
   job_type: 'fixed', budget_min: '', budget_max: '',
-  deadline: '', skills: '', experience_level: 'any', attachments: [],
+  deadline: '', skills: '', experience_level: 'any', attachments: [], questions: [],
 };
 
 // Rich-text descriptions are stored as HTML — show a clean plain-text preview
@@ -203,6 +205,7 @@ export default function BuyerJobsPage() {
         skills:           form.skills ? form.skills.split(',').map(s => s.trim()).filter(Boolean) : [],
         experience_level: form.experience_level,
         attachments:      form.attachments,
+        questions:        form.questions.map(q => q.trim()).filter(Boolean),
       });
       setPostMsg({ ok: true, text: 'Job posted successfully!' });
       setForm(EMPTY);
@@ -228,6 +231,7 @@ export default function BuyerJobsPage() {
       skills:           Array.isArray(job.skills) ? job.skills.join(', ') : '',
       experience_level: job.experience_level,
       attachments:      Array.isArray(job.attachments) ? job.attachments : [],
+      questions:        Array.isArray(job.questions) ? job.questions : [],
     });
     setEditMsg(null);
     setEditErrors({});
@@ -257,6 +261,7 @@ export default function BuyerJobsPage() {
         skills:           editForm.skills ? editForm.skills.split(',').map(s => s.trim()).filter(Boolean) : [],
         experience_level: editForm.experience_level,
         attachments:      editForm.attachments,
+        questions:        editForm.questions.map(q => q.trim()).filter(Boolean),
       });
       setEditMsg({ ok: true, text: 'Job updated!' });
       await loadJobs(true);
@@ -472,6 +477,29 @@ export default function BuyerJobsPage() {
               </span>
             ))}
           </div>
+        )}
+      </div>
+
+      {/* Screening questions */}
+      <div>
+        <label className={labelCls}><i className="fa fa-question-circle mr-1 text-[#8b5cf6]" /> Screening Questions <span className="text-gray-400 normal-case font-normal">(optional — every bidder must answer these to place a bid)</span></label>
+        <div className="space-y-2">
+          {f.questions.map((q, i) => (
+            <div key={i} className="flex items-center gap-2">
+              <span className="text-xs text-gray-400 w-5 flex-shrink-0">{i + 1}.</span>
+              <input className={inputCls} value={q}
+                onChange={e => setF(p => ({ ...p, questions: p.questions.map((x, idx) => idx === i ? e.target.value : x) }))}
+                placeholder="e.g. How many years of experience do you have?" />
+              <button type="button" onClick={() => setF(p => ({ ...p, questions: p.questions.filter((_, idx) => idx !== i) }))}
+                className="text-gray-400 hover:text-red-500 flex-shrink-0"><i className="fa fa-times" /></button>
+            </div>
+          ))}
+        </div>
+        {f.questions.length < MAX_QUESTIONS && (
+          <button type="button" onClick={() => setF(p => ({ ...p, questions: [...p.questions, ''] }))}
+            className="mt-2 text-xs text-[#e84545] font-semibold hover:underline">
+            <i className="fa fa-plus mr-1" />Add a question
+          </button>
         )}
       </div>
     </div>

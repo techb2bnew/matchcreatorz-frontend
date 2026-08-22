@@ -25,6 +25,7 @@ interface MyBid {
   counter_amount?: number | null; counter_delivery_days?: number | null;
   counter_by?: 'buyer' | 'seller' | null; counter_note?: string | null;
   attachments?: BookingAttachment[];
+  question_answers?: { question: string; answer: string }[];
 }
 interface JobDetail {
   id: number; title: string; description: string | null; category: string;
@@ -32,6 +33,7 @@ interface JobDetail {
   deadline: string | null; skills: string[]; experience_level: string;
   status: string; bids_count: number; created_at: string;
   attachments?: { url: string; name: string }[];
+  questions?: string[];
   buyer?: { id: number; name: string; email: string } | null;
   has_bid: boolean; my_bid: MyBid | null;
 }
@@ -49,6 +51,7 @@ export default function SellerJobDetailPage() {
   const [days, setDays]         = useState('');
   const [proposal, setProposal] = useState('');
   const [bidFiles, setBidFiles] = useState<BookingAttachment[]>([]);
+  const [answers, setAnswers]   = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving]     = useState(false);
   const [editing, setEditing]   = useState(false);
@@ -72,6 +75,10 @@ export default function SellerJobDetailPage() {
         setDays(String(j.my_bid.delivery_days));
         setProposal(j.my_bid.proposal || '');
         setBidFiles(Array.isArray(j.my_bid.attachments) ? j.my_bid.attachments : []);
+        const prevAnswers = Array.isArray(j.my_bid.question_answers) ? j.my_bid.question_answers : [];
+        setAnswers((j.questions || []).map((_, i) => prevAnswers[i]?.answer || ''));
+      } else {
+        setAnswers((j.questions || []).map(() => ''));
       }
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Failed to load job');
@@ -118,13 +125,14 @@ export default function SellerJobDetailPage() {
     if (!amount || Number(amount) <= 0) return toast.error('Enter a valid amount');
     if (!days || Number(days) <= 0)     return toast.error('Enter delivery days');
     if (Number(days) > MAX_DELIVERY_DAYS) return toast.error(`Delivery days can't exceed ${MAX_DELIVERY_DAYS}`);
+    if (job?.questions?.length && answers.some(a => !a.trim())) return toast.error("Please answer all of the buyer's questions");
     setSaving(true);
     try {
       if (job?.has_bid) {
-        await sellerJobApi.updateBid(Number(id), { amount: Number(amount), delivery_days: Number(days), proposal, attachments: bidFiles });
+        await sellerJobApi.updateBid(Number(id), { amount: Number(amount), delivery_days: Number(days), proposal, attachments: bidFiles, answers });
         toast.success('Bid updated');
       } else {
-        await sellerJobApi.bid(Number(id), { amount: Number(amount), delivery_days: Number(days), proposal, attachments: bidFiles });
+        await sellerJobApi.bid(Number(id), { amount: Number(amount), delivery_days: Number(days), proposal, attachments: bidFiles, answers });
         toast.success('Bid placed');
       }
       setEditing(false);
@@ -241,6 +249,18 @@ export default function SellerJobDetailPage() {
                 </div>
               )}
 
+              {job.questions && job.questions.length > 0 && (
+                <div className="mt-4">
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1.5">Screening Questions</p>
+                  <ul className="space-y-1">
+                    {job.questions.map((q, i) => (
+                      <li key={i} className="text-sm text-gray-600"><span className="text-gray-400">{i + 1}.</span> {q}</li>
+                    ))}
+                  </ul>
+                  <p className="text-xs text-gray-400 mt-1.5">You&apos;ll need to answer these when you place your bid.</p>
+                </div>
+              )}
+
               <div className="flex items-center gap-6 mt-5 pt-4 border-t border-gray-100 text-sm">
                 <div><p className="text-xs text-gray-400">Budget</p><p className="font-bold text-[#e84545]">{job.budget_min || job.budget_max ? `${formatCurrency(job.budget_min || 0)} - ${formatCurrency(job.budget_max || 0)}` : 'Not set'}</p></div>
                 {job.deadline && <div><p className="text-xs text-gray-400">Deadline</p><p className="font-semibold text-gray-700">{job.deadline}</p></div>}
@@ -266,6 +286,18 @@ export default function SellerJobDetailPage() {
                     <div className="bg-gray-50 rounded-lg p-2.5 text-center"><p className="text-xs text-gray-400">Amount</p><p className="font-bold text-[#e84545]">{formatCurrency(Number(b.amount))}</p></div>
                     <div className="bg-gray-50 rounded-lg p-2.5 text-center"><p className="text-xs text-gray-400">Delivery</p><p className="font-bold text-gray-800">{b.delivery_days}d</p></div>
                   </div>
+
+                  {b.question_answers && b.question_answers.length > 0 && (
+                    <div className="bg-gray-50 rounded-xl p-3 mb-3 space-y-2">
+                      <p className="text-xs font-semibold text-gray-500"><i className="fa fa-question-circle mr-1 text-[#8b5cf6]" />Your Answers</p>
+                      {b.question_answers.map((qa, i) => (
+                        <div key={i}>
+                          <p className="text-xs text-gray-500">{i + 1}. {qa.question}</p>
+                          <p className="text-xs text-gray-700 font-medium">{qa.answer}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
 
                   {b.counter_amount != null && (
                     <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 mb-3">
@@ -308,6 +340,22 @@ export default function SellerJobDetailPage() {
                   <div className="mb-3">
                     <RichTextEditor label="Proposal" variant="compact" value={proposal} onChange={setProposal} placeholder="Why are you the best fit?" />
                   </div>
+                  {job.questions && job.questions.length > 0 && (
+                    <div className="mb-3 space-y-3">
+                      <label className="block text-xs font-semibold text-gray-500">
+                        <i className="fa fa-question-circle mr-1 text-[#8b5cf6]" />Buyer&apos;s Questions <span className="font-normal text-gray-400">(required)</span>
+                      </label>
+                      {job.questions.map((q, i) => (
+                        <div key={i}>
+                          <p className="text-xs text-gray-600 mb-1">{i + 1}. {q}</p>
+                          <textarea rows={2} value={answers[i] || ''}
+                            onChange={e => setAnswers(prev => prev.map((a, idx) => idx === i ? e.target.value : a))}
+                            placeholder="Your answer..."
+                            className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm resize-none focus:outline-none focus:border-[#e84545]" />
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   <div className="mb-3">
                     <label className="block text-xs font-semibold text-gray-500 mb-1">
                       Portfolio / Work Samples <span className="font-normal text-gray-400">(optional — up to {MAX_BID_FILES})</span>
