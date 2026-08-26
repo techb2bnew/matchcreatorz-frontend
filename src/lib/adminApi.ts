@@ -176,6 +176,31 @@ export const adminPageApi = {
   update: (id: number, body: { title?: string; content?: string }) => req('PUT', `/api/v1/admin/pages/${id}`, body),
 };
 
+// -- FAQ (admin) ----------------------------------------------------------
+export interface AdminFaq {
+  id: number; question: string; answer: string; position: number;
+  createdAt?: string; updatedAt?: string;
+}
+export const adminFaqApi = {
+  list:   (): Promise<{ data: AdminFaq[] }> => req('GET', `/api/v1/admin/faqs`),
+  add:    (body: { question: string; answer: string }) => req('POST', `/api/v1/admin/faqs`, body),
+  edit:   (id: number, body: { question?: string; answer?: string }) => req('PUT', `/api/v1/admin/faqs/${id}`, body),
+  delete: (id: number) => req('DELETE', `/api/v1/admin/faqs/${id}`),
+  move:   (id: number, direction: 'up' | 'down') => req('PATCH', `/api/v1/admin/faqs/${id}/move`, { direction }),
+};
+
+// -- Newsletter (admin) -----------------------------------------------------
+export interface AdminNewsletterSubscriber {
+  id: number; email: string; createdAt?: string; created_at?: string;
+}
+export const adminNewsletterApi = {
+  list: (params: { page?: number; limit?: number; search?: string } = {}) => {
+    const q = new URLSearchParams(Object.entries(params).filter(([, v]) => v !== undefined && v !== null && String(v) !== '').map(([k, v]) => [k, String(v)])).toString();
+    return req('GET', `/api/v1/admin/newsletter${q ? `?${q}` : ''}`);
+  },
+  delete: (id: number) => req('DELETE', `/api/v1/admin/newsletter/${id}`),
+};
+
 // -- Profile API (works for admin, seller, buyer) ----------------------
 export const profileApi = {
   /** GET /api/v1/{role}/profile */

@@ -20,6 +20,9 @@ const PAGE_ICON: Record<string, string> = {
   contact: 'fa-envelope',
 };
 const iconFor = (slug: string) => PAGE_ICON[slug] || 'fa-file-text-o';
+// 'faq' now has its own dedicated management page (/admin/faqs) since it's a
+// list of Q&A pairs, not a single title+content blob like these others.
+const HIDDEN_SLUGS = ['about', 'contact', 'faq'];
 
 export default function PagesPage() {
   const [pages, setPages]     = useState<AdminPage[]>([]);
@@ -87,7 +90,7 @@ export default function PagesPage() {
         <PageLoader text="Loading pages..." />
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-          {pages.map((p) => (
+          {pages.filter((p) => !HIDDEN_SLUGS.includes(p.slug)).map((p) => (
             <Card key={p.id} padding="md" hover className="flex flex-col gap-3" >
               <div className="flex items-start gap-3">
                 <div className="h-11 w-11 rounded-xl bg-[#fff0f0] text-[#e84545] flex items-center justify-center flex-shrink-0">

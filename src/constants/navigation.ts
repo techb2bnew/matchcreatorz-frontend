@@ -22,6 +22,8 @@ export const adminNav: NavItem[] = [
   { label: 'Notifications',  href: '/admin/notifications', icon: 'fa-bell'           },
   { label: 'Banners',        href: '/admin/banners',       icon: 'fa-picture-o'      },
   { label: 'Pages',          href: '/admin/pages',         icon: 'fa-file-text-o'    },
+  { label: 'FAQ',            href: '/admin/faqs',          icon: 'fa-question-circle'},
+  { label: 'Newsletter',     href: '/admin/newsletter',    icon: 'fa-envelope-o'     },
   { label: 'My Profile',     href: '/admin/profile',       icon: 'fa-user-circle-o'  },
   { label: 'Settings',       href: '/admin/settings',      icon: 'fa-cog'            },
 ];

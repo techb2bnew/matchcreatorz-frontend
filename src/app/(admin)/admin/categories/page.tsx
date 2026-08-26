@@ -18,6 +18,7 @@ type Category = {
   description: string;
   services_count: number;
   sellers_count: number;
+  subcategories?: Category[];
 };
 
 const emptyForm = { name: '', icon: '', description: '' };
@@ -203,6 +204,15 @@ export default function CategoriesPage() {
   const [deleteCat, setDeleteCat]   = useState<Category | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
+  // -- Manage subcategories modal ------------------------------
+  const [subsParent, setSubsParent]     = useState<Category | null>(null);
+  const [newSubName, setNewSubName]     = useState('');
+  const [addingSub, setAddingSub]       = useState(false);
+  const [editingSubId, setEditingSubId] = useState<number | null>(null);
+  const [editingSubName, setEditingSubName] = useState('');
+  const [savingSubId, setSavingSubId]   = useState<number | null>(null);
+  const [deletingSubId, setDeletingSubId] = useState<number | null>(null);
+
   // -- Fetch -------------------------------------------------
   const fetchCategories = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
@@ -293,6 +303,59 @@ export default function CategoriesPage() {
     }
   };
 
+  // -- Subcategories -------------------------------------------
+  // Always read the live row out of `categories` (kept fresh by fetchCategories)
+  // instead of the stale snapshot captured when the modal was opened.
+  const liveSubsParent = subsParent ? categories.find(c => c.id === subsParent.id) || subsParent : null;
+
+  const handleAddSub = async () => {
+    if (!subsParent || !newSubName.trim()) return;
+    setAddingSub(true);
+    try {
+      await categoryApi.add({ name: newSubName.trim(), parent_id: subsParent.id });
+      toast.success('Subcategory added');
+      setNewSubName('');
+      fetchCategories();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to add subcategory');
+    } finally {
+      setAddingSub(false);
+    }
+  };
+
+  const openEditSub = (sub: Category) => {
+    setEditingSubId(sub.id);
+    setEditingSubName(sub.name);
+  };
+
+  const handleSaveSub = async (id: number) => {
+    if (!editingSubName.trim()) return;
+    setSavingSubId(id);
+    try {
+      await categoryApi.edit(id, { name: editingSubName.trim() });
+      toast.success('Subcategory updated');
+      setEditingSubId(null);
+      fetchCategories();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to update subcategory');
+    } finally {
+      setSavingSubId(null);
+    }
+  };
+
+  const handleDeleteSub = async (id: number) => {
+    setDeletingSubId(id);
+    try {
+      await categoryApi.delete(id);
+      toast.success('Subcategory deleted');
+      fetchCategories();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to delete subcategory');
+    } finally {
+      setDeletingSubId(null);
+    }
+  };
+
   return (
     <DashboardLayout role="ADMIN" title="Categories">
 
@@ -343,6 +406,12 @@ export default function CategoriesPage() {
                 {c.description && (
                   <p className="text-xs text-gray-400 mt-1 line-clamp-2">{c.description}</p>
                 )}
+                <button
+                  onClick={() => setSubsParent(c)}
+                  className="text-xs text-[#e84545] font-medium mt-2 hover:underline"
+                >
+                  <i className="fa fa-sitemap mr-1" />{c.subcategories?.length || 0} subcategories
+                </button>
                 <div className="flex gap-2 mt-3">
                   <button
                     onClick={() => openEdit(c)}
@@ -376,6 +445,7 @@ export default function CategoriesPage() {
                     <th className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wider px-4 py-3">Description</th>
                     <SortableTh label="Services"    sortKey="services_count" activeKey={sortBy} direction={sortDir} onSort={handleSort} />
                     <SortableTh label="Sellers"     sortKey="sellers_count"  activeKey={sortBy} direction={sortDir} onSort={handleSort} />
+                    <th className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wider px-4 py-3">Subcategories</th>
                     <th className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wider px-4 py-3">Actions</th>
                   </tr>
                 </thead>
@@ -386,6 +456,11 @@ export default function CategoriesPage() {
                       <td className="px-4 py-3 text-gray-400 text-xs max-w-[180px] truncate">{c.description || '--'}</td>
                       <td className="px-4 py-3 text-gray-600">{c.services_count}</td>
                       <td className="px-4 py-3 text-gray-600">{c.sellers_count}</td>
+                      <td className="px-4 py-3">
+                        <button onClick={() => setSubsParent(c)} className="text-[#e84545] font-medium hover:underline">
+                          {c.subcategories?.length || 0}
+                        </button>
+                      </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1">
                           <button
@@ -457,6 +532,71 @@ export default function CategoriesPage() {
               {editLoading ? 'Saving...' : 'Save Changes'}
             </Button>
           </div>
+        </div>
+      </Modal>
+
+      {/* -- Manage Subcategories Modal -- */}
+      <Modal isOpen={!!subsParent} onClose={() => setSubsParent(null)} title={`Subcategories — ${liveSubsParent?.name || ''}`} size="md">
+        <div className="space-y-4">
+          <div className="flex gap-2">
+            <Input
+              placeholder="e.g. React.js Developer"
+              value={newSubName}
+              onChange={(e) => setNewSubName(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter' && newSubName.trim()) handleAddSub(); }}
+            />
+            <Button onClick={handleAddSub} disabled={addingSub || !newSubName.trim()}>
+              {addingSub ? 'Adding...' : 'Add'}
+            </Button>
+          </div>
+
+          <div className="max-h-96 overflow-y-auto space-y-1.5 pr-1">
+            {(liveSubsParent?.subcategories?.length || 0) === 0 ? (
+              <p className="text-sm text-gray-400 text-center py-8">No subcategories yet</p>
+            ) : (
+              liveSubsParent!.subcategories!.map((sub) => (
+                <div key={sub.id} className="flex items-center gap-2 bg-gray-50 rounded-xl px-3 py-2">
+                  {editingSubId === sub.id ? (
+                    <>
+                      <input
+                        autoFocus
+                        className="flex-1 text-sm border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:border-[#e84545]"
+                        value={editingSubName}
+                        onChange={(e) => setEditingSubName(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') handleSaveSub(sub.id); if (e.key === 'Escape') setEditingSubId(null); }}
+                      />
+                      <button
+                        onClick={() => handleSaveSub(sub.id)}
+                        disabled={savingSubId === sub.id}
+                        className="p-1.5 rounded-lg text-green-500 hover:bg-green-50 transition-colors"
+                      >
+                        <i className="fa fa-check text-xs" />
+                      </button>
+                      <button onClick={() => setEditingSubId(null)} className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 transition-colors">
+                        <i className="fa fa-times text-xs" />
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <span className="flex-1 text-sm text-gray-800">{sub.name}</span>
+                      <button onClick={() => openEditSub(sub)} className="p-1.5 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors">
+                        <i className="fa fa-pencil text-xs" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteSub(sub.id)}
+                        disabled={deletingSubId === sub.id}
+                        className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                      >
+                        <i className="fa fa-trash text-xs" />
+                      </button>
+                    </>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+
+          <Button variant="outline" fullWidth onClick={() => setSubsParent(null)}>Close</Button>
         </div>
       </Modal>
 
