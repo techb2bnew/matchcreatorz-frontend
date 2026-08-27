@@ -89,7 +89,7 @@ function BookingModal({
     if (!service.seller?.id) { setError('Seller info missing'); return; }
     setLoading(true); setError('');
     try {
-      await buyerBookingApi.create({
+      const res = await buyerBookingApi.create({
         seller_id:    service.seller.id,
         service_id:   service.id,
         title:        service.title,
@@ -97,6 +97,18 @@ function BookingModal({
         delivery_days: service.delivery_days,
         notes:        notes.trim() || undefined,
       });
+      const booking = res?.data;
+
+      // Escrow mode: redirect to Stripe Checkout to place the hold before
+      // landing on the bookings list — mirrors the wallet top-up redirect flow.
+      if (booking?.payment_mode === 'escrow') {
+        const checkout = await buyerBookingApi.createEscrowCheckout(booking.id);
+        if (checkout?.data?.checkout_url) {
+          window.location.href = checkout.data.checkout_url;
+          return;
+        }
+      }
+
       setSubmitted(true);
       setTimeout(onSuccess, 1200);
     } catch (e: unknown) {

@@ -9,7 +9,7 @@ import Button from '@/components/ui/Button';
 import MessageButton from '@/components/chat/MessageButton';
 import { RichTextView } from '@/components/ui/RichTextEditor';
 import { formatCurrency } from '@/lib/utils';
-import { buyerJobApi } from '@/lib/adminApi';
+import { buyerJobApi, buyerBookingApi } from '@/lib/adminApi';
 
 interface Seller { id: number; name: string; email: string; }
 interface Bid {
@@ -130,7 +130,19 @@ export default function JobDetailPage() {
     if (!acceptTarget) return;
     setAccepting(true); setActionMsg('');
     try {
-      await buyerJobApi.acceptBid(Number(id), acceptTarget.id);
+      const res = await buyerJobApi.acceptBid(Number(id), acceptTarget.id);
+      const booking = res?.data?.booking;
+
+      // Escrow mode: redirect to Stripe Checkout to place the hold before
+      // landing on the booking — mirrors the wallet top-up redirect flow.
+      if (booking?.payment_mode === 'escrow') {
+        const checkout = await buyerBookingApi.createEscrowCheckout(booking.id);
+        if (checkout?.data?.checkout_url) {
+          window.location.href = checkout.data.checkout_url;
+          return;
+        }
+      }
+
       setActionMsg('Bid accepted! Booking created.');
       setTimeout(() => {
         setAcceptTarget(null);

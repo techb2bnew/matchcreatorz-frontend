@@ -5,11 +5,12 @@ import { cn, formatCurrency } from '@/lib/utils';
 import { adminSettingApi, adminStatsApi, systemApi } from '@/lib/adminApi';
 import toast from 'react-hot-toast';
 
-type Tab = 'platform' | 'plans' | 'appinfo';
+type Tab = 'platform' | 'plans' | 'escrow' | 'appinfo';
 
 const tabs: { key: Tab; label: string; icon: string; desc: string }[] = [
   { key: 'platform', label: 'Platform Fees',  icon: 'fa-percent',     desc: 'Commission & settlement'   },
   { key: 'plans',    label: 'Connect Plans',  icon: 'fa-link',        desc: 'Seller bid packages'       },
+  { key: 'escrow',   label: 'Escrow',         icon: 'fa-shield',      desc: 'Stripe payment protection' },
   { key: 'appinfo',  label: 'App Info',       icon: 'fa-info-circle', desc: 'App config & stats'        },
 ];
 
@@ -33,6 +34,10 @@ export default function AdminSettingsPage() {
   const [planSaved, setPlanSaved] = useState(false);
   const updatePlan = (id: number, field: 'price' | 'connects', value: string) =>
     setPlans(prev => prev.map(p => p.id === id ? { ...p, [field]: value } : p));
+
+  const [escrowEnabled, setEscrowEnabled] = useState(false);
+  const [savingEscrow, setSavingEscrow]   = useState(false);
+  const [escrowSaved, setEscrowSaved]     = useState(false);
 
   const [appName, setAppName]           = useState('MatchCreatorz');
   const [supportEmail, setSupportEmail] = useState('support@matchcreatorz.com');
@@ -85,6 +90,9 @@ export default function AdminSettingsPage() {
             icon: p.icon || 'fa-link',
           })));
         }
+        if (d.escrow_settings) {
+          setEscrowEnabled(!!d.escrow_settings.enabled);
+        }
         if (d.app_info) {
           if (d.app_info.app_name)      setAppName(d.app_info.app_name);
           if (d.app_info.support_email) setSupportEmail(d.app_info.support_email);
@@ -131,6 +139,18 @@ export default function AdminSettingsPage() {
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : 'Failed to save plans');
     } finally { setSavingPlans(false); }
+  };
+
+  const saveEscrow = async (next: boolean) => {
+    setSavingEscrow(true);
+    try {
+      await adminSettingApi.update({ escrow_settings: { enabled: next } });
+      setEscrowEnabled(next);
+      toast.success(next ? 'Escrow enabled' : 'Escrow disabled');
+      setEscrowSaved(true); setTimeout(() => setEscrowSaved(false), 2000);
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Failed to update escrow setting');
+    } finally { setSavingEscrow(false); }
   };
 
   const saveApp = async () => {
@@ -350,6 +370,70 @@ export default function AdminSettingsPage() {
                     {savingPlans ? <><i className="fa fa-spinner fa-spin" /> Saving...</> : <><i className="fa fa-save" /> Save Plans</>}
                   </button>
                 </div>
+              </div>
+            </>
+          )}
+
+          {/* Escrow */}
+          {activeTab === 'escrow' && (
+            <>
+              <div className="bg-[#e8f4fd] border border-[#4f9ef8]/30 rounded-2xl p-4 flex items-start gap-3">
+                <i className="fa fa-info-circle text-[#4f9ef8] text-lg mt-0.5 flex-shrink-0" />
+                <p className="text-sm text-[#1e40af]">
+                  When enabled, fixed-price and milestone bookings are paid via a real Stripe hold/charge instead of
+                  the wallet — the buyer&apos;s card is charged directly and funds are released to the seller on
+                  acceptance. Hourly bookings always stay on the wallet flow. Uses the existing Stripe keys already
+                  configured for the platform — no extra setup needed. Turning this off only affects new bookings;
+                  bookings already in escrow are unaffected.
+                </p>
+              </div>
+
+              <div className="bg-white rounded-2xl border border-[#e8e8e8] shadow-sm p-6">
+                <h3 className="text-base font-bold text-gray-800 mb-1 flex items-center gap-2">
+                  <i className="fa fa-shield text-[#e84545]" /> Escrow Payments
+                </h3>
+                <p className="text-xs text-gray-400 mb-6">Protect buyers with Stripe-backed escrow on fixed-price and milestone bookings</p>
+
+                <div className="flex items-center justify-between bg-[#f7f7f7] border border-[#e8e8e8] rounded-2xl p-5">
+                  <div className="flex items-center gap-4">
+                    <div className={cn('h-11 w-11 rounded-xl flex items-center justify-center flex-shrink-0', escrowEnabled ? 'bg-[#10b981]/15' : 'bg-gray-200')}>
+                      <i className={cn('fa fa-shield text-lg', escrowEnabled ? 'text-[#10b981]' : 'text-gray-400')} />
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-gray-800">{escrowEnabled ? 'Escrow is Enabled' : 'Escrow is Disabled'}</p>
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        {escrowEnabled
+                          ? 'New fixed-price and milestone bookings will use Stripe escrow'
+                          : 'New bookings continue to use the standard wallet flow'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    role="switch"
+                    aria-checked={escrowEnabled}
+                    disabled={savingEscrow}
+                    onClick={() => saveEscrow(!escrowEnabled)}
+                    className={cn(
+                      'relative inline-flex h-7 w-13 flex-shrink-0 items-center rounded-full transition-colors disabled:opacity-60',
+                      escrowEnabled ? 'bg-[#10b981]' : 'bg-gray-300'
+                    )}
+                    style={{ width: 52 }}
+                  >
+                    <span
+                      className={cn(
+                        'inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform',
+                        escrowEnabled ? 'translate-x-7' : 'translate-x-1'
+                      )}
+                    />
+                  </button>
+                </div>
+
+                {escrowSaved && (
+                  <span className="text-green-600 text-sm font-medium flex items-center gap-1 mt-4">
+                    <i className="fa fa-check-circle" /> Setting saved
+                  </span>
+                )}
               </div>
             </>
           )}
