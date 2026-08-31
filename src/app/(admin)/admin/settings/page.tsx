@@ -10,8 +10,8 @@ type Tab = 'platform' | 'plans' | 'escrow' | 'appinfo';
 const tabs: { key: Tab; label: string; icon: string; desc: string }[] = [
   { key: 'platform', label: 'Platform Fees',  icon: 'fa-percent',     desc: 'Commission & settlement'   },
   { key: 'plans',    label: 'Connect Plans',  icon: 'fa-link',        desc: 'Seller bid packages'       },
-  { key: 'escrow',   label: 'Escrow',         icon: 'fa-shield',      desc: 'Stripe payment protection' },
-  { key: 'appinfo',  label: 'App Info',       icon: 'fa-info-circle', desc: 'App config & stats'        },
+  { key: 'escrow',   label: 'Delayed transfer',         icon: 'fa-shield',      desc: 'Stripe payment protection' },
+  // { key: 'appinfo',  label: 'App Info',       icon: 'fa-info-circle', desc: 'App config & stats'        },
 ];
 
 const inputCls = 'w-full bg-[#f7f7f7] border border-[#e8e8e8] rounded-xl px-4 h-11 text-sm text-[#1a1a1a] placeholder:text-gray-400 focus:outline-none focus:border-[#e84545] focus:ring-2 focus:ring-[#e84545]/10 transition-all';
@@ -390,9 +390,9 @@ export default function AdminSettingsPage() {
 
               <div className="bg-white rounded-2xl border border-[#e8e8e8] shadow-sm p-6">
                 <h3 className="text-base font-bold text-gray-800 mb-1 flex items-center gap-2">
-                  <i className="fa fa-shield text-[#e84545]" /> Escrow Payments
+                  <i className="fa fa-shield text-[#e84545]" /> Delayed Payments
                 </h3>
-                <p className="text-xs text-gray-400 mb-6">Protect buyers with Stripe-backed escrow on fixed-price and milestone bookings</p>
+                <p className="text-xs text-gray-400 mb-6">Protect buyers with Stripe-backed delayed transfers on fixed-price and milestone bookings</p>
 
                 <div className="flex items-center justify-between bg-[#f7f7f7] border border-[#e8e8e8] rounded-2xl p-5">
                   <div className="flex items-center gap-4">
@@ -400,10 +400,10 @@ export default function AdminSettingsPage() {
                       <i className={cn('fa fa-shield text-lg', escrowEnabled ? 'text-[#10b981]' : 'text-gray-400')} />
                     </div>
                     <div>
-                      <p className="text-sm font-bold text-gray-800">{escrowEnabled ? 'Escrow is Enabled' : 'Escrow is Disabled'}</p>
+                      <p className="text-sm font-bold text-gray-800">{escrowEnabled ? 'Delayed Payments is Enabled' : 'Delayed Payments is Disabled'}</p>
                       <p className="text-xs text-gray-400 mt-0.5">
                         {escrowEnabled
-                          ? 'New fixed-price and milestone bookings will use Stripe escrow'
+                          ? 'New fixed-price and milestone bookings will use Stripe delayed transfers '
                           : 'New bookings continue to use the standard wallet flow'}
                       </p>
                     </div>
