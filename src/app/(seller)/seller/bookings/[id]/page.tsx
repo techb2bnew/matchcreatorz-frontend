@@ -307,6 +307,7 @@ export default function SellerBookingDetailPage() {
   const removeRow = (i: number) => setMilestoneRows((prev) => prev.filter((_, idx) => idx !== i));
 
   const milestoneSum = milestoneRows.reduce((s, r) => s + (Number(r.amount) || 0), 0);
+  const milestoneRowsValid = milestoneRows.every((r) => r.title.trim() && Number(r.amount) > 0);
 
   const handleCreateMilestones = async () => {
     if (!booking) return;
@@ -572,7 +573,9 @@ export default function SellerBookingDetailPage() {
           <div className="space-y-4">
             <Card padding="md">
               <div className="space-y-3">
-                {booking.buyer?.id && <MessageButton recipientId={booking.buyer.id} role="seller" label="Chat with Buyer" />}
+                {booking.buyer?.id && (
+                  <MessageButton recipientId={booking.buyer.id} role="seller" label="Chat with Buyer" size="md" className="w-full justify-center" />
+                )}
 
                 {actionMsg && <p className={`text-sm text-center font-medium ${actionMsg.includes('!') ? 'text-green-600' : 'text-red-600'}`}>{actionMsg}</p>}
 
@@ -607,10 +610,10 @@ export default function SellerBookingDetailPage() {
                       {booking.status === 'in_dispute' ? 'Resubmit Work' : 'Submit Work for Review'}
                     </Button>
                     {booking.status === 'ongoing' && (
-                      <button onClick={() => setShowMilestoneSetup(true)}
-                        className="w-full text-xs text-gray-500 hover:text-[#e84545] hover:underline text-center">
-                        <i className="fa fa-flag-checkered mr-1" />Split into milestones instead
-                      </button>
+                      <Button variant="outline" fullWidth onClick={() => setShowMilestoneSetup(true)}
+                        leftIcon={<i className="fa fa-flag-checkered" />}>
+                        Split into Milestones
+                      </Button>
                     )}
                     {booking.status === 'in_dispute' ? (
                       <Button variant="outline" fullWidth className="text-amber-700 border-amber-300"
@@ -837,7 +840,7 @@ export default function SellerBookingDetailPage() {
                       className="w-full border border-gray-200 rounded-xl pl-3 pr-10 h-10 text-sm focus:outline-none focus:border-[#e84545]" />
                     <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">days</span>
                   </div>
-                  {milestoneRows.length > 2 ? (
+                  {milestoneRows.length > 1 ? (
                     <button onClick={() => removeRow(i)} className="text-gray-400 hover:text-red-500 px-1 w-5">
                       <i className="fa fa-times" />
                     </button>
@@ -851,7 +854,10 @@ export default function SellerBookingDetailPage() {
             <div className={`text-sm text-center rounded-xl p-2 ${milestoneSum === Number(booking.amount) ? 'bg-green-50 text-green-700' : 'bg-gray-50 text-gray-500'}`}>
               Total: {formatCurrency(milestoneSum)} / {formatCurrency(Number(booking.amount))}
             </div>
-            <Button variant="primary" fullWidth disabled={settingUp || milestoneSum !== Number(booking.amount)} onClick={handleCreateMilestones}>
+            {milestoneSum === Number(booking.amount) && !milestoneRowsValid && (
+              <p className="text-xs text-red-500 text-center -mt-2">Every milestone needs a title and a positive amount</p>
+            )}
+            <Button variant="primary" fullWidth disabled={settingUp || !milestoneRowsValid || milestoneSum !== Number(booking.amount)} onClick={handleCreateMilestones}>
               {settingUp ? 'Setting up...' : 'Create Milestones'}
             </Button>
           </div>

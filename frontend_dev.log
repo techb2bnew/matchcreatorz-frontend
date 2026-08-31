@@ -1,0 +1,30 @@
+
+> matchcreatorz@0.1.0 dev
+> next dev --webpack
+
+▲ Next.js 16.2.9 (webpack)
+- Local:         http://localhost:3000
+- Network:       http://172.31.240.1:3000
+- Environments: .env.local
+✓ Ready in 1495ms
+[32m✔[0m [33mConsole Ninja[0m extension is connected to [33mNext.js[0m, see [36mhttps://tinyurl.com/2vt8jxzw[0m
+⚠ The "middleware" file convention is deprecated. Please use "proxy" instead. Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
+- Experiments (use with caution):
+  · optimizePackageImports
+
+○ Compiling /login ...
+ GET /login 200 in 8.0s (next.js: 7.0s, proxy.ts: 9ms, application-code: 982ms)
+○ Compiling /buyer/bookings/[id] ...
+ GET /buyer/bookings/99 200 in 5.2s (next.js: 4.8s, proxy.ts: 28ms, application-code: 375ms)
+ GET /login 200 in 213ms (next.js: 36ms, proxy.ts: 25ms, application-code: 152ms)
+ GET /login 200 in 1637ms (next.js: 353ms, proxy.ts: 219ms, application-code: 1065ms)
+ GET /buyer/bookings/99 200 in 1585ms (next.js: 135ms, proxy.ts: 609ms, application-code: 841ms)
+○ Compiling /seller/bookings/[id] ...
+ GET /admin/franchise 404 in 7.1s (next.js: 6.6s, proxy.ts: 18ms, application-code: 457ms)
+ GET /meta.json 404 in 73ms (next.js: 8ms, application-code: 65ms)
+ GET /seller/bookings/99 200 in 8.2s (next.js: 7.4s, proxy.ts: 608ms, application-code: 204ms)
+ GET /login 200 in 195ms (next.js: 32ms, proxy.ts: 28ms, application-code: 136ms)
+ GET /admin/franchise 404 in 156ms (next.js: 13ms, proxy.ts: 24ms, application-code: 120ms)
+ GET /meta.json 404 in 135ms (next.js: 11ms, application-code: 124ms)
+ GET /buyer/bookings/99 200 in 777ms (next.js: 56ms, proxy.ts: 13ms, application-code: 707ms)
+ GET /seller/bookings/99 200 in 222ms (next.js: 40ms, proxy.ts: 13ms, application-code: 168ms)

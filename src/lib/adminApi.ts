@@ -281,6 +281,8 @@ export const buyerBookingApi = {
   get:    (id: number) => req('GET', `/api/v1/buyer/bookings/${id}`),
   create: (body: { seller_id: number; service_id?: number; job_id?: number; title: string; amount: number; delivery_days?: number; notes?: string }) =>
     req('POST', `/api/v1/buyer/bookings`, body),
+  createMilestones: (id: number, milestones: { title: string; amount: number; duration_days?: number | null }[]) =>
+    req('POST', `/api/v1/buyer/bookings/${id}/milestones`, { milestones }),
   accept: (id: number) => req('PATCH', `/api/v1/buyer/bookings/${id}/accept`),
   reject: (id: number, dispute_reason?: string) => req('PATCH', `/api/v1/buyer/bookings/${id}/reject`, { dispute_reason }),
   cancel: (id: number, cancel_reason?: string)  => req('PATCH', `/api/v1/buyer/bookings/${id}/cancel`, { cancel_reason }),
