@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import MessageButton from '@/components/chat/MessageButton';
 import Card from '@/components/ui/Card';
@@ -57,6 +57,8 @@ interface Booking {
   delivery_days: number | null;
   attachments: BookingAttachment[];
   submission_notes: string | null;
+  payment_mode: 'wallet' | 'escrow';
+  payment_status: 'unpaid' | 'held' | 'released' | 'refunded';
   createdAt: string;
   seller: BookingUser | null;
   buyer: BookingUser | null;
@@ -103,6 +105,7 @@ function Skeleton() {
 export default function BuyerBookingDetailPage() {
   const router = useRouter();
   const params = useParams();
+  const searchParams = useSearchParams();
   const id = String(params.id);
 
   const [booking, setBooking] = useState<Booking | null>(null);
@@ -126,6 +129,11 @@ export default function BuyerBookingDetailPage() {
 
   // Accept & Pay (whole booking, non-milestone)
   const [accepting, setAccepting] = useState(false);
+
+  // Milestone setup (buyer can split a booking too, same as seller)
+  const [showMilestoneSetup, setShowMilestoneSetup] = useState(false);
+  const [milestoneRows, setMilestoneRows] = useState([{ title: '', amount: '', duration_days: '' }, { title: '', amount: '', duration_days: '' }]);
+  const [settingUp, setSettingUp] = useState(false);
 
   // Work entries (hourly bookings)
   const [entryActing, setEntryActing] = useState<number | null>(null);
@@ -154,6 +162,21 @@ export default function BuyerBookingDetailPage() {
 
   useEffect(() => { fetchBooking(); }, [fetchBooking]);
 
+  // Handle the Stripe Checkout return for an escrow hold/milestone charge —
+  // mirrors buyer/wallet/page.tsx's ?topup=success&session_id=... handling.
+  useEffect(() => {
+    const status = searchParams.get('escrow');
+    const sessionId = searchParams.get('session_id');
+    if (status === 'success' && sessionId) {
+      buyerBookingApi.confirmEscrowCheckout(Number(id), sessionId)
+        .then(() => { toast.success('Payment confirmed!'); fetchBooking(); })
+        .catch(() => fetchBooking())
+        .finally(() => router.replace(`/buyer/bookings/${id}`));
+    } else if (status === 'cancel') {
+      toast('Payment cancelled'); router.replace(`/buyer/bookings/${id}`);
+    }
+  }, [searchParams, id, router, fetchBooking]);
+
   const doAction = async (action: () => Promise<unknown>, msg: string, redirectBack = false) => {
     setActing(true); setActionMsg('');
     try {
@@ -180,7 +203,16 @@ export default function BuyerBookingDetailPage() {
       setReviewRating(0); setReviewComment(''); setReviewMsg(''); setReviewOpen(true);
       await fetchBooking();
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : 'Failed to accept — please add funds to your wallet and try again');
+      const msg = e instanceof Error ? e.message : '';
+      // Escrow bookings that haven't had their hold placed/completed yet —
+      // send the buyer to complete that Stripe Checkout instead of a wallet top-up.
+      if (booking.payment_mode === 'escrow' && /escrow payment/i.test(msg)) {
+        try {
+          const checkout = await buyerBookingApi.createEscrowCheckout(booking.id);
+          if (checkout?.data?.checkout_url) { window.location.href = checkout.data.checkout_url; return; }
+        } catch { /* fall through to the generic error toast below */ }
+      }
+      toast.error(msg || 'Failed to accept — please add funds to your wallet and try again');
     } finally { setAccepting(false); }
   };
 
@@ -208,12 +240,47 @@ export default function BuyerBookingDetailPage() {
     if (!booking) return;
     setMilestoneActing(true);
     try {
-      await buyerBookingApi.acceptMilestone(booking.id, milestoneId);
+      const res = await buyerBookingApi.acceptMilestone(booking.id, milestoneId);
+      // Escrow mode: the backend doesn't settle synchronously — it hands back
+      // a Stripe Checkout session for this milestone's own charge.
+      if (res?.data?.escrow && res.data.checkout_url) {
+        window.location.href = res.data.checkout_url;
+        return;
+      }
       toast.success('Milestone accepted — payment released to the seller!');
       await fetchBooking();
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : 'Failed to accept — please add funds to your wallet and try again');
     } finally { setMilestoneActing(false); }
+  };
+
+  // ── Milestone setup ─────────────────────────────────────────────────────
+  const updateMilestoneRow = (i: number, field: 'title' | 'amount' | 'duration_days', value: string) =>
+    setMilestoneRows((prev) => prev.map((r, idx) => idx === i ? { ...r, [field]: value } : r));
+  const addMilestoneRow    = () => setMilestoneRows((prev) => [...prev, { title: '', amount: '', duration_days: '' }]);
+  const removeMilestoneRow = (i: number) => setMilestoneRows((prev) => prev.filter((_, idx) => idx !== i));
+
+  const milestoneSum = milestoneRows.reduce((s, r) => s + (Number(r.amount) || 0), 0);
+  const milestoneRowsValid = milestoneRows.every((r) => r.title.trim() && Number(r.amount) > 0);
+
+  const handleCreateMilestones = async () => {
+    if (!booking) return;
+    setSettingUp(true);
+    try {
+      await buyerBookingApi.createMilestones(
+        booking.id,
+        milestoneRows.map((r) => ({
+          title: r.title.trim(),
+          amount: Number(r.amount),
+          duration_days: r.duration_days ? Number(r.duration_days) : null,
+        })),
+      );
+      toast.success('Milestones set up!');
+      setShowMilestoneSetup(false);
+      await fetchBooking();
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Failed to set up milestones');
+    } finally { setSettingUp(false); }
   };
 
   const rejectMilestone = async () => {
@@ -325,9 +392,16 @@ export default function BuyerBookingDetailPage() {
                       <span className="text-sm text-gray-500">{booking.seller?.name}</span>
                     </div>
                   </div>
-                  <span className={`px-2.5 py-1 rounded-full text-xs font-medium flex-shrink-0 ${STATUS_CFG[booking.status]?.color}`}>
-                    {STATUS_CFG[booking.status]?.label}
-                  </span>
+                  <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
+                    <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${STATUS_CFG[booking.status]?.color}`}>
+                      {STATUS_CFG[booking.status]?.label}
+                    </span>
+                    {booking.payment_mode === 'escrow' && (
+                      <span className="px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-emerald-100 text-emerald-700 flex items-center gap-1">
+                        <i className="fa fa-shield" /> Escrow protected
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-3 gap-3">
@@ -562,7 +636,9 @@ export default function BuyerBookingDetailPage() {
           <div className="space-y-4">
             <Card padding="md">
               <div className="space-y-3">
-                {booking.seller?.id && <MessageButton recipientId={booking.seller.id} role="buyer" />}
+                {booking.seller?.id && (
+                  <MessageButton recipientId={booking.seller.id} role="buyer" size="md" className="w-full justify-center" />
+                )}
 
                 {actionMsg && <p className={`text-sm text-center font-medium ${actionMsg.includes('!') ? 'text-green-600' : 'text-red-600'}`}>{actionMsg}</p>}
 
@@ -578,6 +654,13 @@ export default function BuyerBookingDetailPage() {
                       Reject
                     </Button>
                   </>
+                )}
+
+                {booking.status === 'ongoing' && booking.job_type !== 'hourly' && !hasMilestones(booking) && (
+                  <Button variant="outline" fullWidth onClick={() => setShowMilestoneSetup(true)}
+                    leftIcon={<i className="fa fa-flag-checkered" />}>
+                    Split into Milestones
+                  </Button>
                 )}
 
                 {['pending', 'ongoing'].includes(booking.status) && (
@@ -627,6 +710,58 @@ export default function BuyerBookingDetailPage() {
                 {acting ? 'Cancelling...' : 'Confirm Cancel'}
               </Button>
             </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Milestone setup form */}
+      {showMilestoneSetup && booking && (
+        <Modal isOpen onClose={() => !settingUp && setShowMilestoneSetup(false)} title="Split into Milestones" size="lg">
+          <div className="space-y-4">
+            <p className="text-xs text-gray-400">
+              Amounts must add up to the booking total: <b className="text-gray-700">{formatCurrency(Number(booking.amount))}</b>
+            </p>
+            <div className="grid grid-cols-[1fr_auto_auto_auto] gap-2 px-1">
+              <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Title</span>
+              <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide w-24">Amount</span>
+              <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide w-28">Duration</span>
+              <span className="w-5" />
+            </div>
+            <div className="space-y-2">
+              {milestoneRows.map((row, i) => (
+                <div key={i} className="grid grid-cols-[1fr_auto_auto_auto] gap-2 items-center">
+                  <input value={row.title} onChange={(e) => updateMilestoneRow(i, 'title', e.target.value)}
+                    placeholder={`Milestone ${i + 1} title`}
+                    className="border border-gray-200 rounded-xl px-3 h-10 text-sm focus:outline-none focus:border-[#e84545]" />
+                  <input type="number" value={row.amount} onChange={(e) => updateMilestoneRow(i, 'amount', e.target.value)}
+                    placeholder="$"
+                    className="w-24 border border-gray-200 rounded-xl px-3 h-10 text-sm focus:outline-none focus:border-[#e84545]" />
+                  <div className="relative w-28">
+                    <input type="number" min={1} value={row.duration_days} onChange={(e) => updateMilestoneRow(i, 'duration_days', e.target.value)}
+                      placeholder="Days"
+                      className="w-full border border-gray-200 rounded-xl pl-3 pr-10 h-10 text-sm focus:outline-none focus:border-[#e84545]" />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">days</span>
+                  </div>
+                  {milestoneRows.length > 1 ? (
+                    <button onClick={() => removeMilestoneRow(i)} className="text-gray-400 hover:text-red-500 px-1 w-5">
+                      <i className="fa fa-times" />
+                    </button>
+                  ) : <span className="w-5" />}
+                </div>
+              ))}
+            </div>
+            <button onClick={addMilestoneRow} className="text-xs text-[#e84545] font-semibold hover:underline">
+              <i className="fa fa-plus mr-1" />Add another milestone
+            </button>
+            <div className={`text-sm text-center rounded-xl p-2 ${milestoneSum === Number(booking.amount) ? 'bg-green-50 text-green-700' : 'bg-gray-50 text-gray-500'}`}>
+              Total: {formatCurrency(milestoneSum)} / {formatCurrency(Number(booking.amount))}
+            </div>
+            {milestoneSum === Number(booking.amount) && !milestoneRowsValid && (
+              <p className="text-xs text-red-500 text-center -mt-2">Every milestone needs a title and a positive amount</p>
+            )}
+            <Button variant="primary" fullWidth disabled={settingUp || !milestoneRowsValid || milestoneSum !== Number(booking.amount)} onClick={handleCreateMilestones}>
+              {settingUp ? 'Setting up...' : 'Create Milestones'}
+            </Button>
           </div>
         </Modal>
       )}

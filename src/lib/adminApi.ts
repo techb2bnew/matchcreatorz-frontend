@@ -281,6 +281,8 @@ export const buyerBookingApi = {
   get:    (id: number) => req('GET', `/api/v1/buyer/bookings/${id}`),
   create: (body: { seller_id: number; service_id?: number; job_id?: number; title: string; amount: number; delivery_days?: number; notes?: string }) =>
     req('POST', `/api/v1/buyer/bookings`, body),
+  createMilestones: (id: number, milestones: { title: string; amount: number; duration_days?: number | null }[]) =>
+    req('POST', `/api/v1/buyer/bookings/${id}/milestones`, { milestones }),
   accept: (id: number) => req('PATCH', `/api/v1/buyer/bookings/${id}/accept`),
   reject: (id: number, dispute_reason?: string) => req('PATCH', `/api/v1/buyer/bookings/${id}/reject`, { dispute_reason }),
   cancel: (id: number, cancel_reason?: string)  => req('PATCH', `/api/v1/buyer/bookings/${id}/cancel`, { cancel_reason }),
@@ -296,6 +298,12 @@ export const buyerBookingApi = {
     req('PATCH', `/api/v1/buyer/bookings/${id}/work-entries/${entryId}/counter`, body),
   disputeWorkEntry: (id: number, entryId: number, dispute_reason?: string) =>
     req('PATCH', `/api/v1/buyer/bookings/${id}/work-entries/${entryId}/dispute`, { dispute_reason }),
+  /** Escrow mode: (re)create the Stripe Checkout session for a booking's hold. Returns { checkout_url, session_id }. */
+  createEscrowCheckout: (id: number) =>
+    req('POST', `/api/v1/buyer/bookings/${id}/escrow/checkout`),
+  /** Escrow mode: return-page fallback if the webhook hasn't confirmed yet. */
+  confirmEscrowCheckout: (id: number, sessionId: string) =>
+    req('GET', `/api/v1/buyer/bookings/${id}/escrow/confirm?session_id=${encodeURIComponent(sessionId)}`),
 };
 
 // -- Seller Bookings ---------------------------------------------------
