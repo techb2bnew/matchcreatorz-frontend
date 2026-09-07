@@ -298,12 +298,15 @@ export const buyerBookingApi = {
     req('PATCH', `/api/v1/buyer/bookings/${id}/work-entries/${entryId}/counter`, body),
   disputeWorkEntry: (id: number, entryId: number, dispute_reason?: string) =>
     req('PATCH', `/api/v1/buyer/bookings/${id}/work-entries/${entryId}/dispute`, { dispute_reason }),
-  /** Escrow mode: (re)create the Stripe Checkout session for a booking's hold. Returns { checkout_url, session_id }. */
+  /** Escrow mode: (re)create the Escrow.com pay transaction for a booking. Returns { checkout_url, session_id }. */
   createEscrowCheckout: (id: number) =>
     req('POST', `/api/v1/buyer/bookings/${id}/escrow/checkout`),
   /** Escrow mode: return-page fallback if the webhook hasn't confirmed yet. */
-  confirmEscrowCheckout: (id: number, sessionId: string) =>
-    req('GET', `/api/v1/buyer/bookings/${id}/escrow/confirm?session_id=${encodeURIComponent(sessionId)}`),
+  confirmEscrowCheckout: (id: number, sessionId?: string) =>
+    req('GET', `/api/v1/buyer/bookings/${id}/escrow/confirm${sessionId ? `?session_id=${encodeURIComponent(sessionId)}` : ''}`),
+  /** Escrow mode: same return-page fallback, scoped to one milestone's own pay transaction. */
+  confirmMilestoneCheckout: (id: number, milestoneId: number) =>
+    req('GET', `/api/v1/buyer/bookings/${id}/milestones/${milestoneId}/escrow/confirm`),
 };
 
 // -- Seller Bookings ---------------------------------------------------

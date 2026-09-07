@@ -162,13 +162,19 @@ export default function BuyerBookingDetailPage() {
 
   useEffect(() => { fetchBooking(); }, [fetchBooking]);
 
-  // Handle the Stripe Checkout return for an escrow hold/milestone charge —
-  // mirrors buyer/wallet/page.tsx's ?topup=success&session_id=... handling.
+  // Handle the Escrow.com pay-transaction return for a whole-booking payment
+  // or a single milestone's own payment — mirrors buyer/wallet/page.tsx's
+  // ?topup=success&session_id=... handling. `milestone_id` present means this
+  // was a per-milestone transaction (see escrow.service.js's returnUrl).
   useEffect(() => {
     const status = searchParams.get('escrow');
     const sessionId = searchParams.get('session_id');
-    if (status === 'success' && sessionId) {
-      buyerBookingApi.confirmEscrowCheckout(Number(id), sessionId)
+    const milestoneId = searchParams.get('milestone_id');
+    if (status === 'success') {
+      const confirm = milestoneId
+        ? buyerBookingApi.confirmMilestoneCheckout(Number(id), Number(milestoneId))
+        : buyerBookingApi.confirmEscrowCheckout(Number(id), sessionId || undefined);
+      confirm
         .then(() => { toast.success('Payment confirmed!'); fetchBooking(); })
         .catch(() => fetchBooking())
         .finally(() => router.replace(`/buyer/bookings/${id}`));
@@ -196,23 +202,20 @@ export default function BuyerBookingDetailPage() {
     if (!booking) return;
     setAccepting(true);
     try {
-      await buyerBookingApi.accept(booking.id);
+      const res = await buyerBookingApi.accept(booking.id);
+      // Escrow mode: the backend doesn't settle synchronously — it hands back
+      // an Escrow.com pay transaction for the full booking amount.
+      if (res?.data?.escrow && res.data.checkout_url) {
+        window.location.href = res.data.checkout_url;
+        return;
+      }
       toast.success('Work accepted — payment released to the seller!');
       // Prompt for a rating right away instead of leaving the buyer to notice
       // a review option after the booking status changes.
       setReviewRating(0); setReviewComment(''); setReviewMsg(''); setReviewOpen(true);
       await fetchBooking();
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : '';
-      // Escrow bookings that haven't had their hold placed/completed yet —
-      // send the buyer to complete that Stripe Checkout instead of a wallet top-up.
-      if (booking.payment_mode === 'escrow' && /escrow payment/i.test(msg)) {
-        try {
-          const checkout = await buyerBookingApi.createEscrowCheckout(booking.id);
-          if (checkout?.data?.checkout_url) { window.location.href = checkout.data.checkout_url; return; }
-        } catch { /* fall through to the generic error toast below */ }
-      }
-      toast.error(msg || 'Failed to accept — please add funds to your wallet and try again');
+      toast.error(e instanceof Error ? e.message : 'Failed to accept — please add funds to your wallet and try again');
     } finally { setAccepting(false); }
   };
 
@@ -242,7 +245,7 @@ export default function BuyerBookingDetailPage() {
     try {
       const res = await buyerBookingApi.acceptMilestone(booking.id, milestoneId);
       // Escrow mode: the backend doesn't settle synchronously — it hands back
-      // a Stripe Checkout session for this milestone's own charge.
+      // an Escrow.com pay transaction for this milestone's own charge.
       if (res?.data?.escrow && res.data.checkout_url) {
         window.location.href = res.data.checkout_url;
         return;

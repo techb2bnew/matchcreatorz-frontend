@@ -380,11 +380,11 @@ export default function AdminSettingsPage() {
               <div className="bg-[#e8f4fd] border border-[#4f9ef8]/30 rounded-2xl p-4 flex items-start gap-3">
                 <i className="fa fa-info-circle text-[#4f9ef8] text-lg mt-0.5 flex-shrink-0" />
                 <p className="text-sm text-[#1e40af]">
-                  When enabled, fixed-price and milestone bookings are paid via a real Stripe hold/charge instead of
-                  the wallet — the buyer&apos;s card is charged directly and funds are released to the seller on
-                  acceptance. Hourly bookings always stay on the wallet flow. Uses the existing Stripe keys already
-                  configured for the platform — no extra setup needed. Turning this off only affects new bookings;
-                  bookings already in escrow are unaffected.
+                  When enabled, fixed-price and milestone bookings are paid via Escrow.com instead of the wallet —
+                  funds only leave the buyer&apos;s card once a milestone (or the final delivery) is actually
+                  accepted, and are released to the seller from Escrow.com&apos;s own custody at that point. Hourly
+                  bookings always stay on the wallet flow. Requires Escrow.com API credentials to be configured on
+                  the server. Turning this off only affects new bookings; bookings already in escrow are unaffected.
                 </p>
               </div>
 
@@ -392,7 +392,7 @@ export default function AdminSettingsPage() {
                 <h3 className="text-base font-bold text-gray-800 mb-1 flex items-center gap-2">
                   <i className="fa fa-shield text-[#e84545]" /> Delayed Payments
                 </h3>
-                <p className="text-xs text-gray-400 mb-6">Protect buyers with Stripe-backed delayed transfers on fixed-price and milestone bookings</p>
+                <p className="text-xs text-gray-400 mb-6">Protect buyers with Escrow.com-backed delayed transfers on fixed-price and milestone bookings</p>
 
                 <div className="flex items-center justify-between bg-[#f7f7f7] border border-[#e8e8e8] rounded-2xl p-5">
                   <div className="flex items-center gap-4">
@@ -403,7 +403,7 @@ export default function AdminSettingsPage() {
                       <p className="text-sm font-bold text-gray-800">{escrowEnabled ? 'Delayed Payments is Enabled' : 'Delayed Payments is Disabled'}</p>
                       <p className="text-xs text-gray-400 mt-0.5">
                         {escrowEnabled
-                          ? 'New fixed-price and milestone bookings will use Stripe delayed transfers '
+                          ? 'New fixed-price and milestone bookings will use Escrow.com delayed transfers '
                           : 'New bookings continue to use the standard wallet flow'}
                       </p>
                     </div>
