@@ -25,6 +25,8 @@ interface Milestone {
   attachments: BookingAttachment[];
   notes: string | null;
   dispute_reason: string | null;
+  payment_type: 'direct' | 'hold';
+  payment_status: 'unpaid' | 'held' | 'released';
 }
 interface WorkEntry {
   id: number;
@@ -40,6 +42,8 @@ interface WorkEntry {
   counter_note: string | null;
   dispute_reason: string | null;
   attachments: BookingAttachment[];
+  payment_type: 'direct' | 'hold';
+  payment_status: 'unpaid' | 'held' | 'released';
 }
 interface Booking {
   id: number;
@@ -57,6 +61,7 @@ interface Booking {
   delivery_days: number | null;
   attachments: BookingAttachment[];
   submission_notes: string | null;
+  payment_mode: 'wallet' | 'escrow';
   createdAt: string;
   buyer: BookingUser | null;
   seller: BookingUser | null;
@@ -441,7 +446,14 @@ export default function SellerBookingDetailPage() {
                         <div key={e.id} className="border border-gray-100 rounded-xl p-3">
                           <div className="flex items-center justify-between gap-2">
                             <p className="text-sm font-semibold text-gray-900">{e.work_date}</p>
-                            <span className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${ecfg.color}`}>{ecfg.label}</span>
+                            <div className="flex items-center gap-1.5">
+                              {booking.payment_mode === 'escrow' && e.payment_type === 'hold' && e.payment_status === 'held' && (
+                                <span className="px-2 py-0.5 rounded-full text-[11px] font-medium flex items-center gap-1 bg-emerald-100 text-emerald-700">
+                                  <i className="fa fa-shield" /> Held
+                                </span>
+                              )}
+                              <span className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${ecfg.color}`}>{ecfg.label}</span>
+                            </div>
                           </div>
                           {e.description && <p className="text-xs text-gray-500 mt-1">{e.description}</p>}
                           <p className="text-xs text-gray-400 mt-1">
@@ -507,7 +519,14 @@ export default function SellerBookingDetailPage() {
                       <div key={m.id} className="border border-gray-100 rounded-xl p-3">
                         <div className="flex items-center justify-between gap-2">
                           <p className="text-sm font-semibold text-gray-900">{m.title}</p>
-                          <span className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${mcfg.color}`}>{mcfg.label}</span>
+                          <div className="flex items-center gap-1.5">
+                            {booking.payment_mode === 'escrow' && m.payment_type === 'hold' && m.payment_status === 'held' && (
+                              <span className="px-2 py-0.5 rounded-full text-[11px] font-medium flex items-center gap-1 bg-emerald-100 text-emerald-700">
+                                <i className="fa fa-shield" /> Held
+                              </span>
+                            )}
+                            <span className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${mcfg.color}`}>{mcfg.label}</span>
+                          </div>
                         </div>
                         <div className="flex items-center justify-between mt-1">
                           <p className="text-xs text-gray-400">

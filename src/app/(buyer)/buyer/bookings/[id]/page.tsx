@@ -25,6 +25,8 @@ interface Milestone {
   counter_note: string | null;
   attachments: BookingAttachment[];
   notes: string | null;
+  payment_type: 'direct' | 'hold';
+  payment_status: 'unpaid' | 'held' | 'released';
 }
 interface WorkEntry {
   id: number;
@@ -40,6 +42,8 @@ interface WorkEntry {
   counter_note: string | null;
   dispute_reason: string | null;
   attachments: BookingAttachment[];
+  payment_type: 'direct' | 'hold';
+  payment_status: 'unpaid' | 'held' | 'released';
 }
 interface Booking {
   id: number;
@@ -58,6 +62,7 @@ interface Booking {
   attachments: BookingAttachment[];
   submission_notes: string | null;
   payment_mode: 'wallet' | 'escrow';
+  payment_type: 'direct' | 'hold';
   payment_status: 'unpaid' | 'held' | 'released' | 'refunded';
   createdAt: string;
   seller: BookingUser | null;
@@ -121,6 +126,9 @@ export default function BuyerBookingDetailPage() {
   const [rejectMilestoneId, setRejectMilestoneId] = useState<number | null>(null);
   const [milestoneReason, setMilestoneReason] = useState('');
   const [milestoneActing, setMilestoneActing] = useState(false);
+  // Which of the two Direct/Hold buttons was actually clicked, so only that
+  // one shows "Processing..." — milestoneActing above still disables both.
+  const [payingMilestone, setPayingMilestone] = useState<{ id: number; type: 'direct' | 'hold' } | null>(null);
 
   // Milestone counter form
   const [counterMilestoneId, setCounterMilestoneId] = useState<number | null>(null);
@@ -129,6 +137,9 @@ export default function BuyerBookingDetailPage() {
 
   // Accept & Pay (whole booking, non-milestone)
   const [accepting, setAccepting] = useState(false);
+  // Which of the two Direct/Hold buttons was actually clicked, for the same
+  // reason as payingMilestone above.
+  const [acceptingType, setAcceptingType] = useState<'direct' | 'hold' | null>(null);
 
   // Milestone setup (buyer can split a booking too, same as seller)
   const [showMilestoneSetup, setShowMilestoneSetup] = useState(false);
@@ -137,6 +148,9 @@ export default function BuyerBookingDetailPage() {
 
   // Work entries (hourly bookings)
   const [entryActing, setEntryActing] = useState<number | null>(null);
+  // Which of the two Direct/Hold buttons was actually clicked, for the same
+  // reason as payingMilestone/acceptingType above.
+  const [payingEntry, setPayingEntry] = useState<{ id: number; type: 'direct' | 'hold' } | null>(null);
   const [counterEntryId, setCounterEntryId] = useState<number | null>(null);
   const [counterHours,   setCounterHours]   = useState('');
   const [counterNote,    setCounterNote]    = useState('');
@@ -192,28 +206,27 @@ export default function BuyerBookingDetailPage() {
     } finally { setActing(false); }
   };
 
-  const acceptWork = async () => {
+  const acceptWork = async (paymentType?: 'direct' | 'hold') => {
     if (!booking) return;
     setAccepting(true);
+    setAcceptingType(paymentType ?? null);
     try {
-      await buyerBookingApi.accept(booking.id);
+      const res = await buyerBookingApi.accept(booking.id, paymentType);
+      // Escrow mode: the backend doesn't settle synchronously on the first
+      // call — it hands back a Stripe Checkout session for this booking's
+      // own charge or hold.
+      if (res?.data?.escrow && res.data.checkout_url) {
+        window.location.href = res.data.checkout_url;
+        return;
+      }
       toast.success('Work accepted — payment released to the seller!');
       // Prompt for a rating right away instead of leaving the buyer to notice
       // a review option after the booking status changes.
       setReviewRating(0); setReviewComment(''); setReviewMsg(''); setReviewOpen(true);
       await fetchBooking();
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : '';
-      // Escrow bookings that haven't had their hold placed/completed yet —
-      // send the buyer to complete that Stripe Checkout instead of a wallet top-up.
-      if (booking.payment_mode === 'escrow' && /escrow payment/i.test(msg)) {
-        try {
-          const checkout = await buyerBookingApi.createEscrowCheckout(booking.id);
-          if (checkout?.data?.checkout_url) { window.location.href = checkout.data.checkout_url; return; }
-        } catch { /* fall through to the generic error toast below */ }
-      }
-      toast.error(msg || 'Failed to accept — please add funds to your wallet and try again');
-    } finally { setAccepting(false); }
+      toast.error(e instanceof Error ? e.message : 'Failed to accept — please add funds to your wallet and try again');
+    } finally { setAccepting(false); setAcceptingType(null); }
   };
 
   const submitReview = async () => {
@@ -236,13 +249,14 @@ export default function BuyerBookingDetailPage() {
     } finally { setReviewLoading(false); }
   };
 
-  const acceptMilestone = async (milestoneId: number) => {
+  const acceptMilestone = async (milestoneId: number, paymentType?: 'direct' | 'hold') => {
     if (!booking) return;
     setMilestoneActing(true);
+    if (paymentType) setPayingMilestone({ id: milestoneId, type: paymentType });
     try {
-      const res = await buyerBookingApi.acceptMilestone(booking.id, milestoneId);
+      const res = await buyerBookingApi.acceptMilestone(booking.id, milestoneId, paymentType);
       // Escrow mode: the backend doesn't settle synchronously — it hands back
-      // a Stripe Checkout session for this milestone's own charge.
+      // a Stripe Checkout session for this milestone's own charge or hold.
       if (res?.data?.escrow && res.data.checkout_url) {
         window.location.href = res.data.checkout_url;
         return;
@@ -251,7 +265,7 @@ export default function BuyerBookingDetailPage() {
       await fetchBooking();
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : 'Failed to accept — please add funds to your wallet and try again');
-    } finally { setMilestoneActing(false); }
+    } finally { setMilestoneActing(false); setPayingMilestone(null); }
   };
 
   // ── Milestone setup ─────────────────────────────────────────────────────
@@ -318,16 +332,24 @@ export default function BuyerBookingDetailPage() {
   const hasMilestones = (b: Booking) => Array.isArray(b.milestones) && b.milestones.length > 0;
 
   // ── Hourly work entries ──────────────────────────────────────────────
-  const approveEntry = async (entryId: number) => {
+  const approveEntry = async (entryId: number, paymentType?: 'direct' | 'hold') => {
     if (!booking) return;
     setEntryActing(entryId);
+    if (paymentType) setPayingEntry({ id: entryId, type: paymentType });
     try {
-      await buyerBookingApi.approveWorkEntry(booking.id, entryId);
+      const res = await buyerBookingApi.approveWorkEntry(booking.id, entryId, paymentType);
+      // Escrow mode: the backend doesn't settle synchronously on the first
+      // call — it hands back a Stripe Checkout session for this entry's own
+      // charge or hold.
+      if (res?.data?.escrow && res.data.checkout_url) {
+        window.location.href = res.data.checkout_url;
+        return;
+      }
       toast.success('Entry approved — payment released to the seller!');
       await fetchBooking();
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : 'Failed to approve — please add funds to your wallet and try again');
-    } finally { setEntryActing(null); }
+    } finally { setEntryActing(null); setPayingEntry(null); }
   };
 
   const openCounterForm = (entryId: number) => {
@@ -396,9 +418,14 @@ export default function BuyerBookingDetailPage() {
                     <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${STATUS_CFG[booking.status]?.color}`}>
                       {STATUS_CFG[booking.status]?.label}
                     </span>
-                    {booking.payment_mode === 'escrow' && (
+                    {booking.payment_mode === 'escrow' && booking.payment_status === 'held' && (
                       <span className="px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-emerald-100 text-emerald-700 flex items-center gap-1">
                         <i className="fa fa-shield" /> Escrow protected
+                      </span>
+                    )}
+                    {booking.payment_mode === 'escrow' && booking.payment_status === 'unpaid' && (
+                      <span className="px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-amber-100 text-amber-700 flex items-center gap-1">
+                        <i className="fa fa-clock-o" /> Payment on delivery
                       </span>
                     )}
                   </div>
@@ -484,7 +511,14 @@ export default function BuyerBookingDetailPage() {
                         <div key={e.id} className="border border-gray-100 rounded-xl p-3">
                           <div className="flex items-center justify-between gap-2">
                             <p className="text-sm font-semibold text-gray-900">{e.work_date}</p>
-                            <span className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${ecfg.color}`}>{ecfg.label}</span>
+                            <div className="flex items-center gap-1.5">
+                              {booking.payment_mode === 'escrow' && e.payment_type === 'hold' && e.payment_status === 'held' && (
+                                <span className="px-2 py-0.5 rounded-full text-[11px] font-medium flex items-center gap-1 bg-emerald-100 text-emerald-700">
+                                  <i className="fa fa-shield" /> Held
+                                </span>
+                              )}
+                              <span className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${ecfg.color}`}>{ecfg.label}</span>
+                            </div>
                           </div>
                           {e.description && <p className="text-xs text-gray-500 mt-1">{e.description}</p>}
                           <p className="text-xs text-gray-400 mt-1">
@@ -510,26 +544,49 @@ export default function BuyerBookingDetailPage() {
                             </div>
                           )}
 
-                          {(e.status === 'pending' || (e.status === 'countered' && e.counter_by === 'seller')) && (
-                            <div className="flex gap-2 mt-2.5">
-                              <Button variant="primary" fullWidth disabled={entryActing === e.id}
-                                onClick={() => approveEntry(e.id)}>
-                                {entryActing === e.id
-                                  ? 'Processing...'
-                                  : e.status === 'countered' ? `Accept ${e.counter_hours}h` : 'Approve'}
-                              </Button>
-                              <Button variant="outline" fullWidth disabled={entryActing === e.id}
-                                onClick={() => openCounterForm(e.id)}>
-                                Counter
-                              </Button>
-                              {e.status === 'pending' && (
-                                <Button variant="outline" fullWidth className="text-red-600 border-red-200" disabled={entryActing === e.id}
-                                  onClick={() => { setDisputeEntryId(e.id); setEntryDisputeReason(''); }}>
-                                  Dispute
-                                </Button>
-                              )}
-                            </div>
-                          )}
+                          {(e.status === 'pending' || (e.status === 'countered' && e.counter_by === 'seller')) && (() => {
+                            const acting = entryActing === e.id;
+                            const counterLabel = e.status === 'countered' ? `${e.counter_hours}h` : null;
+                            // First click for an escrow-mode entry — nothing charged or
+                            // held yet, so the buyer picks how to pay right now (mirrors
+                            // the milestone flow).
+                            const choosingPayment = booking.payment_mode === 'escrow' && e.payment_status === 'unpaid';
+                            return (
+                              <>
+                                {choosingPayment ? (
+                                  <div className="flex gap-2 mt-2.5">
+                                    <Button variant="primary" fullWidth disabled={acting}
+                                      onClick={() => approveEntry(e.id, 'direct')}>
+                                      {payingEntry?.id === e.id && payingEntry.type === 'direct' ? 'Processing...' : counterLabel ? `Pay ${counterLabel}` : 'Pay Directly'}
+                                    </Button>
+                                    <Button variant="outline" fullWidth disabled={acting}
+                                      onClick={() => approveEntry(e.id, 'hold')}>
+                                      {payingEntry?.id === e.id && payingEntry.type === 'hold' ? 'Processing...' : counterLabel ? `Pay & Hold ${counterLabel}` : 'Pay & Hold'}
+                                    </Button>
+                                  </div>
+                                ) : (
+                                  <div className="flex gap-2 mt-2.5">
+                                    <Button variant="primary" fullWidth disabled={acting}
+                                      onClick={() => approveEntry(e.id)}>
+                                      {acting ? 'Processing...' : counterLabel ? `Accept ${counterLabel}` : 'Approve'}
+                                    </Button>
+                                  </div>
+                                )}
+                                <div className="flex gap-2 mt-2">
+                                  <Button variant="outline" fullWidth disabled={acting}
+                                    onClick={() => openCounterForm(e.id)}>
+                                    Counter
+                                  </Button>
+                                  {e.status === 'pending' && (
+                                    <Button variant="outline" fullWidth className="text-red-600 border-red-200" disabled={acting}
+                                      onClick={() => { setDisputeEntryId(e.id); setEntryDisputeReason(''); }}>
+                                      Dispute
+                                    </Button>
+                                  )}
+                                </div>
+                              </>
+                            );
+                          })()}
 
                           {e.status === 'countered' && e.counter_by === 'buyer' && (
                             <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-2 mt-2">
@@ -572,7 +629,14 @@ export default function BuyerBookingDetailPage() {
                       <div key={m.id} className="border border-gray-100 rounded-xl p-3">
                         <div className="flex items-center justify-between gap-2">
                           <p className="text-sm font-semibold text-gray-900">{m.title}</p>
-                          <span className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${mcfg.color}`}>{mcfg.label}</span>
+                          <div className="flex items-center gap-1.5">
+                            {booking.payment_mode === 'escrow' && m.payment_type === 'hold' && m.payment_status === 'held' && (
+                              <span className="px-2 py-0.5 rounded-full text-[11px] font-medium flex items-center gap-1 bg-emerald-100 text-emerald-700">
+                                <i className="fa fa-shield" /> Held
+                              </span>
+                            )}
+                            <span className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${mcfg.color}`}>{mcfg.label}</span>
+                          </div>
                         </div>
                         <p className="text-xs text-gray-400 mt-1">
                           {formatCurrency(Number(m.amount))}
@@ -598,26 +662,51 @@ export default function BuyerBookingDetailPage() {
                           </div>
                         )}
 
-                        {(m.status === 'submitted' || (m.status === 'countered' && m.counter_by === 'seller')) && (
-                          <div className="flex gap-2 mt-2.5">
-                            <Button variant="primary" fullWidth disabled={milestoneActing}
-                              onClick={() => acceptMilestone(m.id)}>
-                              {milestoneActing
-                                ? 'Processing...'
-                                : m.status === 'countered' ? `Accept ${formatCurrency(Number(m.counter_amount))}` : 'Accept & Pay'}
-                            </Button>
-                            <Button variant="outline" fullWidth disabled={milestoneActing}
-                              onClick={() => openCounterMilestoneForm(m.id)}>
-                              Counter
-                            </Button>
-                            {m.status === 'submitted' && (
-                              <Button variant="outline" fullWidth className="text-red-600 border-red-200" disabled={milestoneActing}
-                                onClick={() => { setRejectMilestoneId(m.id); setMilestoneReason(''); }}>
-                                Reject
-                              </Button>
-                            )}
-                          </div>
-                        )}
+                        {(m.status === 'submitted' || (m.status === 'countered' && m.counter_by === 'seller')) && (() => {
+                          const amountLabel = m.status === 'countered' ? formatCurrency(Number(m.counter_amount)) : null;
+                          // First click for an escrow-mode milestone — nothing charged or
+                          // held yet, so the buyer picks how to pay right now. Once a
+                          // 'hold' choice comes back as held, this collapses to a single
+                          // Accept & Pay button that captures + releases it (mirrors the
+                          // whole-booking flow); a 'direct' choice settles on its own once
+                          // Stripe confirms, so there's no second click for that one.
+                          const choosingPayment = booking.payment_mode === 'escrow' && m.payment_status === 'unpaid';
+                          return (
+                            <>
+                              {choosingPayment ? (
+                                <div className="flex gap-2 mt-2.5">
+                                  <Button variant="primary" fullWidth disabled={milestoneActing}
+                                    onClick={() => acceptMilestone(m.id, 'direct')}>
+                                    {payingMilestone?.id === m.id && payingMilestone.type === 'direct' ? 'Processing...' : amountLabel ? `Pay ${amountLabel}` : 'Pay Directly'}
+                                  </Button>
+                                  <Button variant="outline" fullWidth disabled={milestoneActing}
+                                    onClick={() => acceptMilestone(m.id, 'hold')}>
+                                    {payingMilestone?.id === m.id && payingMilestone.type === 'hold' ? 'Processing...' : amountLabel ? `Pay & Hold ${amountLabel}` : 'Pay & Hold'}
+                                  </Button>
+                                </div>
+                              ) : (
+                                <div className="flex gap-2 mt-2.5">
+                                  <Button variant="primary" fullWidth disabled={milestoneActing}
+                                    onClick={() => acceptMilestone(m.id)}>
+                                    {milestoneActing ? 'Processing...' : amountLabel ? `Accept ${amountLabel}` : 'Accept & Pay'}
+                                  </Button>
+                                </div>
+                              )}
+                              <div className="flex gap-2 mt-2">
+                                <Button variant="outline" fullWidth disabled={milestoneActing}
+                                  onClick={() => openCounterMilestoneForm(m.id)}>
+                                  Counter
+                                </Button>
+                                {m.status === 'submitted' && (
+                                  <Button variant="outline" fullWidth className="text-red-600 border-red-200" disabled={milestoneActing}
+                                    onClick={() => { setRejectMilestoneId(m.id); setMilestoneReason(''); }}>
+                                    Reject
+                                  </Button>
+                                )}
+                              </div>
+                            </>
+                          );
+                        })()}
 
                         {m.status === 'countered' && m.counter_by === 'buyer' && (
                           <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-2 mt-2">
@@ -644,10 +733,23 @@ export default function BuyerBookingDetailPage() {
 
                 {booking.status === 'amidst_completion' && !hasMilestones(booking) && (
                   <>
-                    <Button variant="primary" fullWidth disabled={accepting}
-                      onClick={acceptWork}>
-                      {accepting ? 'Processing...' : 'Accept & Pay'}
-                    </Button>
+                    {booking.payment_mode === 'escrow' && booking.payment_status === 'unpaid' ? (
+                      <div className="flex gap-2">
+                        <Button variant="primary" fullWidth disabled={accepting}
+                          onClick={() => acceptWork('direct')}>
+                          {acceptingType === 'direct' ? 'Processing...' : 'Pay Directly'}
+                        </Button>
+                        <Button variant="outline" fullWidth disabled={accepting}
+                          onClick={() => acceptWork('hold')}>
+                          {acceptingType === 'hold' ? 'Processing...' : 'Pay & Hold'}
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button variant="primary" fullWidth disabled={accepting}
+                        onClick={() => acceptWork()}>
+                        {accepting ? 'Processing...' : 'Accept & Pay'}
+                      </Button>
+                    )}
                     <Button variant="outline" fullWidth disabled={acting}
                       className="text-red-600 border-red-200"
                       onClick={() => setShowReject(true)}>

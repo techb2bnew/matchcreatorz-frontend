@@ -283,17 +283,21 @@ export const buyerBookingApi = {
     req('POST', `/api/v1/buyer/bookings`, body),
   createMilestones: (id: number, milestones: { title: string; amount: number; duration_days?: number | null }[]) =>
     req('POST', `/api/v1/buyer/bookings/${id}/milestones`, { milestones }),
-  accept: (id: number) => req('PATCH', `/api/v1/buyer/bookings/${id}/accept`),
+  /** Escrow mode, first call only: pass payment_type ('direct' default, or 'hold') to choose how this booking is paid. */
+  accept: (id: number, paymentType?: 'direct' | 'hold') =>
+    req('PATCH', `/api/v1/buyer/bookings/${id}/accept`, paymentType ? { payment_type: paymentType } : undefined),
   reject: (id: number, dispute_reason?: string) => req('PATCH', `/api/v1/buyer/bookings/${id}/reject`, { dispute_reason }),
   cancel: (id: number, cancel_reason?: string)  => req('PATCH', `/api/v1/buyer/bookings/${id}/cancel`, { cancel_reason }),
-  acceptMilestone: (id: number, milestoneId: number) =>
-    req('PATCH', `/api/v1/buyer/bookings/${id}/milestones/${milestoneId}/accept`),
+  /** Escrow mode, first call only: pass payment_type ('direct' default, or 'hold') to choose how this milestone is paid. */
+  acceptMilestone: (id: number, milestoneId: number, paymentType?: 'direct' | 'hold') =>
+    req('PATCH', `/api/v1/buyer/bookings/${id}/milestones/${milestoneId}/accept`, paymentType ? { payment_type: paymentType } : undefined),
   rejectMilestone: (id: number, milestoneId: number, dispute_reason?: string) =>
     req('PATCH', `/api/v1/buyer/bookings/${id}/milestones/${milestoneId}/reject`, { dispute_reason }),
   counterMilestone: (id: number, milestoneId: number, body: { counter_amount: number; counter_note?: string }) =>
     req('PATCH', `/api/v1/buyer/bookings/${id}/milestones/${milestoneId}/counter`, body),
-  approveWorkEntry: (id: number, entryId: number) =>
-    req('PATCH', `/api/v1/buyer/bookings/${id}/work-entries/${entryId}/approve`),
+  /** Escrow mode, first call only: pass payment_type ('direct' default, or 'hold') to choose how this entry is paid. */
+  approveWorkEntry: (id: number, entryId: number, paymentType?: 'direct' | 'hold') =>
+    req('PATCH', `/api/v1/buyer/bookings/${id}/work-entries/${entryId}/approve`, paymentType ? { payment_type: paymentType } : undefined),
   counterWorkEntry: (id: number, entryId: number, body: { counter_hours: number; counter_note?: string }) =>
     req('PATCH', `/api/v1/buyer/bookings/${id}/work-entries/${entryId}/counter`, body),
   disputeWorkEntry: (id: number, entryId: number, dispute_reason?: string) =>
