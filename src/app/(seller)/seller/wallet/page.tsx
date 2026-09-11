@@ -7,6 +7,7 @@ import StatCard from '@/components/ui/StatCard';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Modal from '@/components/ui/Modal';
+import TransactionRow, { type Txn } from '@/components/wallet/TransactionRow';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { walletApi } from '@/lib/adminApi';
 import toast from 'react-hot-toast';
@@ -16,6 +17,8 @@ const TX_LABEL: Record<string, string> = {
   topup: 'Top-up', booking_payment: 'Booking payment', booking_refund: 'Refund',
   earning: 'Booking earning', platform_fee: 'Platform fee', withdrawal: 'Withdrawal',
   withdrawal_reversal: 'Withdrawal returned', adjustment: 'Adjustment',
+  escrow_hold: 'Hold Payment (pending release)',
+  escrow_payment: 'Paid via Stripe',
 };
 const WD_BADGE: Record<string, string> = {
   pending: 'bg-amber-100 text-amber-700', approved: 'bg-blue-100 text-blue-700',
@@ -23,7 +26,6 @@ const WD_BADGE: Record<string, string> = {
 };
 
 interface Summary { balance: number; pending_withdraw: number; total_in: number; total_out: number; connected: boolean; stripe_account_status: string }
-interface Txn { id: number; amount: string | number; type: string; note?: string; created_at?: string; createdAt?: string }
 interface Wd { id: number; amount: string | number; status: string; created_at?: string; createdAt?: string }
 
 function SellerWalletInner() {
@@ -38,20 +40,25 @@ function SellerWalletInner() {
   const [busy, setBusy] = useState(false);
   const [cfg, setCfg] = useState<{ min_withdraw: number }>({ min_withdraw: 50 });
   const [search, setSearch] = useState('');
+  // 'hold' filters to escrow_hold entries — every Pay & Hold placed, whether
+  // still pending release or already resolved (released/cancelled).
+  const [txTab, setTxTab] = useState<'all' | 'hold'>('all');
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const load = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     try {
       const [s, t, w, c] = await Promise.all([
-        walletApi.connectStatus(), walletApi.transactions({ limit: 50, search: search || undefined }), walletApi.myWithdrawals({ limit: 20 }), walletApi.config(),
+        walletApi.connectStatus(),
+        walletApi.transactions({ limit: 50, search: search || undefined, type: txTab === 'hold' ? 'escrow_hold' : undefined }),
+        walletApi.myWithdrawals({ limit: 20 }), walletApi.config(),
       ]);
       setSummary(s.data); setTxns(t.data || []); setWds(w.data || []); setCfg(c.data);
     } catch (e) {
       if (!silent) toast.error((e as Error).message);
       else console.error('Silent wallet refresh failed:', e);
     } finally { setLoading(false); }
-  }, [search]);
+  }, [search, txTab]);
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -156,31 +163,28 @@ function SellerWalletInner() {
             />
           </div>
         </div>
+        <div className="flex items-center gap-2 px-4 pt-3">
+          {(['all', 'hold'] as const).map((tabKey) => (
+            <button
+              key={tabKey}
+              onClick={() => setTxTab(tabKey)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${txTab === tabKey ? 'bg-[#e84545] text-white' : 'bg-gray-50 text-gray-500 hover:bg-gray-100'}`}
+            >
+              {tabKey === 'all' ? 'All Transactions' : 'Hold Payments'}
+            </button>
+          ))}
+        </div>
         {loading ? (
           <div className="p-8 text-center text-gray-400 text-sm">Loading…</div>
         ) : txns.length === 0 ? (
           <div className="p-8 text-center text-gray-400 text-sm">
-            {search.trim() ? 'No transactions match your search.' : 'No transactions yet.'}
+            {search.trim() ? 'No transactions match your search.' : txTab === 'hold' ? 'No hold payments yet.' : 'No transactions yet.'}
           </div>
         ) : (
           <div className="divide-y divide-gray-50">
-            {txns.map((t) => {
-              const amt = Number(t.amount); const credit = amt >= 0;
-              return (
-                <div key={t.id} className="flex items-center gap-4 px-5 py-4">
-                  <div className={`p-2.5 rounded-xl ${credit ? 'bg-green-50' : 'bg-red-50'}`}>
-                    <i className={`fa ${credit ? 'fa-arrow-down text-green-600' : 'fa-arrow-up text-red-500'} text-base`} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">{t.note || TX_LABEL[t.type] || t.type}</p>
-                    <p className="text-xs text-gray-400">{formatDate(t.created_at || t.createdAt || '')}</p>
-                  </div>
-                  <p className={`font-bold text-base ${credit ? 'text-green-600' : 'text-red-500'}`}>
-                    {credit ? '+' : '-'}{formatCurrency(Math.abs(amt))}
-                  </p>
-                </div>
-              );
-            })}
+            {txns.map((t) => (
+              <TransactionRow key={t.id} t={t} label={TX_LABEL[t.type] || t.type} />
+            ))}
           </div>
         )}
       </Card>

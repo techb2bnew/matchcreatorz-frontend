@@ -449,7 +449,7 @@ export default function SellerBookingDetailPage() {
                             <div className="flex items-center gap-1.5">
                               {booking.payment_mode === 'escrow' && e.payment_type === 'hold' && e.payment_status === 'held' && (
                                 <span className="px-2 py-0.5 rounded-full text-[11px] font-medium flex items-center gap-1 bg-emerald-100 text-emerald-700">
-                                  <i className="fa fa-shield" /> Held
+                                  <i className="fa fa-shield" /> Hold
                                 </span>
                               )}
                               <span className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${ecfg.color}`}>{ecfg.label}</span>
@@ -522,7 +522,7 @@ export default function SellerBookingDetailPage() {
                           <div className="flex items-center gap-1.5">
                             {booking.payment_mode === 'escrow' && m.payment_type === 'hold' && m.payment_status === 'held' && (
                               <span className="px-2 py-0.5 rounded-full text-[11px] font-medium flex items-center gap-1 bg-emerald-100 text-emerald-700">
-                                <i className="fa fa-shield" /> Held
+                                <i className="fa fa-shield" /> Hold
                               </span>
                             )}
                             <span className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${mcfg.color}`}>{mcfg.label}</span>

@@ -6,6 +6,7 @@ import Card, { CardTitle } from '@/components/ui/Card';
 import StatCard from '@/components/ui/StatCard';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
+import EmbeddedCheckoutModal from '@/components/payments/EmbeddedCheckoutModal';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { sellerConnectApi } from '@/lib/adminApi';
 import { Spinner } from '@/components/ui/Loader';
@@ -51,6 +52,7 @@ function ConnectsPageInner() {
   const [plans, setPlans]       = useState<Plan[]>(FALLBACK_PLANS);
   const [loading, setLoading]   = useState(true);
   const [buyingPlan, setBuyingPlan] = useState<string | null>(null);
+  const [checkoutClientSecret, setCheckoutClientSecret] = useState<string | null>(null);
 
   const load = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
@@ -76,7 +78,7 @@ function ConnectsPageInner() {
 
   useEffect(() => { load(); }, [load]);
 
-  // Pause while a plan purchase / Stripe redirect is in flight.
+  // Pause while a plan purchase session is being created.
   useAutoRefresh(() => load(true), 20000, !buyingPlan);
 
   // Plans are server-defined (price/connects are never trusted from the client)
@@ -106,9 +108,10 @@ function ConnectsPageInner() {
     setBuyingPlan(planId);
     try {
       const res = await sellerConnectApi.purchase(planId);
-      window.location.href = res.data.url; // redirect to Stripe Checkout
+      setCheckoutClientSecret(res.data.client_secret); // renders inline via EmbeddedCheckoutModal
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Failed to start purchase');
+    } finally {
       setBuyingPlan(null);
     }
   };
@@ -212,6 +215,15 @@ function ConnectsPageInner() {
           </div>
         )}
       </Card>
+
+      {checkoutClientSecret && process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY && (
+        <EmbeddedCheckoutModal
+          clientSecret={checkoutClientSecret}
+          publishableKey={process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY}
+          title="Buy Connects"
+          onClose={() => setCheckoutClientSecret(null)}
+        />
+      )}
     </DashboardLayout>
   );
 }

@@ -288,21 +288,29 @@ export const buyerBookingApi = {
     req('PATCH', `/api/v1/buyer/bookings/${id}/accept`, paymentType ? { payment_type: paymentType } : undefined),
   reject: (id: number, dispute_reason?: string) => req('PATCH', `/api/v1/buyer/bookings/${id}/reject`, { dispute_reason }),
   cancel: (id: number, cancel_reason?: string)  => req('PATCH', `/api/v1/buyer/bookings/${id}/cancel`, { cancel_reason }),
+  /** Releases the Stripe hold before it's captured — booking itself is untouched. */
+  cancelHold: (id: number) => req('PATCH', `/api/v1/buyer/bookings/${id}/cancel-hold`),
   /** Escrow mode, first call only: pass payment_type ('direct' default, or 'hold') to choose how this milestone is paid. */
   acceptMilestone: (id: number, milestoneId: number, paymentType?: 'direct' | 'hold') =>
     req('PATCH', `/api/v1/buyer/bookings/${id}/milestones/${milestoneId}/accept`, paymentType ? { payment_type: paymentType } : undefined),
   rejectMilestone: (id: number, milestoneId: number, dispute_reason?: string) =>
     req('PATCH', `/api/v1/buyer/bookings/${id}/milestones/${milestoneId}/reject`, { dispute_reason }),
+  /** Releases the Stripe hold before it's captured — milestone itself is untouched. */
+  cancelMilestoneHold: (id: number, milestoneId: number) =>
+    req('PATCH', `/api/v1/buyer/bookings/${id}/milestones/${milestoneId}/cancel-hold`),
   counterMilestone: (id: number, milestoneId: number, body: { counter_amount: number; counter_note?: string }) =>
     req('PATCH', `/api/v1/buyer/bookings/${id}/milestones/${milestoneId}/counter`, body),
   /** Escrow mode, first call only: pass payment_type ('direct' default, or 'hold') to choose how this entry is paid. */
   approveWorkEntry: (id: number, entryId: number, paymentType?: 'direct' | 'hold') =>
     req('PATCH', `/api/v1/buyer/bookings/${id}/work-entries/${entryId}/approve`, paymentType ? { payment_type: paymentType } : undefined),
+  /** Releases the Stripe hold before it's captured — work entry itself is untouched. */
+  cancelWorkEntryHold: (id: number, entryId: number) =>
+    req('PATCH', `/api/v1/buyer/bookings/${id}/work-entries/${entryId}/cancel-hold`),
   counterWorkEntry: (id: number, entryId: number, body: { counter_hours: number; counter_note?: string }) =>
     req('PATCH', `/api/v1/buyer/bookings/${id}/work-entries/${entryId}/counter`, body),
   disputeWorkEntry: (id: number, entryId: number, dispute_reason?: string) =>
     req('PATCH', `/api/v1/buyer/bookings/${id}/work-entries/${entryId}/dispute`, { dispute_reason }),
-  /** Escrow mode: (re)create the Stripe Checkout session for a booking's hold. Returns { checkout_url, session_id }. */
+  /** Escrow mode: (re)create the embedded Stripe Checkout session for a booking's hold. Returns { client_secret, session_id }. */
   createEscrowCheckout: (id: number) =>
     req('POST', `/api/v1/buyer/bookings/${id}/escrow/checkout`),
   /** Escrow mode: return-page fallback if the webhook hasn't confirmed yet. */
@@ -571,7 +579,8 @@ export const sellerConnectApi = {
     return req('GET', `/api/v1/seller/connects/history${q ? `?${q}` : ''}`);
   },
   plans:          () => req('GET',  `/api/v1/seller/connects/plans`),
-  purchase:       (planId: string, body: { success_url?: string; cancel_url?: string } = {}) =>
+  /** Returns { client_secret, session_id, publishable_key } — mount Stripe's Embedded Checkout with client_secret. */
+  purchase:       (planId: string, body: { return_url?: string } = {}) =>
     req('POST', `/api/v1/seller/connects/purchase`, { plan_id: planId, ...body }),
   confirmPurchase: (sessionId: string) => req('GET', `/api/v1/seller/connects/purchase/confirm?session_id=${encodeURIComponent(sessionId)}`),
 };

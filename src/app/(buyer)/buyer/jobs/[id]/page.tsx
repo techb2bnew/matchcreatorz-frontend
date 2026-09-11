@@ -134,17 +134,31 @@ export default function JobDetailPage() {
       // hold/charge) is only ever collected later, when there's actual work
       // to pay for: Accept Work redirects to it if needed. See acceptWork in
       // services/buyer/booking.service.js.
-      await buyerJobApi.acceptBid(Number(id), acceptTarget.id);
+      const res = await buyerJobApi.acceptBid(Number(id), acceptTarget.id);
 
-      setActionMsg('Bid accepted! Booking created.');
-      setTimeout(() => {
-        setAcceptTarget(null);
-        setActionMsg('');
-        router.push('/buyer/bookings');
-      }, 1500);
+      // Reflect the accept immediately from data we already have — no extra
+      // fetch needed, and it means this page is never left showing a stale
+      // "Pending"/Accept button while the navigation below is in flight.
+      // Mirrors exactly what the backend just did: this bid → accepted,
+      // every other bid on the job → rejected.
+      const acceptedId = acceptTarget.id;
+      setBids((prev) => prev.map((b) => ({
+        ...b,
+        status: b.id === acceptedId ? 'accepted' : 'rejected',
+      })));
+      setJob((prev) => prev ? { ...prev, status: 'IN_PROGRESS' } : prev);
+
+      // Go straight to the booking that was just created instead of the
+      // generic list — skips an extra full fetch/render, and the buyer lands
+      // exactly where they'd want to be. No artificial delay either; the
+      // modal is about to unmount anyway once we navigate.
+      const bookingId = res?.data?.booking?.id;
+      setAcceptTarget(null);
+      router.push(bookingId ? `/buyer/bookings/${bookingId}` : '/buyer/bookings');
     } catch (e: unknown) {
       setActionMsg(e instanceof Error ? e.message : 'Failed to accept bid');
-    } finally { setAccepting(false); }
+      setAccepting(false);
+    }
   };
 
   const handleReject = async () => {

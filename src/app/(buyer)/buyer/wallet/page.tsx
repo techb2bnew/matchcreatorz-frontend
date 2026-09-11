@@ -4,11 +4,9 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import Card, { CardTitle } from '@/components/ui/Card';
 import StatCard from '@/components/ui/StatCard';
-import Button from '@/components/ui/Button';
-import Input from '@/components/ui/Input';
-import Modal from '@/components/ui/Modal';
-import { formatCurrency, formatDate } from '@/lib/utils';
-import { walletApi } from '@/lib/adminApi';
+import TransactionRow, { type Txn } from '@/components/wallet/TransactionRow';
+import { formatCurrency } from '@/lib/utils';
+import { walletApi, buyerBookingApi } from '@/lib/adminApi';
 import toast from 'react-hot-toast';
 import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 
@@ -17,10 +15,14 @@ const TX_LABEL: Record<string, string> = {
   earning: 'Earning', platform_fee: 'Platform fee', withdrawal: 'Withdrawal',
   withdrawal_reversal: 'Withdrawal reversed', adjustment: 'Adjustment',
   milestone_release: 'Milestone released to seller',
+  escrow_hold: 'Hold Payment',
+  escrow_payment: 'Paid via Stripe',
 };
 
-interface Summary { balance: number; total_in: number; total_out: number; currency: string; pending_payment?: number }
-interface Txn { id: number; amount: string | number; type: string; note?: string; created_at?: string; createdAt?: string; balance_after: string | number }
+interface Summary {
+  balance: number; total_in: number; total_out: number; currency: string;
+  pending_payment?: number; total_spent?: number; card_spent?: number; payments_count?: number;
+}
 
 function BuyerWalletInner() {
   const params = useSearchParams();
@@ -28,17 +30,20 @@ function BuyerWalletInner() {
   const [summary, setSummary] = useState<Summary | null>(null);
   const [txns, setTxns] = useState<Txn[]>([]);
   const [loading, setLoading] = useState(true);
-  const [addModal, setAddModal] = useState(false);
-  const [amount, setAmount] = useState('');
-  const [paying, setPaying] = useState(false);
   const [search, setSearch] = useState('');
-  const quickAmounts = [100, 250, 500, 1000];
+  // 'hold' filters to escrow_hold entries — every Pay & Hold placed, whether
+  // still pending release or already resolved (released/cancelled).
+  const [txTab, setTxTab] = useState<'all' | 'hold'>('all');
+  const [cancellingId, setCancellingId] = useState<number | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const load = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     try {
-      const [s, t] = await Promise.all([walletApi.summary(), walletApi.transactions({ limit: 50, search: search || undefined })]);
+      const [s, t] = await Promise.all([
+        walletApi.summary(),
+        walletApi.transactions({ limit: 50, search: search || undefined, type: txTab === 'hold' ? 'escrow_hold' : undefined }),
+      ]);
       setSummary(s.data); setTxns(t.data || []);
     } catch (e) {
       if (!silent) toast.error((e as Error).message);
@@ -46,7 +51,7 @@ function BuyerWalletInner() {
     } finally {
       if (!silent) setLoading(false);
     }
-  }, [search]);
+  }, [search, txTab]);
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -54,55 +59,49 @@ function BuyerWalletInner() {
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
   }, [load]);
 
-  // Handle Stripe Checkout return
+  // Kept so a top-up started before Add Money was disabled still confirms if
+  // the buyer lands back here with the Stripe return params.
   useEffect(() => {
     const status = params.get('topup');
     const sessionId = params.get('session_id');
     if (status === 'success' && sessionId) {
       walletApi.confirmTopup(sessionId)
-        .then(() => { toast.success('Wallet topped up!'); load(); })
+        .then(() => { toast.success('Payment confirmed'); load(); })
         .catch(() => load())
         .finally(() => router.replace('/buyer/wallet'));
-    } else if (status === 'cancel') {
-      toast('Top-up cancelled'); router.replace('/buyer/wallet');
     }
   }, [params, router, load]);
 
-  // Silent background refresh — pause while the Add Money modal is open
-  useAutoRefresh(() => load(true), 20000, !addModal);
+  useAutoRefresh(() => load(true), 20000);
 
-  const startTopup = async () => {
-    const amt = Number(amount);
-    if (!amt || amt <= 0) return;
-    setPaying(true);
+  const cancelHold = async (t: Txn) => {
+    setCancellingId(t.id);
     try {
-      const res = await walletApi.topup(amt);
-      window.location.href = res.data.url;   // redirect to Stripe Checkout
-    } catch (e) { toast.error((e as Error).message); setPaying(false); }
+      if (t.milestone_id) await buyerBookingApi.cancelMilestoneHold(t.booking_id!, t.milestone_id);
+      else if (t.work_entry_id) await buyerBookingApi.cancelWorkEntryHold(t.booking_id!, t.work_entry_id);
+      else if (t.booking_id) await buyerBookingApi.cancelHold(t.booking_id);
+      else throw new Error('Unable to determine what this hold belongs to');
+      toast.success('Hold cancelled — no charge was made');
+      load();
+    } catch (e) { toast.error((e as Error).message); }
+    finally { setCancellingId(null); }
   };
 
   return (
-    <DashboardLayout role="BUYER" title="My Wallet">
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <StatCard title="Wallet Balance" value={loading ? '…' : formatCurrency(summary?.balance || 0)} icon="fa-dollar"    color="red"   change="Available for bookings" />
+    <DashboardLayout role="BUYER" title="My Payments">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+        <StatCard title="Total Spent"     value={loading ? '…' : formatCurrency(summary?.total_spent || 0)} icon="fa-arrow-up"  color="red"    change="All time" />
+        <StatCard title="Payments"        value={loading ? '…' : String(summary?.payments_count ?? 0)}      icon="fa-credit-card" color="blue"  change="Bookings paid" />
         <StatCard title="Pending Payment" value={loading ? '…' : formatCurrency(summary?.pending_payment || 0)} icon="fa-clock-o" color="purple" change="Charged when you accept" />
-        <StatCard title="Total Spent"    value={loading ? '…' : formatCurrency(summary?.total_out || 0)} icon="fa-arrow-up"  color="blue"  change="All time" />
-        <StatCard title="Total Added"    value={loading ? '…' : formatCurrency(summary?.total_in || 0)} icon="fa-arrow-down" color="green" change="All time" />
       </div>
 
-      <Card padding="md" className="mb-6">
-        <div className="flex flex-wrap items-center gap-4">
-          <div className="flex-1 min-w-[200px]">
-            <h3 className="font-semibold text-gray-900">Add Money to Wallet</h3>
-            <p className="text-sm text-gray-400 mt-0.5">Funds added via Stripe. Charged from your balance the moment you accept a delivered booking or milestone.</p>
-          </div>
-          <div className="text-right">
-            <p className="text-2xl font-black text-[#e84545]">{formatCurrency(summary?.balance || 0)}</p>
-            <p className="text-xs text-gray-400">Current balance</p>
-          </div>
-          <Button leftIcon={<i className="fa fa-plus text-sm" />} onClick={() => setAddModal(true)}>Add Money</Button>
-        </div>
-      </Card>
+      {/*
+        "Add Money to Wallet" is intentionally disabled — buyers now pay each
+        booking directly by card through Stripe, so there is no wallet balance
+        to top up. To bring it back, restore the Add Money card, the top-up
+        modal and <EmbeddedCheckoutModal>, along with the addModal / amount /
+        paying / checkoutClientSecret state and the startTopup handler.
+      */}
 
       <Card padding="none">
         <div className="flex items-center justify-between gap-3 p-4 border-b border-gray-100 flex-wrap">
@@ -118,62 +117,35 @@ function BuyerWalletInner() {
             />
           </div>
         </div>
+        <div className="flex items-center gap-2 px-4 pt-3">
+          {(['all', 'hold'] as const).map((tabKey) => (
+            <button
+              key={tabKey}
+              onClick={() => setTxTab(tabKey)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${txTab === tabKey ? 'bg-[#e84545] text-white' : 'bg-gray-50 text-gray-500 hover:bg-gray-100'}`}
+            >
+              {tabKey === 'all' ? 'All Transactions' : 'Hold Payments'}
+            </button>
+          ))}
+        </div>
         {loading ? (
           <div className="p-8 text-center text-gray-400 text-sm">Loading…</div>
         ) : txns.length === 0 ? (
           <div className="p-8 text-center text-gray-400 text-sm">
-            {search.trim() ? 'No transactions match your search.' : 'No transactions yet.'}
+            {search.trim() ? 'No transactions match your search.' : txTab === 'hold' ? 'No hold payments yet.' : 'No transactions yet.'}
           </div>
         ) : (
           <div className="divide-y divide-gray-50">
-            {txns.map((t) => {
-              const amt = Number(t.amount);
-              const isInfo = amt === 0;
-              const credit = amt > 0;
-              return (
-                <div key={t.id} className="flex items-center gap-4 px-5 py-4">
-                  <div className={`p-2.5 rounded-xl ${isInfo ? 'bg-blue-50' : credit ? 'bg-green-50' : 'bg-red-50'}`}>
-                    <i className={`fa ${isInfo ? 'fa-info-circle text-blue-500' : credit ? 'fa-arrow-down text-green-600' : 'fa-arrow-up text-red-500'} text-base`} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">{t.note || TX_LABEL[t.type] || t.type}</p>
-                    <p className="text-xs text-gray-400">{formatDate(t.created_at || t.createdAt || '')}</p>
-                  </div>
-                  {!isInfo && (
-                    <p className={`font-bold text-base ${credit ? 'text-green-600' : 'text-red-500'}`}>
-                      {credit ? '+' : '-'}{formatCurrency(Math.abs(amt))}
-                    </p>
-                  )}
-                </div>
-              );
-            })}
+            {txns.map((t) => (
+              <TransactionRow
+                key={t.id} t={t} label={TX_LABEL[t.type] || t.type}
+                onCancelHold={() => cancelHold(t)}
+                cancelling={cancellingId === t.id}
+              />
+            ))}
           </div>
         )}
       </Card>
-
-      <Modal isOpen={addModal} onClose={() => setAddModal(false)} title="Add Money to Wallet">
-        <div className="space-y-4">
-          <div>
-            <p className="text-sm font-medium text-gray-700 mb-2">Quick amounts</p>
-            <div className="grid grid-cols-4 gap-2">
-              {quickAmounts.map((a) => (
-                <button key={a} onClick={() => setAmount(String(a))}
-                  className={`py-2.5 rounded-xl border text-sm font-semibold transition-all ${amount === String(a) ? 'border-[#e84545] bg-[#fff0f0] text-[#e84545]' : 'border-gray-200 text-gray-600 hover:border-gray-300'}`}>
-                  ${a}
-                </button>
-              ))}
-            </div>
-          </div>
-          <Input label="Custom amount" type="number" placeholder="Enter amount" leftIcon={<i className="fa fa-dollar text-sm" />} value={amount} onChange={(e) => setAmount(e.target.value)} />
-          <div className="bg-gray-50 rounded-xl p-3 text-xs text-gray-500">💳 You'll be redirected to Stripe to pay securely, then back here.</div>
-          <div className="flex gap-3">
-            <Button variant="outline" fullWidth onClick={() => setAddModal(false)}>Cancel</Button>
-            <Button fullWidth leftIcon={<i className="fa fa-credit-card text-sm" />} disabled={!amount || paying} onClick={startTopup}>
-              {paying ? 'Redirecting…' : 'Pay via Stripe'}
-            </Button>
-          </div>
-        </div>
-      </Modal>
     </DashboardLayout>
   );
 }

@@ -6,10 +6,11 @@ import MessageButton from '@/components/chat/MessageButton';
 import Card from '@/components/ui/Card';
 import Avatar from '@/components/ui/Avatar';
 import Modal from '@/components/ui/Modal';
+import EmbeddedCheckoutModal from '@/components/payments/EmbeddedCheckoutModal';
 import Button from '@/components/ui/Button';
 import StarPicker from '@/components/ui/StarPicker';
 import { formatCurrency, formatBookingAmount } from '@/lib/utils';
-import { buyerBookingApi, buyerReviewApi, BookingAttachment } from '@/lib/adminApi';
+import { buyerBookingApi, buyerReviewApi, walletApi, BookingAttachment } from '@/lib/adminApi';
 import toast from 'react-hot-toast';
 
 interface BookingUser { id: number; name: string; }
@@ -126,9 +127,6 @@ export default function BuyerBookingDetailPage() {
   const [rejectMilestoneId, setRejectMilestoneId] = useState<number | null>(null);
   const [milestoneReason, setMilestoneReason] = useState('');
   const [milestoneActing, setMilestoneActing] = useState(false);
-  // Which of the two Direct/Hold buttons was actually clicked, so only that
-  // one shows "Processing..." — milestoneActing above still disables both.
-  const [payingMilestone, setPayingMilestone] = useState<{ id: number; type: 'direct' | 'hold' } | null>(null);
 
   // Milestone counter form
   const [counterMilestoneId, setCounterMilestoneId] = useState<number | null>(null);
@@ -137,9 +135,6 @@ export default function BuyerBookingDetailPage() {
 
   // Accept & Pay (whole booking, non-milestone)
   const [accepting, setAccepting] = useState(false);
-  // Which of the two Direct/Hold buttons was actually clicked, for the same
-  // reason as payingMilestone above.
-  const [acceptingType, setAcceptingType] = useState<'direct' | 'hold' | null>(null);
 
   // Milestone setup (buyer can split a booking too, same as seller)
   const [showMilestoneSetup, setShowMilestoneSetup] = useState(false);
@@ -148,14 +143,49 @@ export default function BuyerBookingDetailPage() {
 
   // Work entries (hourly bookings)
   const [entryActing, setEntryActing] = useState<number | null>(null);
-  // Which of the two Direct/Hold buttons was actually clicked, for the same
-  // reason as payingMilestone/acceptingType above.
-  const [payingEntry, setPayingEntry] = useState<{ id: number; type: 'direct' | 'hold' } | null>(null);
   const [counterEntryId, setCounterEntryId] = useState<number | null>(null);
   const [counterHours,   setCounterHours]   = useState('');
   const [counterNote,    setCounterNote]    = useState('');
   const [disputeEntryId, setDisputeEntryId] = useState<number | null>(null);
   const [entryDisputeReason, setEntryDisputeReason] = useState('');
+
+  // Escrow payment-type choice modal — shared by the whole-booking, milestone,
+  // and work-entry Accept flows, so the choice always looks the same instead
+  // of two inline buttons per row.
+  const [payTarget, setPayTarget] = useState<
+    | { kind: 'booking'; label: string | null; amount: number }
+    | { kind: 'milestone'; id: number; label: string | null; amount: number }
+    | { kind: 'entry'; id: number; label: string | null; amount: number }
+    | null
+  >(null);
+  // "Release Amount" on an already-held payment opens this confirm modal
+  // instead of settling immediately — the buyer chooses Confirm Release or
+  // Cancel Hold, rather than two separate buttons stacked on the page.
+  const [holdTarget, setHoldTarget] = useState<
+    | { kind: 'booking' }
+    | { kind: 'milestone'; id: number }
+    | { kind: 'entry'; id: number }
+    | null
+  >(null);
+  // Set once the backend hands back a Stripe Checkout session to complete —
+  // renders inline via EmbeddedCheckoutModal instead of redirecting away.
+  const [checkoutClientSecret, setCheckoutClientSecret] = useState<string | null>(null);
+  const [showHoldTerms, setShowHoldTerms] = useState(false);
+  // Platform fee rate, for the pre-payment fee breakdown shown below — fetched
+  // once since it's an admin-wide setting, not per-booking. 10% fallback
+  // matches the backend's own default (config/fee.js) if this hasn't loaded yet.
+  const [feePercent, setFeePercent] = useState(10);
+  // How long a 'hold' payment may sit uncaptured before it's automatically
+  // cancelled (admin-configurable, capped at Stripe's own 7-day authorization
+  // ceiling) — shown as the Pay & Hold terms below. 7 fallback matches the
+  // backend's own default if this hasn't loaded yet.
+  const [holdDays, setHoldDays] = useState(7);
+  useEffect(() => {
+    walletApi.config().then((res) => {
+      if (typeof res?.data?.fee_percent === 'number') setFeePercent(res.data.fee_percent);
+      if (typeof res?.data?.escrow_hold_days === 'number') setHoldDays(res.data.escrow_hold_days);
+    }).catch(() => {});
+  }, []);
 
   // Review
   const [reviewOpen,    setReviewOpen]    = useState(false);
@@ -209,14 +239,13 @@ export default function BuyerBookingDetailPage() {
   const acceptWork = async (paymentType?: 'direct' | 'hold') => {
     if (!booking) return;
     setAccepting(true);
-    setAcceptingType(paymentType ?? null);
     try {
       const res = await buyerBookingApi.accept(booking.id, paymentType);
       // Escrow mode: the backend doesn't settle synchronously on the first
       // call — it hands back a Stripe Checkout session for this booking's
-      // own charge or hold.
-      if (res?.data?.escrow && res.data.checkout_url) {
-        window.location.href = res.data.checkout_url;
+      // own charge or hold. Rendered inline via EmbeddedCheckoutModal.
+      if (res?.data?.escrow && res.data.client_secret) {
+        setCheckoutClientSecret(res.data.client_secret);
         return;
       }
       toast.success('Work accepted — payment released to the seller!');
@@ -226,7 +255,22 @@ export default function BuyerBookingDetailPage() {
       await fetchBooking();
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : 'Failed to accept — please add funds to your wallet and try again');
-    } finally { setAccepting(false); setAcceptingType(null); }
+    } finally { setAccepting(false); }
+  };
+
+  // Voluntary release of a Pay & Hold authorization before it's captured —
+  // distinct from Reject/Cancel Booking, which pass judgment on the work
+  // itself. Only ever enabled while payment_status is still 'held'.
+  const cancelBookingHold = async () => {
+    if (!booking) return;
+    setAccepting(true);
+    try {
+      await buyerBookingApi.cancelHold(booking.id);
+      toast.success('Hold cancelled — no charge was made');
+      await fetchBooking();
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Failed to cancel hold');
+    } finally { setAccepting(false); }
   };
 
   const submitReview = async () => {
@@ -252,20 +296,32 @@ export default function BuyerBookingDetailPage() {
   const acceptMilestone = async (milestoneId: number, paymentType?: 'direct' | 'hold') => {
     if (!booking) return;
     setMilestoneActing(true);
-    if (paymentType) setPayingMilestone({ id: milestoneId, type: paymentType });
     try {
       const res = await buyerBookingApi.acceptMilestone(booking.id, milestoneId, paymentType);
       // Escrow mode: the backend doesn't settle synchronously — it hands back
       // a Stripe Checkout session for this milestone's own charge or hold.
-      if (res?.data?.escrow && res.data.checkout_url) {
-        window.location.href = res.data.checkout_url;
+      // Rendered inline via EmbeddedCheckoutModal.
+      if (res?.data?.escrow && res.data.client_secret) {
+        setCheckoutClientSecret(res.data.client_secret);
         return;
       }
       toast.success('Milestone accepted — payment released to the seller!');
       await fetchBooking();
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : 'Failed to accept — please add funds to your wallet and try again');
-    } finally { setMilestoneActing(false); setPayingMilestone(null); }
+    } finally { setMilestoneActing(false); }
+  };
+
+  const cancelMilestoneHold = async (milestoneId: number) => {
+    if (!booking) return;
+    setMilestoneActing(true);
+    try {
+      await buyerBookingApi.cancelMilestoneHold(booking.id, milestoneId);
+      toast.success('Hold cancelled — no charge was made');
+      await fetchBooking();
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Failed to cancel hold');
+    } finally { setMilestoneActing(false); }
   };
 
   // ── Milestone setup ─────────────────────────────────────────────────────
@@ -335,22 +391,76 @@ export default function BuyerBookingDetailPage() {
   const approveEntry = async (entryId: number, paymentType?: 'direct' | 'hold') => {
     if (!booking) return;
     setEntryActing(entryId);
-    if (paymentType) setPayingEntry({ id: entryId, type: paymentType });
     try {
       const res = await buyerBookingApi.approveWorkEntry(booking.id, entryId, paymentType);
       // Escrow mode: the backend doesn't settle synchronously on the first
       // call — it hands back a Stripe Checkout session for this entry's own
-      // charge or hold.
-      if (res?.data?.escrow && res.data.checkout_url) {
-        window.location.href = res.data.checkout_url;
+      // charge or hold. Rendered inline via EmbeddedCheckoutModal.
+      if (res?.data?.escrow && res.data.client_secret) {
+        setCheckoutClientSecret(res.data.client_secret);
         return;
       }
       toast.success('Entry approved — payment released to the seller!');
       await fetchBooking();
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : 'Failed to approve — please add funds to your wallet and try again');
-    } finally { setEntryActing(null); setPayingEntry(null); }
+    } finally { setEntryActing(null); }
   };
+
+  const cancelEntryHold = async (entryId: number) => {
+    if (!booking) return;
+    setEntryActing(entryId);
+    try {
+      await buyerBookingApi.cancelWorkEntryHold(booking.id, entryId);
+      toast.success('Hold cancelled — no charge was made');
+      await fetchBooking();
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Failed to cancel hold');
+    } finally { setEntryActing(null); }
+  };
+
+  // Fired by the payment-choice modal — routes to whichever Accept flow
+  // opened it (whole booking, a milestone, or a work entry).
+  const choosePayment = async (type: 'direct' | 'hold') => {
+    if (!payTarget) return;
+    if (payTarget.kind === 'booking') await acceptWork(type);
+    else if (payTarget.kind === 'milestone') await acceptMilestone(payTarget.id, type);
+    else await approveEntry(payTarget.id, type);
+    setPayTarget(null);
+  };
+
+  // Whether the action the modal is currently showing is in flight — used to
+  // disable both options and show a spinner state, without needing to know
+  // which one was actually clicked (there's only ever one modal open).
+  const payTargetBusy = payTarget
+    ? payTarget.kind === 'booking' ? accepting
+      : payTarget.kind === 'milestone' ? milestoneActing
+      : entryActing === payTarget.id
+    : false;
+
+  // Fired by the release/cancel-hold confirm modal — routes to whichever
+  // Release Amount button opened it.
+  const confirmRelease = async () => {
+    if (!holdTarget) return;
+    if (holdTarget.kind === 'booking') await acceptWork();
+    else if (holdTarget.kind === 'milestone') await acceptMilestone(holdTarget.id);
+    else await approveEntry(holdTarget.id);
+    setHoldTarget(null);
+  };
+
+  const confirmCancelHold = async () => {
+    if (!holdTarget) return;
+    if (holdTarget.kind === 'booking') await cancelBookingHold();
+    else if (holdTarget.kind === 'milestone') await cancelMilestoneHold(holdTarget.id);
+    else await cancelEntryHold(holdTarget.id);
+    setHoldTarget(null);
+  };
+
+  const holdTargetBusy = holdTarget
+    ? holdTarget.kind === 'booking' ? accepting
+      : holdTarget.kind === 'milestone' ? milestoneActing
+      : entryActing === holdTarget.id
+    : false;
 
   const openCounterForm = (entryId: number) => {
     setCounterEntryId(entryId); setCounterHours(''); setCounterNote('');
@@ -514,7 +624,7 @@ export default function BuyerBookingDetailPage() {
                             <div className="flex items-center gap-1.5">
                               {booking.payment_mode === 'escrow' && e.payment_type === 'hold' && e.payment_status === 'held' && (
                                 <span className="px-2 py-0.5 rounded-full text-[11px] font-medium flex items-center gap-1 bg-emerald-100 text-emerald-700">
-                                  <i className="fa fa-shield" /> Held
+                                  <i className="fa fa-shield" /> Hold
                                 </span>
                               )}
                               <span className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${ecfg.color}`}>{ecfg.label}</span>
@@ -546,32 +656,29 @@ export default function BuyerBookingDetailPage() {
 
                           {(e.status === 'pending' || (e.status === 'countered' && e.counter_by === 'seller')) && (() => {
                             const acting = entryActing === e.id;
+                            const settleHours = e.status === 'countered' ? Number(e.counter_hours) : Number(e.hours);
+                            const settleAmount = settleHours * Number(e.rate);
                             const counterLabel = e.status === 'countered' ? `${e.counter_hours}h` : null;
                             // First click for an escrow-mode entry — nothing charged or
-                            // held yet, so the buyer picks how to pay right now (mirrors
-                            // the milestone flow).
+                            // held yet, so the payment-choice modal opens instead of
+                            // settling right away (mirrors the milestone flow).
                             const choosingPayment = booking.payment_mode === 'escrow' && e.payment_status === 'unpaid';
+                            // A 'hold' entry that's already held just needs
+                            // capturing + releasing now — no new payment is
+                            // being accepted here.
+                            const isHeld = booking.payment_mode === 'escrow' && e.payment_type === 'hold' && e.payment_status === 'held';
                             return (
                               <>
-                                {choosingPayment ? (
-                                  <div className="flex gap-2 mt-2.5">
-                                    <Button variant="primary" fullWidth disabled={acting}
-                                      onClick={() => approveEntry(e.id, 'direct')}>
-                                      {payingEntry?.id === e.id && payingEntry.type === 'direct' ? 'Processing...' : counterLabel ? `Pay ${counterLabel}` : 'Pay Directly'}
-                                    </Button>
-                                    <Button variant="outline" fullWidth disabled={acting}
-                                      onClick={() => approveEntry(e.id, 'hold')}>
-                                      {payingEntry?.id === e.id && payingEntry.type === 'hold' ? 'Processing...' : counterLabel ? `Pay & Hold ${counterLabel}` : 'Pay & Hold'}
-                                    </Button>
-                                  </div>
-                                ) : (
-                                  <div className="flex gap-2 mt-2.5">
-                                    <Button variant="primary" fullWidth disabled={acting}
-                                      onClick={() => approveEntry(e.id)}>
-                                      {acting ? 'Processing...' : counterLabel ? `Accept ${counterLabel}` : 'Approve'}
-                                    </Button>
-                                  </div>
-                                )}
+                                <div className="flex gap-2 mt-2.5">
+                                  <Button variant="primary" fullWidth disabled={acting}
+                                    onClick={() => choosingPayment
+                                      ? setPayTarget({ kind: 'entry', id: e.id, label: counterLabel, amount: settleAmount })
+                                      : isHeld
+                                        ? setHoldTarget({ kind: 'entry', id: e.id })
+                                        : approveEntry(e.id)}>
+                                    {acting ? 'Processing...' : isHeld ? 'Release Amount' : counterLabel ? `Accept ${counterLabel}` : 'Approve'}
+                                  </Button>
+                                </div>
                                 <div className="flex gap-2 mt-2">
                                   <Button variant="outline" fullWidth disabled={acting}
                                     onClick={() => openCounterForm(e.id)}>
@@ -632,7 +739,7 @@ export default function BuyerBookingDetailPage() {
                           <div className="flex items-center gap-1.5">
                             {booking.payment_mode === 'escrow' && m.payment_type === 'hold' && m.payment_status === 'held' && (
                               <span className="px-2 py-0.5 rounded-full text-[11px] font-medium flex items-center gap-1 bg-emerald-100 text-emerald-700">
-                                <i className="fa fa-shield" /> Held
+                                <i className="fa fa-shield" /> Hold
                               </span>
                             )}
                             <span className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${mcfg.color}`}>{mcfg.label}</span>
@@ -663,35 +770,31 @@ export default function BuyerBookingDetailPage() {
                         )}
 
                         {(m.status === 'submitted' || (m.status === 'countered' && m.counter_by === 'seller')) && (() => {
-                          const amountLabel = m.status === 'countered' ? formatCurrency(Number(m.counter_amount)) : null;
+                          const settleAmount = m.status === 'countered' ? Number(m.counter_amount) : Number(m.amount);
+                          const amountLabel = m.status === 'countered' ? formatCurrency(settleAmount) : null;
                           // First click for an escrow-mode milestone — nothing charged or
-                          // held yet, so the buyer picks how to pay right now. Once a
-                          // 'hold' choice comes back as held, this collapses to a single
-                          // Accept & Pay button that captures + releases it (mirrors the
-                          // whole-booking flow); a 'direct' choice settles on its own once
-                          // Stripe confirms, so there's no second click for that one.
+                          // held yet, so the payment-choice modal opens instead of settling
+                          // right away. Once a 'hold' choice comes back as held, this
+                          // collapses to settling directly (captures + releases it, mirrors
+                          // the whole-booking flow); a 'direct' choice settles on its own
+                          // once Stripe confirms, so there's no second click for that one.
                           const choosingPayment = booking.payment_mode === 'escrow' && m.payment_status === 'unpaid';
+                          // A 'hold' milestone that's already held just needs
+                          // capturing + releasing now — no new payment is
+                          // being accepted here.
+                          const isHeld = booking.payment_mode === 'escrow' && m.payment_type === 'hold' && m.payment_status === 'held';
                           return (
                             <>
-                              {choosingPayment ? (
-                                <div className="flex gap-2 mt-2.5">
-                                  <Button variant="primary" fullWidth disabled={milestoneActing}
-                                    onClick={() => acceptMilestone(m.id, 'direct')}>
-                                    {payingMilestone?.id === m.id && payingMilestone.type === 'direct' ? 'Processing...' : amountLabel ? `Pay ${amountLabel}` : 'Pay Directly'}
-                                  </Button>
-                                  <Button variant="outline" fullWidth disabled={milestoneActing}
-                                    onClick={() => acceptMilestone(m.id, 'hold')}>
-                                    {payingMilestone?.id === m.id && payingMilestone.type === 'hold' ? 'Processing...' : amountLabel ? `Pay & Hold ${amountLabel}` : 'Pay & Hold'}
-                                  </Button>
-                                </div>
-                              ) : (
-                                <div className="flex gap-2 mt-2.5">
-                                  <Button variant="primary" fullWidth disabled={milestoneActing}
-                                    onClick={() => acceptMilestone(m.id)}>
-                                    {milestoneActing ? 'Processing...' : amountLabel ? `Accept ${amountLabel}` : 'Accept & Pay'}
-                                  </Button>
-                                </div>
-                              )}
+                              <div className="flex gap-2 mt-2.5">
+                                <Button variant="primary" fullWidth disabled={milestoneActing}
+                                  onClick={() => choosingPayment
+                                    ? setPayTarget({ kind: 'milestone', id: m.id, label: amountLabel, amount: settleAmount })
+                                    : isHeld
+                                      ? setHoldTarget({ kind: 'milestone', id: m.id })
+                                      : acceptMilestone(m.id)}>
+                                  {milestoneActing ? 'Processing...' : isHeld ? 'Release Amount' : amountLabel ? `Accept ${amountLabel}` : 'Accept & Pay'}
+                                </Button>
+                              </div>
                               <div className="flex gap-2 mt-2">
                                 <Button variant="outline" fullWidth disabled={milestoneActing}
                                   onClick={() => openCounterMilestoneForm(m.id)}>
@@ -731,32 +834,28 @@ export default function BuyerBookingDetailPage() {
 
                 {actionMsg && <p className={`text-sm text-center font-medium ${actionMsg.includes('!') ? 'text-green-600' : 'text-red-600'}`}>{actionMsg}</p>}
 
-                {booking.status === 'amidst_completion' && !hasMilestones(booking) && (
+                {booking.status === 'amidst_completion' && !hasMilestones(booking) && (() => {
+                  // A 'hold' booking that's already held just needs capturing
+                  // + releasing now — no new payment is being accepted here.
+                  const isHeld = booking.payment_mode === 'escrow' && booking.payment_type === 'hold' && booking.payment_status === 'held';
+                  return (
                   <>
-                    {booking.payment_mode === 'escrow' && booking.payment_status === 'unpaid' ? (
-                      <div className="flex gap-2">
-                        <Button variant="primary" fullWidth disabled={accepting}
-                          onClick={() => acceptWork('direct')}>
-                          {acceptingType === 'direct' ? 'Processing...' : 'Pay Directly'}
-                        </Button>
-                        <Button variant="outline" fullWidth disabled={accepting}
-                          onClick={() => acceptWork('hold')}>
-                          {acceptingType === 'hold' ? 'Processing...' : 'Pay & Hold'}
-                        </Button>
-                      </div>
-                    ) : (
-                      <Button variant="primary" fullWidth disabled={accepting}
-                        onClick={() => acceptWork()}>
-                        {accepting ? 'Processing...' : 'Accept & Pay'}
-                      </Button>
-                    )}
+                    <Button variant="primary" fullWidth disabled={accepting}
+                      onClick={() => (booking.payment_mode === 'escrow' && booking.payment_status === 'unpaid')
+                        ? setPayTarget({ kind: 'booking', label: null, amount: Number(booking.amount) })
+                        : isHeld
+                          ? setHoldTarget({ kind: 'booking' })
+                          : acceptWork()}>
+                      {accepting ? 'Processing...' : isHeld ? 'Release Amount' : 'Accept & Pay'}
+                    </Button>
                     <Button variant="outline" fullWidth disabled={acting}
                       className="text-red-600 border-red-200"
                       onClick={() => setShowReject(true)}>
                       Reject
                     </Button>
                   </>
-                )}
+                  );
+                })()}
 
                 {booking.status === 'ongoing' && booking.job_type !== 'hourly' && !hasMilestones(booking) && (
                   <Button variant="outline" fullWidth onClick={() => setShowMilestoneSetup(true)}
@@ -866,6 +965,156 @@ export default function BuyerBookingDetailPage() {
             </Button>
           </div>
         </Modal>
+      )}
+
+      {/* Payment-choice modal — shared by the whole-booking, milestone, and
+          work-entry Accept flows (escrow mode only). */}
+      {payTarget && (() => {
+        // Platform fee is exact (it's our own configured rate). Stripe's fee
+        // isn't knowable until the charge actually happens — this is the
+        // standard published US card rate, clearly labeled as an estimate;
+        // the real fee is shown on the transaction afterward.
+        const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
+        const platformFee = round2(payTarget.amount * (feePercent / 100));
+        const estStripeFee = round2(payTarget.amount * 0.029 + 0.3);
+        return (
+        <Modal isOpen onClose={() => !payTargetBusy && setPayTarget(null)} title="Choose How to Pay" size="sm">
+          <div className="space-y-3">
+            {payTarget.label && (
+              <p className="text-sm text-gray-500 text-center">
+                Amount: <strong className="text-gray-800">{payTarget.label}</strong>
+              </p>
+            )}
+            <div className="bg-gray-50 rounded-xl p-3 text-xs text-gray-600 space-y-1.5">
+              <div className="flex justify-between">
+                <span>Gross payment</span>
+                <span className="font-medium text-gray-800">{formatCurrency(payTarget.amount)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Platform fee ({feePercent}%)</span>
+                <span className="font-medium text-gray-800">{formatCurrency(platformFee)}</span>
+              </div>
+              <div className="flex justify-between text-gray-400">
+                <span>Processing fee (estimated)</span>
+                <span>~{formatCurrency(estStripeFee)}</span>
+              </div>
+              {/* <p className="text-[11px] text-gray-400 pt-1">
+                Stripe&apos;s exact fee is only known once the charge completes — the real figure will show on this payment&apos;s transaction record afterward.
+              </p> */}
+            </div>
+            <button
+              disabled={payTargetBusy}
+              onClick={() => choosePayment('direct')}
+              className="w-full text-left border border-gray-200 hover:border-[#e84545] disabled:opacity-60 disabled:cursor-not-allowed rounded-xl p-4 transition"
+            >
+              <p className="font-semibold text-gray-900 flex items-center gap-2">
+                <i className="fa fa-bolt text-[#e84545]" /> Pay Directly
+              </p>
+              <p className="text-xs text-gray-500 mt-1">
+                Charge your card now — funds are released to the seller right away.
+              </p>
+            </button>
+            <div
+              role="button"
+              tabIndex={payTargetBusy ? -1 : 0}
+              onClick={() => !payTargetBusy && choosePayment('hold')}
+              onKeyDown={(e) => { if (!payTargetBusy && (e.key === 'Enter' || e.key === ' ')) choosePayment('hold'); }}
+              className={`w-full text-left border border-gray-200 rounded-xl p-4 transition ${payTargetBusy ? 'opacity-60 cursor-not-allowed' : 'hover:border-[#e84545] cursor-pointer'}`}
+            >
+              <p className="font-semibold text-gray-900 flex items-center gap-2">
+                <i className="fa fa-shield text-[#e84545]" /> Pay & Hold
+              </p>
+              <p className="text-xs text-gray-500 mt-1">
+                Authorize your card now — funds are only captured and released once you confirm again after.
+              </p>
+              <button
+                type="button"
+                disabled={payTargetBusy}
+                onClick={(e) => { e.stopPropagation(); setShowHoldTerms(true); }}
+                className="text-[11px] text-[#e84545] underline mt-1.5"
+              >
+                Terms &amp; Conditions
+              </button>
+            </div>
+            {payTargetBusy && <p className="text-xs text-gray-400 text-center">Processing...</p>}
+          </div>
+        </Modal>
+        );
+      })()}
+
+      {/* Release-or-cancel confirm modal — opened by "Release Amount" on an
+          already-held payment (whole-booking, milestone, or work entry). */}
+      {holdTarget && (
+        <Modal isOpen onClose={() => !holdTargetBusy && setHoldTarget(null)} title="Release or Cancel Hold" size="sm">
+          <div className="space-y-3">
+            <p className="text-sm text-gray-500 text-center">
+              Your card was authorized and is waiting on your decision.
+            </p>
+            <button
+              disabled={holdTargetBusy}
+              onClick={confirmRelease}
+              className="w-full text-left border border-gray-200 hover:border-[#e84545] disabled:opacity-60 disabled:cursor-not-allowed rounded-xl p-4 transition"
+            >
+              <p className="font-semibold text-gray-900 flex items-center gap-2">
+                <i className="fa fa-check-circle text-green-600" /> Confirm Release
+              </p>
+              <p className="text-xs text-gray-500 mt-1">
+                Capture the hold now and release payment to the seller.
+              </p>
+            </button>
+            <button
+              disabled={holdTargetBusy}
+              onClick={confirmCancelHold}
+              className="w-full text-left border border-red-200 hover:border-red-400 disabled:opacity-60 disabled:cursor-not-allowed rounded-xl p-4 transition"
+            >
+              <p className="font-semibold text-red-600 flex items-center gap-2">
+                <i className="fa fa-ban" /> Cancel Hold
+              </p>
+              <p className="text-xs text-gray-500 mt-1">
+                Release the card authorization — no charge is made, you can pay again later.
+              </p>
+            </button>
+            {holdTargetBusy && <p className="text-xs text-gray-400 text-center">Processing...</p>}
+          </div>
+        </Modal>
+      )}
+
+      {showHoldTerms && (
+        <Modal isOpen onClose={() => setShowHoldTerms(false)} title="Pay & Hold — Terms & Conditions" size="sm">
+          <div className="space-y-3 text-sm text-gray-600">
+            <p>
+              Choosing <strong>Pay &amp; Hold</strong> authorizes your card for the payment amount — this is not an
+              immediate charge. No money leaves your account at this step.
+            </p>
+            <p>
+              The hold lasts up to <strong>{holdDays} day{holdDays === 1 ? '' : 's'}</strong>. You (or the seller,
+              once work is delivered) must confirm it within that window for it to actually be captured and released.
+            </p>
+            <p>
+              If the hold is not released within {holdDays} day{holdDays === 1 ? '' : 's'}, it is automatically
+              cancelled — your card is never charged, and the booking/milestone/entry reverts to unpaid so you can
+              try again.
+            </p>
+            <p className="text-xs text-gray-400">
+              This window is configured by MatchCreatorz and can never exceed 7 days, which is Stripe&apos;s own
+              maximum authorization period for a card hold.
+            </p>
+            <Button variant="outline" fullWidth onClick={() => setShowHoldTerms(false)}>Close</Button>
+          </div>
+        </Modal>
+      )}
+
+      {/* Stripe's Embedded Checkout, rendered inline — no redirect to a
+          Stripe-hosted page and no new tab. Completion still navigates the
+          browser to the return_url the backend set (handled by the
+          ?escrow=success effect above); closing this without paying just
+          discards the session, nothing was charged. */}
+      {checkoutClientSecret && process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY && (
+        <EmbeddedCheckoutModal
+          clientSecret={checkoutClientSecret}
+          publishableKey={process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY}
+          onClose={() => setCheckoutClientSecret(null)}
+        />
       )}
 
       {/* Reject confirm (whole booking) */}

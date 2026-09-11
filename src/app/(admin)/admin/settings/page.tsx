@@ -36,6 +36,7 @@ export default function AdminSettingsPage() {
     setPlans(prev => prev.map(p => p.id === id ? { ...p, [field]: value } : p));
 
   const [escrowEnabled, setEscrowEnabled] = useState(false);
+  const [holdDays, setHoldDays]           = useState('7');
   const [savingEscrow, setSavingEscrow]   = useState(false);
   const [escrowSaved, setEscrowSaved]     = useState(false);
 
@@ -92,6 +93,7 @@ export default function AdminSettingsPage() {
         }
         if (d.escrow_settings) {
           setEscrowEnabled(!!d.escrow_settings.enabled);
+          if (d.escrow_settings.hold_days != null) setHoldDays(String(d.escrow_settings.hold_days));
         }
         if (d.app_info) {
           if (d.app_info.app_name)      setAppName(d.app_info.app_name);
@@ -141,15 +143,31 @@ export default function AdminSettingsPage() {
     } finally { setSavingPlans(false); }
   };
 
+  // Always send both fields together — the backend replaces the whole
+  // escrow_settings blob on save, so sending just one would silently wipe
+  // out the other.
   const saveEscrow = async (next: boolean) => {
     setSavingEscrow(true);
     try {
-      await adminSettingApi.update({ escrow_settings: { enabled: next } });
+      await adminSettingApi.update({ escrow_settings: { enabled: next, hold_days: Number(holdDays) || 7 } });
       setEscrowEnabled(next);
       toast.success(next ? 'Escrow enabled' : 'Escrow disabled');
       setEscrowSaved(true); setTimeout(() => setEscrowSaved(false), 2000);
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : 'Failed to update escrow setting');
+    } finally { setSavingEscrow(false); }
+  };
+
+  const saveHoldDays = async () => {
+    const days = Math.min(7, Math.max(1, Number(holdDays) || 7));
+    setSavingEscrow(true);
+    try {
+      await adminSettingApi.update({ escrow_settings: { enabled: escrowEnabled, hold_days: days } });
+      setHoldDays(String(days));
+      toast.success(`Hold duration set to ${days} day${days === 1 ? '' : 's'}`);
+      setEscrowSaved(true); setTimeout(() => setEscrowSaved(false), 2000);
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Failed to update hold duration');
     } finally { setSavingEscrow(false); }
   };
 
@@ -434,6 +452,32 @@ export default function AdminSettingsPage() {
                     <i className="fa fa-check-circle" /> Setting saved
                   </span>
                 )}
+              </div>
+
+              <div className="bg-white rounded-2xl border border-[#e8e8e8] shadow-sm p-6">
+                <h3 className="text-base font-bold text-gray-800 mb-1 flex items-center gap-2">
+                  <i className="fa fa-clock-o text-[#e84545]" /> Escrow Hold Duration
+                </h3>
+                <p className="text-xs text-gray-400 mb-4">
+                  How long a &quot;Pay &amp; Hold&quot; payment may sit uncaptured before it&apos;s automatically
+                  cancelled and refunded to the buyer&apos;s card. Capped at 7 days — Stripe itself auto-expires an
+                  uncaptured card authorization after 7 days, so nothing longer could ever actually be enforced.
+                </p>
+                <div className="flex items-center gap-3">
+                  <input
+                    className="w-24 border border-gray-200 rounded-xl px-3 h-10 text-sm focus:outline-none focus:border-[#e84545]"
+                    type="number" min={1} max={7} value={holdDays}
+                    onChange={e => setHoldDays(e.target.value)}
+                  />
+                  <span className="text-sm text-gray-500">day{Number(holdDays) === 1 ? '' : 's'}</span>
+                  <button
+                    disabled={savingEscrow}
+                    onClick={saveHoldDays}
+                    className="ml-2 px-4 h-10 rounded-xl bg-[#e84545] text-white text-sm font-semibold disabled:opacity-60"
+                  >
+                    {savingEscrow ? 'Saving...' : 'Save'}
+                  </button>
+                </div>
               </div>
             </>
           )}

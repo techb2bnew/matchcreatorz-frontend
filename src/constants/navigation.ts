@@ -52,7 +52,7 @@ export const buyerNav: NavItem[] = [
   { label: 'Bookings',      href: '/buyer/bookings',       icon: 'fa-calendar-check-o'},
   { label: 'Offers',        href: '/buyer/offers',         icon: 'fa-tags'           },
   { label: 'Favourites',    href: '/buyer/favourites',     icon: 'fa-heart'          },
-  { label: 'Wallet',        href: '/buyer/wallet',         icon: 'fa-credit-card'    },
+  { label: 'My Payments',   href: '/buyer/wallet',         icon: 'fa-credit-card'    },
   { label: 'Chat',          href: '/buyer/chat',           icon: 'fa-comments'       },
   { label: 'Support',       href: '/buyer/support',        icon: 'fa-life-ring'      },
   { label: 'Notifications', href: '/buyer/notifications',  icon: 'fa-bell'           },
