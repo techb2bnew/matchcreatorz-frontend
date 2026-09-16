@@ -35,7 +35,11 @@ export default function AdminSettingsPage() {
   const updatePlan = (id: number, field: 'price' | 'connects', value: string) =>
     setPlans(prev => prev.map(p => p.id === id ? { ...p, [field]: value } : p));
 
-  const [escrowEnabled, setEscrowEnabled] = useState(false);
+  // Escrow (Stripe) is the only way any booking ever gets paid — there is no
+  // wallet fallback any more. This toggle is a platform-wide payments kill
+  // switch: off means new bookings can't be created at all (a clear error),
+  // never a silent switch back to wallet mode.
+  const [escrowEnabled, setEscrowEnabled] = useState(true);
   const [holdDays, setHoldDays]           = useState('7');
   const [savingEscrow, setSavingEscrow]   = useState(false);
   const [escrowSaved, setEscrowSaved]     = useState(false);
@@ -92,7 +96,7 @@ export default function AdminSettingsPage() {
           })));
         }
         if (d.escrow_settings) {
-          setEscrowEnabled(!!d.escrow_settings.enabled);
+          setEscrowEnabled(d.escrow_settings.enabled !== false);
           if (d.escrow_settings.hold_days != null) setHoldDays(String(d.escrow_settings.hold_days));
         }
         if (d.app_info) {
@@ -151,10 +155,10 @@ export default function AdminSettingsPage() {
     try {
       await adminSettingApi.update({ escrow_settings: { enabled: next, hold_days: Number(holdDays) || 7 } });
       setEscrowEnabled(next);
-      toast.success(next ? 'Escrow enabled' : 'Escrow disabled');
+      toast.success(next ? 'Payments enabled' : 'Payments disabled — new bookings will be blocked');
       setEscrowSaved(true); setTimeout(() => setEscrowSaved(false), 2000);
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : 'Failed to update escrow setting');
+      toast.error(e instanceof Error ? e.message : 'Failed to update payments setting');
     } finally { setSavingEscrow(false); }
   };
 
@@ -398,19 +402,20 @@ export default function AdminSettingsPage() {
               <div className="bg-[#e8f4fd] border border-[#4f9ef8]/30 rounded-2xl p-4 flex items-start gap-3">
                 <i className="fa fa-info-circle text-[#4f9ef8] text-lg mt-0.5 flex-shrink-0" />
                 <p className="text-sm text-[#1e40af]">
-                  When enabled, fixed-price and milestone bookings are paid via a real Stripe hold/charge instead of
-                  the wallet — the buyer&apos;s card is charged directly and funds are released to the seller on
-                  acceptance. Hourly bookings always stay on the wallet flow. Uses the existing Stripe keys already
-                  configured for the platform — no extra setup needed. Turning this off only affects new bookings;
-                  bookings already in escrow are unaffected.
+                  Every fixed-price, milestone, and hourly booking is paid via Stripe — the buyer&apos;s card is
+                  charged directly (or authorized and held, for &quot;Pay &amp; Hold&quot;) and funds are released to
+                  the seller on acceptance. There is no wallet fallback any more, so the switch below is a
+                  platform-wide payments kill switch, not a wallet toggle: turning it off blocks new bookings
+                  entirely (with a clear error) until it&apos;s turned back on. Existing bookings are unaffected
+                  either way.
                 </p>
               </div>
 
               <div className="bg-white rounded-2xl border border-[#e8e8e8] shadow-sm p-6">
                 <h3 className="text-base font-bold text-gray-800 mb-1 flex items-center gap-2">
-                  <i className="fa fa-shield text-[#e84545]" /> Delayed Payments
+                  <i className="fa fa-shield text-[#e84545]" /> Payments Enabled
                 </h3>
-                <p className="text-xs text-gray-400 mb-6">Protect buyers with Stripe-backed delayed transfers on fixed-price and milestone bookings</p>
+                <p className="text-xs text-gray-400 mb-6">Platform-wide switch — turn off to temporarily block all new bookings</p>
 
                 <div className="flex items-center justify-between bg-[#f7f7f7] border border-[#e8e8e8] rounded-2xl p-5">
                   <div className="flex items-center gap-4">
@@ -418,11 +423,11 @@ export default function AdminSettingsPage() {
                       <i className={cn('fa fa-shield text-lg', escrowEnabled ? 'text-[#10b981]' : 'text-gray-400')} />
                     </div>
                     <div>
-                      <p className="text-sm font-bold text-gray-800">{escrowEnabled ? 'Delayed Payments is Enabled' : 'Delayed Payments is Disabled'}</p>
+                      <p className="text-sm font-bold text-gray-800">{escrowEnabled ? 'Payments are Enabled' : 'Payments are Disabled'}</p>
                       <p className="text-xs text-gray-400 mt-0.5">
                         {escrowEnabled
-                          ? 'New fixed-price and milestone bookings will use Stripe delayed transfers '
-                          : 'New bookings continue to use the standard wallet flow'}
+                          ? 'Buyers can create and pay for new bookings via Stripe'
+                          : 'New bookings will be blocked until this is turned back on'}
                       </p>
                     </div>
                   </div>
@@ -446,12 +451,6 @@ export default function AdminSettingsPage() {
                     />
                   </button>
                 </div>
-
-                {escrowSaved && (
-                  <span className="text-green-600 text-sm font-medium flex items-center gap-1 mt-4">
-                    <i className="fa fa-check-circle" /> Setting saved
-                  </span>
-                )}
               </div>
 
               <div className="bg-white rounded-2xl border border-[#e8e8e8] shadow-sm p-6">
@@ -477,6 +476,7 @@ export default function AdminSettingsPage() {
                   >
                     {savingEscrow ? 'Saving...' : 'Save'}
                   </button>
+                  {escrowSaved && <span className="text-green-600 text-sm font-medium flex items-center gap-1"><i className="fa fa-check-circle" /> Saved</span>}
                 </div>
               </div>
             </>
