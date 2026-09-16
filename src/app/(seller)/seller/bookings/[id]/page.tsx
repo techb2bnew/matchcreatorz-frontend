@@ -536,7 +536,7 @@ export default function SellerBookingDetailPage() {
                           {['pending', 'rejected'].includes(m.status) && ['ongoing', 'in_dispute'].includes(booking.status) && (
                             <button onClick={() => openSubmitForm(m.id)}
                               className="text-xs font-semibold text-[#e84545] hover:underline">
-                              {m.status === 'rejected' ? 'Resubmit' : 'Submit'}
+                              {m.status === 'rejected' ? 'Resubmit' : 'Work Submit'}
                             </button>
                           )}
                         </div>
@@ -709,7 +709,7 @@ export default function SellerBookingDetailPage() {
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-500 mb-1.5">Attach files (optional)</label>
-              <input type="file" multiple
+              <input type="file" multiple accept="image/*,.pdf,.docx"
                 onChange={(e) => setSubmitFiles(Array.from(e.target.files || []))}
                 className="w-full text-sm text-gray-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-gray-100 file:text-gray-700 file:text-xs hover:file:bg-gray-200" />
               {submitFiles.length > 0 && (
@@ -757,7 +757,7 @@ export default function SellerBookingDetailPage() {
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-500 mb-1.5">Attach files (optional)</label>
-              <input type="file" multiple
+              <input type="file" multiple accept="image/*,.pdf,.docx"
                 onChange={(e) => setLogFiles(Array.from(e.target.files || []))}
                 className="w-full text-sm text-gray-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-gray-100 file:text-gray-700 file:text-xs hover:file:bg-gray-200" />
               {logFiles.length > 0 && (
