@@ -155,10 +155,10 @@ export default function AdminSettingsPage() {
     try {
       await adminSettingApi.update({ escrow_settings: { enabled: next, hold_days: Number(holdDays) || 7 } });
       setEscrowEnabled(next);
-      toast.success(next ? 'Payments enabled' : 'Payments disabled — new bookings will be blocked');
+      toast.success(next ? 'Delayed Payments enabled' : 'Delayed Payments disabled — Pay & Hold is hidden everywhere');
       setEscrowSaved(true); setTimeout(() => setEscrowSaved(false), 2000);
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : 'Failed to update payments setting');
+      toast.error(e instanceof Error ? e.message : 'Failed to update delayed payments setting');
     } finally { setSavingEscrow(false); }
   };
 
@@ -402,20 +402,19 @@ export default function AdminSettingsPage() {
               <div className="bg-[#e8f4fd] border border-[#4f9ef8]/30 rounded-2xl p-4 flex items-start gap-3">
                 <i className="fa fa-info-circle text-[#4f9ef8] text-lg mt-0.5 flex-shrink-0" />
                 <p className="text-sm text-[#1e40af]">
-                  Every fixed-price, milestone, and hourly booking is paid via Stripe — the buyer&apos;s card is
-                  charged directly (or authorized and held, for &quot;Pay &amp; Hold&quot;) and funds are released to
-                  the seller on acceptance. There is no wallet fallback any more, so the switch below is a
-                  platform-wide payments kill switch, not a wallet toggle: turning it off blocks new bookings
-                  entirely (with a clear error) until it&apos;s turned back on. Existing bookings are unaffected
-                  either way.
+                  Every fixed-price, milestone, and hourly booking is always paid via Stripe — there is no wallet
+                  fallback. This switch controls only whether buyers are offered &quot;Pay &amp; Hold&quot; (authorize
+                  now, capture and release later) as a choice. When it&apos;s off, &quot;Pay &amp; Hold&quot; isn&apos;t
+                  shown anywhere — every payment goes through as an immediate direct charge instead. Existing holds
+                  already placed are unaffected either way.
                 </p>
               </div>
 
               <div className="bg-white rounded-2xl border border-[#e8e8e8] shadow-sm p-6">
                 <h3 className="text-base font-bold text-gray-800 mb-1 flex items-center gap-2">
-                  <i className="fa fa-shield text-[#e84545]" /> Payments Enabled
+                  <i className="fa fa-shield text-[#e84545]" /> Delayed Payments
                 </h3>
-                <p className="text-xs text-gray-400 mb-6">Platform-wide switch — turn off to temporarily block all new bookings</p>
+                <p className="text-xs text-gray-400 mb-6">Protect buyers with Stripe-backed &quot;Pay &amp; Hold&quot; on fixed-price, milestone, and hourly bookings</p>
 
                 <div className="flex items-center justify-between bg-[#f7f7f7] border border-[#e8e8e8] rounded-2xl p-5">
                   <div className="flex items-center gap-4">
@@ -423,11 +422,11 @@ export default function AdminSettingsPage() {
                       <i className={cn('fa fa-shield text-lg', escrowEnabled ? 'text-[#10b981]' : 'text-gray-400')} />
                     </div>
                     <div>
-                      <p className="text-sm font-bold text-gray-800">{escrowEnabled ? 'Payments are Enabled' : 'Payments are Disabled'}</p>
+                      <p className="text-sm font-bold text-gray-800">{escrowEnabled ? 'Delayed Payments is Enabled' : 'Delayed Payments is Disabled'}</p>
                       <p className="text-xs text-gray-400 mt-0.5">
                         {escrowEnabled
-                          ? 'Buyers can create and pay for new bookings via Stripe'
-                          : 'New bookings will be blocked until this is turned back on'}
+                          ? '"Pay & Hold" is offered alongside direct payment everywhere'
+                          : '"Pay & Hold" is hidden — every payment is an immediate direct charge'}
                       </p>
                     </div>
                   </div>

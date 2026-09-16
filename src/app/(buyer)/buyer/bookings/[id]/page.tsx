@@ -180,10 +180,15 @@ export default function BuyerBookingDetailPage() {
   // ceiling) — shown as the Pay & Hold terms below. 7 fallback matches the
   // backend's own default if this hasn't loaded yet.
   const [holdDays, setHoldDays] = useState(7);
+  // Admin's Delayed Payments toggle — when false, "Pay & Hold" isn't shown as
+  // a choice anywhere; every payment goes through as a direct charge. Default
+  // true so the option isn't hidden for a moment before this loads.
+  const [holdEnabled, setHoldEnabled] = useState(true);
   useEffect(() => {
     walletApi.config().then((res) => {
       if (typeof res?.data?.fee_percent === 'number') setFeePercent(res.data.fee_percent);
       if (typeof res?.data?.escrow_hold_days === 'number') setHoldDays(res.data.escrow_hold_days);
+      if (typeof res?.data?.hold_payments_enabled === 'boolean') setHoldEnabled(res.data.hold_payments_enabled);
     }).catch(() => {});
   }, []);
 
@@ -1014,28 +1019,30 @@ export default function BuyerBookingDetailPage() {
                 Charge your card now — funds are released to the seller right away.
               </p>
             </button>
-            <div
-              role="button"
-              tabIndex={payTargetBusy ? -1 : 0}
-              onClick={() => !payTargetBusy && choosePayment('hold')}
-              onKeyDown={(e) => { if (!payTargetBusy && (e.key === 'Enter' || e.key === ' ')) choosePayment('hold'); }}
-              className={`w-full text-left border border-gray-200 rounded-xl p-4 transition ${payTargetBusy ? 'opacity-60 cursor-not-allowed' : 'hover:border-[#e84545] cursor-pointer'}`}
-            >
-              <p className="font-semibold text-gray-900 flex items-center gap-2">
-                <i className="fa fa-shield text-[#e84545]" /> Pay & Hold
-              </p>
-              <p className="text-xs text-gray-500 mt-1">
-                Authorize your card now — funds are only captured and released once you confirm again after.
-              </p>
-              <button
-                type="button"
-                disabled={payTargetBusy}
-                onClick={(e) => { e.stopPropagation(); setShowHoldTerms(true); }}
-                className="text-[11px] text-[#e84545] underline mt-1.5"
+            {holdEnabled && (
+              <div
+                role="button"
+                tabIndex={payTargetBusy ? -1 : 0}
+                onClick={() => !payTargetBusy && choosePayment('hold')}
+                onKeyDown={(e) => { if (!payTargetBusy && (e.key === 'Enter' || e.key === ' ')) choosePayment('hold'); }}
+                className={`w-full text-left border border-gray-200 rounded-xl p-4 transition ${payTargetBusy ? 'opacity-60 cursor-not-allowed' : 'hover:border-[#e84545] cursor-pointer'}`}
               >
-                Terms &amp; Conditions
-              </button>
-            </div>
+                <p className="font-semibold text-gray-900 flex items-center gap-2">
+                  <i className="fa fa-shield text-[#e84545]" /> Pay & Hold
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  Authorize your card now — funds are only captured and released once you confirm again after.
+                </p>
+                <button
+                  type="button"
+                  disabled={payTargetBusy}
+                  onClick={(e) => { e.stopPropagation(); setShowHoldTerms(true); }}
+                  className="text-[11px] text-[#e84545] underline mt-1.5"
+                >
+                  Terms &amp; Conditions
+                </button>
+              </div>
+            )}
             {payTargetBusy && <p className="text-xs text-gray-400 text-center">Processing...</p>}
           </div>
         </Modal>
