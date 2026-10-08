@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Button from '@/components/ui/Button';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { loginUser } from '@/store/slices/authSlice';
-import GoogleAuthBox from '@/components/auth/GoogleAuthBox';
+import SocialAuthBox from '@/components/auth/SocialAuthBox';
 import toast from 'react-hot-toast';
 import type { UserRole } from '@/types';
 
@@ -93,7 +93,7 @@ export default function LoginPage() {
       </div>
 
       {/* Social Login */}
-      <GoogleAuthBox />
+      <SocialAuthBox />
 
       <Divider label="or sign in manually" />
 

@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import toast from 'react-hot-toast';
 import Cookies from 'js-cookie';
-import GoogleAuthBox from '@/components/auth/GoogleAuthBox';
+import SocialAuthBox from '@/components/auth/SocialAuthBox';
 import { useAddressAutocomplete } from '@/hooks/useAddressAutocomplete';
 
 const API = process.env.NEXT_PUBLIC_API_URL;
@@ -304,7 +304,7 @@ export default function SignupPage() {
       </div>
 
       <Divider label="continue with" />
-      <GoogleAuthBox />
+      <SocialAuthBox />
 
       <Divider label="or register below" />
 
