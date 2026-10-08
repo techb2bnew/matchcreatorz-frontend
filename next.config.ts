@@ -1,6 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Self-contained server bundle (.next/standalone) — built in CI and shipped
+  // to EC2 as-is, so the small server never runs npm ci / next build itself.
+  output: 'standalone',
   experimental: {
     optimizePackageImports: ['recharts', '@reduxjs/toolkit', 'react-redux', 'react-hot-toast'],
   },

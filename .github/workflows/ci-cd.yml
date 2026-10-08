@@ -14,6 +14,11 @@ concurrency:
   group: matchcreatorz-production
   cancel-in-progress: false
 
+env:
+  # puppeteer is only used by the local figma-export.js script — never download
+  # its Chrome build during CI installs.
+  PUPPETEER_SKIP_DOWNLOAD: 'true'
+
 jobs:
   ci:
     name: Build check
@@ -54,15 +59,11 @@ jobs:
       - name: Check out source
         uses: actions/checkout@v6
 
-      - name: Create release archive
-        run: |
-          tar \
-            --exclude='./.git' \
-            --exclude='./.next' \
-            --exclude='./node_modules' \
-            --exclude='./.env*' \
-            --exclude='./*.log' \
-            -czf "$RUNNER_TEMP/matchcreatorz-release.tar.gz" .
+      - name: Use Node.js 20
+        uses: actions/setup-node@v6
+        with:
+          node-version: 20
+          cache: npm
 
       - name: Configure SSH
         env:
@@ -89,6 +90,59 @@ jobs:
           fi
           chmod 600 "$HOME/.ssh/known_hosts"
 
+      # The build runs here (not on the small EC2 box), so the native modules
+      # bundled into .next/standalone (e.g. sharp) must match the server's CPU.
+      - name: Check server architecture
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_PORT: ${{ secrets.EC2_PORT || '22' }}
+          EC2_USER: ${{ secrets.EC2_USER }}
+        run: |
+          set -Eeuo pipefail
+          SERVER_ARCH="$(ssh -i "$HOME/.ssh/deploy_key" -p "$EC2_PORT" -o BatchMode=yes "$EC2_USER@$EC2_HOST" uname -m)"
+          RUNNER_ARCH="$(uname -m)"
+          echo "Server: $SERVER_ARCH, runner: $RUNNER_ARCH"
+          if [ "$SERVER_ARCH" != "$RUNNER_ARCH" ]; then
+            echo "Server CPU ($SERVER_ARCH) differs from the build runner ($RUNNER_ARCH)." >&2
+            echo "Change the deploy job's runs-on to a matching runner (e.g. ubuntu-24.04-arm for aarch64)." >&2
+            exit 1
+          fi
+
+      # NEXT_PUBLIC_* values are compiled in at build time. The server's
+      # .env.local stays the single source of truth — copy it for this build only.
+      - name: Fetch production env
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_PORT: ${{ secrets.EC2_PORT || '22' }}
+          EC2_USER: ${{ secrets.EC2_USER }}
+        run: |
+          scp \
+            -i "$HOME/.ssh/deploy_key" \
+            -P "$EC2_PORT" \
+            -o BatchMode=yes \
+            "$EC2_USER@$EC2_HOST:matchcreatorz-frontend/.env.local" \
+            .env.local
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Create release archive
+        run: |
+          set -Eeuo pipefail
+          STANDALONE=.next/standalone
+          # Standalone output excludes static assets and public/ by design
+          cp -r public "$STANDALONE/public"
+          cp -r .next/static "$STANDALONE/.next/static"
+          cp ecosystem.config.cjs "$STANDALONE/ecosystem.config.cjs"
+          # Never ship env files inside the archive — the server symlinks its own
+          rm -f "$STANDALONE"/.env*
+          tar -czf "$RUNNER_TEMP/matchcreatorz-release.tar.gz" -C "$STANDALONE" .
+          rm -f .env.local
+          du -h "$RUNNER_TEMP/matchcreatorz-release.tar.gz"
+
       - name: Upload release
         env:
           EC2_HOST: ${{ secrets.EC2_HOST }}
@@ -102,7 +156,7 @@ jobs:
             "$RUNNER_TEMP/matchcreatorz-release.tar.gz" \
             "$EC2_USER@$EC2_HOST:/tmp/matchcreatorz-$GITHUB_SHA-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT.tar.gz"
 
-      - name: Build and restart on EC2
+      - name: Restart on EC2
         env:
           EC2_HOST: ${{ secrets.EC2_HOST }}
           EC2_PORT: ${{ secrets.EC2_PORT || '22' }}
@@ -132,7 +186,6 @@ jobs:
           ENV_FILE="$APP_ROOT/.env.local"
 
           command -v node >/dev/null
-          command -v npm >/dev/null
           command -v pm2 >/dev/null
           command -v curl >/dev/null
           test -f "$ENV_FILE"
@@ -160,13 +213,12 @@ jobs:
             esac
           done < <(find "$DEPLOY_ROOT/releases" -mindepth 1 -maxdepth 1 -type d -print0)
 
+          # Already built in CI — just unpack, link the env file and restart.
           mkdir "$RELEASE_DIR"
           tar -xzf "$ARCHIVE" -C "$RELEASE_DIR"
           ln -s "$ENV_FILE" "$RELEASE_DIR/.env.local"
 
           cd "$RELEASE_DIR"
-          npm ci
-          npm run build
 
           # Recreate the process so an old PM2 script/cwd definition cannot be
           # reused for the newly built release.
